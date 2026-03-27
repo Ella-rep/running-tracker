@@ -1,7 +1,14 @@
 doctrine:
     dbal:
-        url: '%env(resolve:DATABASE_URL)%'
-        profiling_collect_backtrace: '%kernel.debug%'
+        #url: '%env(resolve:DATABASE_URL)%'
+        driver:   pdo_pgsql
+        charset:  utf8  
+        port:     '%env(DATABASE_PORT)%'
+        dbname:   '%env(DATABASE_NAME)%'
+        server_version: '%env(DATABASE_VERSION)%'
+        host: '%env(DATABASE_HOST)%'
+        user: '%env(DATABASE_USER)%'  
+        password: '%env(DATABASE_PASSWORD)%'
     orm:
         auto_generate_proxy_classes: true
         enable_lazy_ghost_objects: true
