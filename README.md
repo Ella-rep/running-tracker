@@ -83,6 +83,17 @@ openssl rand -hex 32
 openssl rand -hex 16
 ```
 
+Ajouter le token **Mapbox** pour la carte du GPX Replay :
+
+```bash
+# Dans .env.local, ajouter :
+MAPBOX_TOKEN=pk.eyJ1IjoiZWxob2RlZSIs...ton_vrai_token
+```
+
+> Le token Mapbox est disponible sur [account.mapbox.com/access-tokens](https://account.mapbox.com/access-tokens).
+> Sans ce token, le GPX Replay fonctionnera mais sans fond de carte (tuiles OSM à la place).
+> Le token n'est **jamais** stocké dans le code — il est injecté côté serveur via Twig.
+
 ### 3. Lancer
 
 ```bash
@@ -108,6 +119,15 @@ curl -X POST http://ip-nas:8080/api/users \
   -H "Content-Type: application/json" \
   -d '{"username":"toi","plainPassword":"monmotdepasse"}'
 ```
+
+---
+
+## 🗺️ GPX Replay
+
+La page de replay GPX est accessible sur `/gpx-replay`.
+
+Elle est servie par `GpxReplayController` qui injecte le token Mapbox depuis `.env.local`.
+Le fichier `.html` source est dans `templates/base/gpx-replay.html.twig`.
 
 ---
 

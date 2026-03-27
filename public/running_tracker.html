@@ -804,6 +804,35 @@
   [data-theme="light"] nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
   [data-theme="light"] .btn { color: #fff; }
   [data-theme="light"] tr:hover td { background: var(--surface2); }
+
+  /* Training advice card */
+  #training-advice .advice-card {
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    animation: fadeIn .4s ease;
+  }
+  @keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+  #training-advice .advice-icon { font-size: 28px; flex-shrink: 0; line-height: 1; }
+  #training-advice .advice-body { flex: 1; }
+  #training-advice .advice-title {
+    font-size: 12px; font-weight: 800; letter-spacing: 1px;
+    text-transform: uppercase; margin-bottom: 4px;
+  }
+  #training-advice .advice-text {
+    font-size: 13px; line-height: 1.6; color: var(--text-muted);
+  }
+  #training-advice .advice-badge {
+    font-size: 9px; font-family: 'Space Mono', monospace;
+    letter-spacing: 2px; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 4px; margin-left: 8px;
+    vertical-align: middle; font-weight: 700;
+  }
+
 </style>
 </head>
 <body>
@@ -828,6 +857,8 @@
 <section id="dashboard" class="visible">
   <div class="section-title">Vue d'ensemble 🏃</div>
   <div class="section-sub">Mise à jour · 25 mars 2026</div>
+
+  <div id="training-advice" style="margin-bottom:18px;"></div>
 
   <div class="kpi-grid" id="kpi-grid"></div>
 
@@ -1360,7 +1391,116 @@ function notify(msg) {
 // ============================================================
 // DASHBOARD
 // ============================================================
+
+function renderAdvice() {
+  const el = document.getElementById('training-advice');
+  if (!el) return;
+
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  // Sort runs by date desc
+  const sorted = [...logData].sort((a,b) => new Date(b.date) - new Date(a.date));
+
+  // Compute load metrics
+  const yesterday = new Date(today); yesterday.setDate(today.getDate()-1);
+  const d2ago     = new Date(today); d2ago.setDate(today.getDate()-2);
+  const d7ago     = new Date(today); d7ago.setDate(today.getDate()-7);
+
+  const lastRun   = sorted[0];
+  const lastDate  = lastRun ? new Date(lastRun.date) : null;
+  const daysSince = lastDate ? Math.round((today - lastDate) / 86400000) : 99;
+
+  // Weekly volume (last 7 days)
+  const weekRuns  = sorted.filter(r => new Date(r.date) >= d7ago);
+  const weekKm    = weekRuns.reduce((s,r) => s + (r.km||0), 0);
+  const weekCount = weekRuns.length;
+
+  // Was yesterday intense? (Race, FC, FL, or allure < 8:00)
+  const yesterdayRun = sorted.find(r => {
+    const d = new Date(r.date); d.setHours(0,0,0,0);
+    return d.getTime() === yesterday.getTime();
+  });
+  const todayRun = sorted.find(r => {
+    const d = new Date(r.date); d.setHours(0,0,0,0);
+    return d.getTime() === today.getTime();
+  });
+
+  function paceToSec(p) {
+    if(!p) return 999;
+    const [m,s] = p.split(':').map(Number); return m*60+(s||0);
+  }
+  const lastPaceSec = paceToSec(lastRun?.allure);
+  const isIntense   = r => ['Race','FC','FL','Tempo'].includes(r?.type) || paceToSec(r?.allure) < 480;
+
+  // Decision logic
+  let icon, title, text, color, badge;
+
+  if (todayRun) {
+    // Already ran today
+    icon = '✅'; color = 'var(--accent2)';
+    title = 'Séance effectuée';
+    badge = 'Aujourd'hui';
+    text = `${todayRun.km} km à ${todayRun.allure}/km — objectif atteint ! Bien t'hydrater et récupérer.`;
+  } else if (yesterdayRun && isIntense(yesterdayRun)) {
+    // Hard session yesterday → rest or easy
+    icon = '🛌'; color = '#ff9800';
+    title = 'Récupération conseillée';
+    badge = 'J-1 intense';
+    text = `Tu as couru ${yesterdayRun.km} km hier${yesterdayRun.type ? ' (' + yesterdayRun.type + ')' : ''} à ${yesterdayRun.allure}/km. Privilégie le repos actif, l'étirement ou une sortie très légère < 8 km/h.`;
+  } else if (daysSince === 0) {
+    // Ran today already handled above
+    icon = '✅'; color = 'var(--accent2)';
+    title = 'C'est fait !'; badge = '';
+    text = 'Tu as déjà couru aujourd'hui.';
+  } else if (daysSince >= 3) {
+    // Haven't run in 3+ days → go!
+    icon = '🚀'; color = 'var(--accent)';
+    title = 'Il est temps de chausser les baskets !';
+    badge = daysSince + ' jours sans sortie';
+    text = `Dernière sortie il y a ${daysSince} jours (${lastRun?.km} km le ${lastRun?.date}). Le corps est reposé — une sortie EF de 45–60 min serait idéale.`;
+  } else if (daysSince === 2 && weekKm > 35) {
+    // High weekly load + 2 days rest → easy run OK
+    icon = '🏃'; color = 'var(--accent2)';
+    title = 'Sortie légère bienvenue';
+    badge = weekKm.toFixed(0) + ' km cette semaine';
+    text = `${weekKm.toFixed(1)} km en ${weekCount} sorties cette semaine — charge élevée. Une sortie EF courte (30–40 min, < 8:30/km) pour maintenir le rythme sans surcharger.`;
+  } else if (daysSince === 1 && !isIntense(lastRun)) {
+    // Easy run yesterday → can run today
+    icon = '👟'; color = 'var(--accent)';
+    title = 'Bonne journée pour courir';
+    badge = 'J-1 facile';
+    text = `Hier : ${lastRun?.km} km à ${lastRun?.allure}/km (facile). Tu peux enchaîner — une sortie EF ou tempo selon ton plan.`;
+  } else if (daysSince === 1 && isIntense(lastRun)) {
+    icon = '🛌'; color = '#ff9800';
+    title = 'Récupération conseillée';
+    badge = 'J-1 intense';
+    text = `Hier : ${lastRun?.km} km à ${lastRun?.allure}/km — effort soutenu. Laisse ton corps récupérer aujourd'hui.`;
+  } else {
+    // Default: encourage
+    icon = '📅'; color = 'var(--text-muted)';
+    title = 'Plan du jour';
+    badge = '';
+    text = weekKm > 0
+      ? `${weekKm.toFixed(1)} km en ${weekCount} sortie${weekCount>1?'s':''} cette semaine. Continue sur ta lancée !`
+      : 'Aucune sortie cette semaine encore — c'est le bon moment pour démarrer !';
+  }
+
+  el.innerHTML = `
+    <div class="advice-card" style="border-color:${color}22;background:${color}08;">
+      <div class="advice-icon">${icon}</div>
+      <div class="advice-body">
+        <div class="advice-title" style="color:${color}">
+          ${title}
+          ${badge ? '<span class="advice-badge" style="background:'+color+'22;color:'+color+'">'+badge+'</span>' : ''}
+        </div>
+        <div class="advice-text">${text}</div>
+      </div>
+    </div>`;
+}
+
 function renderDashboard() {
+  renderAdvice();
   // KPIs
   const totalKm = logData.reduce((a, r) => a + (r.km || 0), 0);
   const totalSorties = logData.length;
