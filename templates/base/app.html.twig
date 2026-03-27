@@ -1,0 +1,253 @@
+{% extends 'base/layout.html.twig' %}
+{% block title %}Running Tracker{% endblock %}
+
+{% block body %}
+<header>
+  <div class="logo">RUN<span>/</span>TRACKER</div>
+  <nav>
+    <button class="active" onclick="showSection('dashboard',this)">Dashboard</button>
+    <button onclick="showSection('tempo',this)">Tempo</button>
+    <button onclick="showSection('prep',this)">Prép. Semi</button>
+    <button onclick="showSection('semi',this)">Plan Semi</button>
+    <button onclick="showSection('log',this)">Log</button>
+    <button onclick="showSection('courses',this)">Courses</button>
+    <a href="/gpx-replay.html" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);padding:7px 16px;border-radius:6px;font-family:'Syne',sans-serif;font-size:13px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-muted)'">🗺️ Replay GPX</a>
+  </nav>
+  <div class="user-badge">
+    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Basculer thème clair/sombre">🌙</button>
+    <strong>{{ username }}</strong>
+    <button class="logout-btn" onclick="logout()">Déconnexion</button>
+  </div>
+</header>
+
+<main>
+
+{# ===== DASHBOARD ===== #}
+<section id="dashboard" class="visible">
+  <div class="section-title">Vue d'ensemble 🏃</div>
+  <div class="section-sub" id="dash-date">Chargement…</div>
+  <div class="kpi-grid" id="kpi-grid"></div>
+  <div class="chart-wrap" id="projections-wrap">
+    <div class="chart-title">Temps projetés — basé sur tes 5 dernières sorties</div>
+    <div id="projections-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:4px;"></div>
+    <div id="projections-meta" style="margin-top:14px;font-size:11px;color:var(--text-muted);font-family:'Space Mono',monospace;"></div>
+  </div>
+  <div class="progress-section">
+    <div class="progress-label">
+      <span>Phase actuelle : Tempo (pré-préparation)</span>
+      <span id="tempo-pct">—</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="tempo-bar" style="width:0%"></div></div>
+    <div class="progress-meta" id="tempo-meta"></div>
+  </div>
+  <div class="chart-wrap">
+    <div class="chart-title">Kilométrage mensuel (2026)</div>
+    <div class="bar-chart" id="monthly-chart"></div>
+  </div>
+  <div class="table-wrap">
+    <div class="table-header">📅 Prochaines courses</div>
+    <table>
+      <thead><tr><th>Course</th><th>Date</th><th>Distance</th><th>Objectif</th><th>Statut</th></tr></thead>
+      <tbody id="race-tbody"></tbody>
+    </table>
+  </div>
+  <div id="coherence-section"></div>
+</section>
+
+{# ===== EF TRACKER ===== #}
+<div class="chart-wrap" id="ef-wrap">
+  <div class="chart-title">Progression Endurance Fondamentale</div>
+  <div id="ef-kpis" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;"></div>
+  <div id="ef-chart-container" style="position:relative;height:180px;margin-bottom:20px;"></div>
+  <div id="ef-table-wrap" style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr>
+        <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;border-bottom:1px solid var(--border);">Date</th>
+        <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;border-bottom:1px solid var(--border);">Km</th>
+        <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;border-bottom:1px solid var(--border);">BPM</th>
+        <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;border-bottom:1px solid var(--border);">Allure</th>
+        <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;border-bottom:1px solid var(--border);">Indice EF</th>
+        <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;border-bottom:1px solid var(--border);">Tendance</th>
+      </tr></thead>
+      <tbody id="ef-tbody"></tbody>
+    </table>
+  </div>
+  <div id="ef-meta" style="margin-top:12px;font-size:11px;color:var(--text-muted);font-family:'Space Mono',monospace;"></div>
+</div>
+
+{# ===== PLANS ===== #}
+{% for plan in [
+  {id:'tempo', title:'Phase Tempo', sub:'Bloc de préparation actuel · 16 séances', key:'tempoDone'},
+  {id:'prep',  title:'Préparation Semi', sub:'Plan de préparation avant le plan semi · 48 séances', key:'prepDone'},
+  {id:'semi',  title:'Plan Semi-Marathon', sub:'Plan 12 semaines vers La Parisienne (13 sept.) · 48 séances', key:'semiDone'},
+] %}
+<section id="{{ plan.id }}">
+  <div class="section-title">{{ plan.title }}</div>
+  <div class="section-sub">{{ plan.sub }}</div>
+  <div class="zone-legend">
+    {% for z,label in {1:'Z1 récup', 2:'Z2 endurance', 3:'Z3 tempo', 4:'Z4 seuil', 5:'Z5 VO2max'} %}
+    <div class="zone-item"><div class="zone-dot" style="background:var(--z{{ z }})"></div>{{ label }}</div>
+    {% endfor %}
+  </div>
+  <div id="{{ plan.id }}-weeks"></div>
+</section>
+{% endfor %}
+
+{# ===== LOG ===== #}
+<section id="log">
+  <div class="section-title">Journal de course</div>
+  <div class="section-sub" id="log-sub">Chargement…</div>
+  <div class="form-card">
+    <h3>➕ Ajouter une sortie</h3>
+    <div class="form-grid">
+      <div class="field"><label>Date</label><input type="date" id="log-date"></div>
+      <div class="field"><label>Distance (km)</label><input type="number" id="log-km" step="0.01" placeholder="5.00"></div>
+      <div class="field"><label>Durée (hh:mm:ss)</label><input type="text" id="log-dur" placeholder="00:45:00"></div>
+      <div class="field"><label>D+ (mètres)</label><input type="number" id="log-dplus" placeholder="0"></div>
+      <div class="field"><label>BPM moy.</label><input type="number" id="log-bpm" placeholder="150"></div>
+      <div class="field"><label>Type</label>
+        <select id="log-type">
+          <option value="">—</option>
+          <option value="EF">EF – Endurance fondamentale</option>
+          <option value="FC">FC – Fractionné court</option>
+          <option value="FL">FL – Sortie longue</option>
+          <option value="T">T – Tempo</option>
+          <option value="Race">🏁 Course</option>
+        </select>
+      </div>
+      <div class="field"><label>Notes</label><input type="text" id="log-notes" placeholder="…"></div>
+    </div>
+    <button class="btn" onclick="addLog()">Enregistrer</button>
+  </div>
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="filterLog('all',this)">Tout</button>
+    <button class="filter-btn" onclick="filterLog('EF',this)">EF</button>
+    <button class="filter-btn" onclick="filterLog('FC',this)">Fractionné</button>
+    <button class="filter-btn" onclick="filterLog('FL',this)">Longue</button>
+    <button class="filter-btn" onclick="filterLog('Race',this)">Courses</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th><button id="sort-date-btn" onclick="toggleSort()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;display:flex;align-items:center;gap:5px;padding:0;white-space:nowrap;">Date <span id="sort-icon">↓</span></button></th>
+        <th>Km</th><th>Durée</th><th>Allure</th><th>GAP</th><th>D+</th><th>BPM</th><th>Type</th><th>Notes</th><th></th>
+      </tr></thead>
+      <tbody id="log-tbody"></tbody>
+    </table>
+  </div>
+</section>
+
+{# ===== COURSES ===== #}
+<section id="courses">
+  <div class="section-title">Calendrier des courses</div>
+  <div class="section-sub">Saison 2026</div>
+  <div class="form-card">
+    <h3>➕ Ajouter une course</h3>
+    <div class="form-grid">
+      <div class="field"><label>Nom</label><input type="text" id="r-name" placeholder="10km de Paris"></div>
+      <div class="field"><label>Date</label><input type="date" id="r-date"></div>
+      <div class="field"><label>Distance</label><input type="text" id="r-dist" placeholder="10km"></div>
+      <div class="field"><label>Objectif (hh:mm:ss)</label><input type="text" id="r-obj" placeholder="00:55:00"></div>
+      <div class="field"><label>Résultat</label><input type="text" id="r-real" placeholder="00:53:22"></div>
+    </div>
+    <button class="btn" onclick="addRace()">Ajouter</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Échéance</th><th>Course</th><th>Date</th><th>Distance</th><th>Objectif</th><th>Résultat</th><th>Écart</th><th></th></tr></thead>
+      <tbody id="races-tbody"></tbody>
+    </table>
+  </div>
+</section>
+
+</main>
+
+{# ===== MODALS ===== #}
+<div class="notif" id="notif"></div>
+
+<div class="modal-overlay" id="plan-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('plan-modal')">✕</button>
+    <div class="modal-title">Modifier la séance</div>
+    <input type="hidden" id="pm-statekey"><input type="hidden" id="pm-idx">
+    <div class="form-grid" style="grid-template-columns:1fr;">
+      <div class="field"><label>Format</label><input type="text" id="pm-format"></div>
+      <div class="field"><label>Date</label><input type="date" id="pm-date"></div>
+      <div class="field"><label>PE</label><input type="text" id="pm-pe" placeholder="ex: 6/10"></div>
+      <div class="field"><label>Durée totale (min)</label><input type="number" id="pm-total"></div>
+      <div class="field" style="display:flex;align-items:center;gap:10px;padding-top:6px;">
+        <input type="checkbox" id="pm-opt" style="width:16px;height:16px;accent-color:var(--accent2)">
+        <label for="pm-opt" style="font-size:13px;letter-spacing:0;text-transform:none;color:var(--text)">Optionnelle</label>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="savePlanEdit()">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeModal('plan-modal')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="log-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('log-modal')">✕</button>
+    <div class="modal-title">Modifier la sortie</div>
+    <input type="hidden" id="lm-idx">
+    <div class="form-grid">
+      <div class="field"><label>Date</label><input type="date" id="lm-date"></div>
+      <div class="field"><label>Distance (km)</label><input type="number" id="lm-km" step="0.01"></div>
+      <div class="field"><label>Durée (hh:mm:ss)</label><input type="text" id="lm-dur"></div>
+      <div class="field"><label>D+ (mètres)</label><input type="number" id="lm-dplus"></div>
+      <div class="field"><label>BPM moy.</label><input type="number" id="lm-bpm"></div>
+      <div class="field"><label>Type</label>
+        <select id="lm-type">
+          <option value="">—</option>
+          <option value="EF">EF – Endurance fondamentale</option>
+          <option value="FC">FC – Fractionné court</option>
+          <option value="FL">FL – Sortie longue</option>
+          <option value="T">T – Tempo</option>
+          <option value="Race">🏁 Course</option>
+        </select>
+      </div>
+      <div class="field"><label>Notes</label><input type="text" id="lm-notes"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="saveLogEdit()">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeModal('log-modal')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="race-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('race-modal')">✕</button>
+    <div class="modal-title">Modifier la course</div>
+    <input type="hidden" id="rm-idx">
+    <div class="form-grid">
+      <div class="field"><label>Nom</label><input type="text" id="rm-name"></div>
+      <div class="field"><label>Date</label><input type="date" id="rm-date"></div>
+      <div class="field"><label>Distance</label><input type="text" id="rm-dist"></div>
+      <div class="field"><label>Objectif</label><input type="text" id="rm-obj" placeholder="hh:mm:ss"></div>
+      <div class="field"><label>Résultat</label><input type="text" id="rm-real" placeholder="hh:mm:ss"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="saveRaceEdit()">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeModal('race-modal')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <strong id="confirm-title">Supprimer ?</strong>
+    <p id="confirm-msg">Cette action est irréversible.</p>
+    <div class="confirm-actions">
+      <button class="btn btn-danger" onclick="confirmDelete()">Supprimer</button>
+      <button class="btn btn-ghost" onclick="closeConfirm()">Annuler</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script src="{{ asset('js/app.js') }}"></script>
+{% endblock %}

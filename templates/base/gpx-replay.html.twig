@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GPX Replay — Running Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{
+  --bg:#0a120b;--surface:#111c12;--surface2:#182619;
+  --border:#243826;--accent:#a8e63d;--accent2:#66bb6a;
+  --text:#f2f5ee;--text-muted:#6e8c6f;
+  --red:#ff3300;--red2:#ff6633;
+}
+[data-theme="light"]{
+  --bg:#f4f7f0;--surface:#fff;--surface2:#eef4eb;
+  --border:#c8dcc0;--accent:#5a9e1a;--accent2:#1a7a3c;
+  --text:#1a2e1a;--text-muted:#5a7a5a;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);}
+body{display:flex;flex-direction:column;}
+
+/* HEADER */
+.hdr{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;}
+.logo{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--accent);}
+.logo span{color:var(--text-muted);}
+.hdr-title{font-size:13px;font-weight:700;}
+.sp{flex:1;}
+.back{font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;text-decoration:underline;cursor:pointer;}
+.back:hover{color:var(--accent2);}
+.theme-btn{background:none;border:1px solid var(--border);color:var(--text-muted);width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:13px;}
+.theme-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+/* UPLOAD */
+#upload{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;padding:32px;}
+.ubox{border:2px dashed var(--border);border-radius:14px;padding:44px 36px;text-align:center;cursor:pointer;max-width:440px;width:100%;background:var(--surface);transition:.2s;}
+.ubox:hover,.ubox.drag{border-color:var(--red);background:var(--surface2);}
+.ubox h2{font-size:17px;font-weight:800;margin:12px 0 6px;}
+.ubox p{font-size:11px;color:var(--text-muted);font-family:'Space Mono',monospace;line-height:1.7;}
+#file-in{display:none;}
+#upload-err{color:var(--red);font-family:'Space Mono',monospace;font-size:12px;text-align:center;max-width:420px;}
+
+/* APP LAYOUT */
+#app{flex:1;overflow:hidden;position:relative;} #app.hidden{visibility:hidden;height:0;overflow:hidden;}
+
+/* LEAFLET MAP fills entire app */
+#map-outer{position:absolute;top:0;left:0;bottom:0;right:280px;z-index:1;overflow:hidden;}
+  #map{
+    position:absolute;
+    /* Oversized to avoid grey corners during rotation */
+    top:-30%;left:-30%;width:160%;height:160%;
+    transition:transform 0.8s ease;
+    transform-origin:50% 50%;
+  }
+
+/* SIDEBAR — right panel floating over the map */
+#sidebar{
+  position:absolute;top:0;right:0;bottom:0;
+  width:280px;z-index:100;
+  background:rgba(10,18,11,0.92);
+  backdrop-filter:blur(12px);
+  border-left:1px solid rgba(168,230,61,0.15);
+  overflow-y:auto;
+  overflow-x:hidden;
+}
+[data-theme="light"] #sidebar{background:rgba(244,247,240,0.94);}
+
+/* STATS */
+.stats{padding:10px 14px;border-bottom:1px solid var(--border);}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.sc{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 10px;}
+.sl{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:3px;}
+.sv{font-size:17px;font-weight:800;line-height:1;}
+.su{font-size:9px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-top:1px;}
+
+/* PROGRESS */
+.prog{padding:8px 14px;border-bottom:1px solid var(--border);}
+.pbar{height:5px;background:var(--border);border-radius:3px;margin-bottom:5px;cursor:pointer;position:relative;}
+.pfill{height:100%;background:var(--red);border-radius:3px;width:0%;}
+.ptimes{display:flex;justify-content:space-between;font-family:'Space Mono',monospace;font-size:10px;color:var(--text-muted);}
+
+/* CONTROLS */
+.ctrl{padding:8px 14px;border-bottom:1px solid var(--border);}
+.crow{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+.crow:last-child{margin-bottom:0;}
+.btn{border:1px solid var(--border);border-radius:7px;cursor:pointer;font-family:'Space Mono',monospace;font-size:11px;padding:7px 11px;transition:.15s;white-space:nowrap;background:var(--surface2);color:var(--text);}
+.btn:hover{border-color:var(--accent2);color:var(--accent2);}
+.btn.play{background:var(--red);border-color:var(--red);color:#fff;font-weight:700;font-size:12px;padding:8px 14px;}
+.btn.play:hover{filter:brightness(1.15);}
+.slabel{font-family:'Space Mono',monospace;font-size:10px;color:var(--text-muted);white-space:nowrap;}
+input[type=range]{flex:1;accent-color:var(--red);cursor:pointer;}
+.spd-btns{display:flex;gap:4px;flex-wrap:wrap;}
+.spd-btn{font-size:9px;padding:3px 7px;border:1px solid var(--border);border-radius:5px;cursor:pointer;font-family:'Space Mono',monospace;background:var(--surface2);color:var(--text-muted);transition:.15s;}
+.spd-btn:hover{border-color:var(--red);color:var(--red);}
+
+/* SPLITS TABLE */
+.splits{padding:12px 14px;}
+.splits-title{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:8px;}
+.splits table{width:100%;border-collapse:collapse;font-size:11px;}
+.splits th{text-align:right;padding:4px 6px;font-size:9px;font-family:'Space Mono',monospace;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border);font-weight:400;}
+.splits th:first-child{text-align:center;}
+.splits td{text-align:right;padding:5px 6px;border-bottom:1px solid rgba(36,56,38,0.4);font-family:'Space Mono',monospace;}
+.splits td:first-child{text-align:center;font-weight:700;color:var(--red);}
+.splits tr.cur td{background:rgba(255,51,0,0.1);color:var(--red);}
+.splits tr:last-child td{border:none;}
+
+/* ELEVATION inset */
+.elev{padding:6px 14px;border-bottom:1px solid var(--border);}
+
+/* MAP OVERLAY (bottom bar like Strava) */
+#bottom-bar{
+  position:absolute;bottom:20px;left:0;right:280px;display:none;justify-content:center;
+  background:rgba(10,18,11,0.85);backdrop-filter:blur(10px);
+  border:1px solid rgba(255,51,0,0.3);border-radius:30px;
+  align-items:center;gap:14px;
+  padding:10px 20px;z-index:90;white-space:nowrap;
+}
+[data-theme="light"] #bottom-bar{background:rgba(255,255,255,0.92);border-color:rgba(255,51,0,0.3);}
+#bottom-bar.visible{display:flex;justify-content:center;}
+.bb-stat{text-align:center;}
+.bb-val{font-size:20px;font-weight:800;color:var(--red);font-family:'Space Mono',monospace;line-height:1;}
+.bb-lbl{font-size:9px;color:rgba(255,255,255,0.5);font-family:'Space Mono',monospace;letter-spacing:1px;text-transform:uppercase;margin-top:2px;}
+[data-theme="light"] .bb-lbl{color:var(--text-muted);}
+.bb-sep{width:1px;height:32px;background:rgba(255,255,255,0.15);}
+
+/* START/END labels */
+.map-label{
+  font-family:'Space Mono',monospace;font-size:10px;font-weight:700;
+  background:rgba(0,0,0,0.7);color:#fff;
+  padding:3px 7px;border-radius:4px;white-space:nowrap;
+}
+
+/* Leaflet overrides */
+.leaflet-control-attribution{font-size:9px !important;}
+.leaflet-control-zoom{margin-left:10px !important;}
+
+  /* Download banner */
+  #dl-banner{
+    position:fixed;bottom:0;left:0;right:0;z-index:9999;
+    background:#111c12;border-top:2px solid #a8e63d;
+    padding:16px 24px;display:none;align-items:center;gap:16px;
+    font-family:'Space Mono',monospace;
+  }
+  #dl-banner.show{display:flex;}
+  #dl-banner .dl-icon{font-size:28px;flex-shrink:0;}
+  #dl-banner .dl-info{flex:1;}
+  #dl-banner .dl-title{font-size:13px;font-weight:700;color:#a8e63d;margin-bottom:3px;}
+  #dl-banner .dl-sub{font-size:11px;color:#6e8c6f;}
+  #dl-banner .dl-btn{
+    background:#a8e63d;color:#000;border:none;
+    padding:10px 20px;border-radius:8px;cursor:pointer;
+    font-family:'Space Mono',monospace;font-size:12px;font-weight:700;
+    text-decoration:none;white-space:nowrap;flex-shrink:0;
+  }
+  #dl-banner .dl-btn:hover{filter:brightness(1.1);}
+  #dl-banner .dl-close{
+    background:none;border:none;color:#6e8c6f;font-size:20px;
+    cursor:pointer;padding:4px 8px;flex-shrink:0;
+  }
+  #dl-banner .dl-close:hover{color:#f2f5ee;}
+
+
+/* Sidebar scrollbar — thin and subtle */
+#sidebar::-webkit-scrollbar{width:4px;}
+#sidebar::-webkit-scrollbar-track{background:transparent;}
+#sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+#sidebar::-webkit-scrollbar-thumb:hover{background:var(--text-muted);}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="logo">RUN<span>/</span>TRACKER</div>
+  <span class="hdr-title">Replay GPX</span>
+  <div class="sp"></div>
+  <a class="back" href="running_tracker.html">← Tracker</a>
+  <button class="theme-btn" onclick="toggleTheme()" id="theme-btn">🌙</button>
+</div>
+
+<!-- UPLOAD -->
+<div id="upload">
+  <div class="ubox" id="ubox"
+    onclick="document.getElementById('file-in').click()"
+    ondragover="event.preventDefault();this.classList.add('drag')"
+    ondragleave="this.classList.remove('drag')"
+    ondrop="handleDrop(event)">
+    <div style="font-size:44px">🗺️</div>
+    <h2>Glisse un fichier GPX</h2>
+    <p>Garmin · Strava · Apple · Polar · Suunto<br>ou clique pour choisir</p>
+    <input type="file" id="file-in" accept=".gpx" onchange="loadFile(this.files[0])">
+  </div>
+  <div id="upload-err"></div>
+  <p style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;text-align:center;line-height:1.8;">
+    100% local · aucune donnée envoyée · GPX 1.1
+  </p>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden">
+  <div id="map-outer"><div id="map"></div></div>
+  <!-- Bottom bar (Strava-style) -->
+  <div id="bottom-bar">
+    <div class="bb-stat"><div class="bb-val" id="bb-dist">0.00</div><div class="bb-lbl">km</div></div>
+    <div class="bb-sep"></div>
+    <div class="bb-stat"><div class="bb-val" id="bb-pace" style="font-size:16px">—</div><div class="bb-lbl">min/km</div></div>
+    <div class="bb-sep"></div>
+    <div class="bb-stat"><div class="bb-val" id="bb-dplus">0</div><div class="bb-lbl">D+ m</div></div>
+    <div class="bb-sep" id="bb-bpm-sep" style="display:none"></div>
+    <div class="bb-stat" id="bb-bpm-wrap" style="display:none"><div class="bb-val" id="bb-bpm" style="color:#ff6633">—</div><div class="bb-lbl">bpm</div></div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="sgrid">
+        <div class="sc"><div class="sl">Distance</div><div class="sv" id="s-dist" style="color:var(--red)">0.00</div><div class="su">km</div></div>
+        <div class="sc"><div class="sl">Temps</div><div class="sv" id="s-time">00:00</div><div class="su">hh:mm:ss</div></div>
+        <div class="sc"><div class="sl">Allure</div><div class="sv" id="s-pace" style="color:var(--accent2)">—</div><div class="su">min/km</div></div>
+        <div class="sc"><div class="sl">D+ cumulé</div><div class="sv" id="s-dplus">0</div><div class="su">m</div></div>
+        <div class="sc" id="c-bpm" style="display:none"><div class="sl">BPM</div><div class="sv" id="s-bpm" style="color:var(--red2)">—</div><div class="su">bpm</div></div>
+        <div class="sc"><div class="sl">Vitesse</div><div class="sv" id="s-spd">0.0</div><div class="su">km/h</div></div>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="prog">
+      <div class="pbar" id="pbar" onclick="seekTo(event)">
+        <div class="pfill" id="pfill"></div>
+      </div>
+      <div class="ptimes"><span id="t-cur">00:00:00</span><span id="t-tot">00:00:00</span></div>
+    </div>
+
+    <!-- Controls -->
+    <div class="ctrl">
+      <div class="crow">
+        <button class="btn play" id="btn-play" onclick="togglePlay()">▶ Play</button>
+        <button class="btn" onclick="resetReplay()" style="padding:7px 10px;">↺</button>
+      </div>
+      <div class="crow">
+        <span class="slabel">×<span id="spd-val">30</span></span>
+        <input type="range" id="spd-range" min="1" max="300" value="30"
+          oninput="speed=+this.value;document.getElementById('spd-val').textContent=this.value">
+      </div>
+      <div class="crow spd-btns">
+        <button class="spd-btn" onclick="setSpd(10)">×10</button>
+        <button class="spd-btn" onclick="setSpd(30)">×30</button>
+        <button class="spd-btn" onclick="setSpd(60)">×60</button>
+        <button class="spd-btn" onclick="setSpd(120)">×120</button>
+        <button class="spd-btn" onclick="setSpd(240)">×240</button>
+      </div>
+      <div class="crow" style="margin-top:4px;">
+        <button class="spd-btn" id="btn-rotate" onclick="toggleRotation()" style="border-color:var(--accent);color:var(--accent);">🧭 Rotation ON</button>
+        <button class="spd-btn" onclick="resetNorth()" style="margin-left:4px;">⬆ Nord</button>
+      </div>
+    </div>
+
+    <!-- Elevation -->
+    <div class="elev">
+      <div class="splits-title">Profil dénivelé</div>
+      <svg id="elev-svg" width="100%" height="48"></svg>
+    </div>
+
+    <!-- Splits -->
+    <div class="splits">
+      <div class="splits-title">Splits par km</div>
+      <table>
+        <thead><tr><th>KM</th><th>Pace</th><th>GAP</th><th>Elev</th></tr></thead>
+        <tbody id="splits-body"></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── Theme ─────────────────────────────────────────────────────
+// ── Globals ───────────────────────────────────────────────────
+let pts=[],met=null,hasBpm=false;
+let gpxMs=0,elapsed=0,playing=false,speed=30;
+let idx=0,lastTs=null,raf=null;
+let map=null,ghostLine=null,drawnLine=null,dot=null;
+let dotColor='#ff3300';
+let splits=[];
+
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('theme-btn').textContent=t==='light'?'🌙':'☀️';
+  if(map){
+    // Remove existing tile layers and re-add with new theme
+    map.eachLayer(l=>{ if(l instanceof L.TileLayer) map.removeLayer(l); });
+    addTiles();
+  }
+}
+function toggleTheme(){
+  const c=document.documentElement.getAttribute('data-theme')||'dark';
+  const n=c==='dark'?'light':'dark';
+  localStorage.setItem('rt_theme',n);applyTheme(n);
+}
+// Call after DOM ready to avoid any reference issues
+window.addEventListener('DOMContentLoaded',()=>{
+  applyTheme(localStorage.getItem('rt_theme')||'dark');
+});
+
+// ── Upload ────────────────────────────────────────────────────
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('ubox').classList.remove('drag');
+  loadFile(e.dataTransfer.files[0]);
+}
+function loadFile(f){
+  if(!f)return;
+  if(!f.name.toLowerCase().endsWith('.gpx')){err('⚠ Fichier .gpx requis');return;}
+  const r=new FileReader();
+  r.onload=e=>parseGPX(e.target.result,f.name);
+  r.readAsText(f);
+}
+function err(m){document.getElementById('upload-err').textContent=m;}
+
+// ── GPX parse (namespace-aware) ───────────────────────────────
+function parseGPX(xml,fname){
+  try{
+    const doc=new DOMParser().parseFromString(xml,'application/xml');
+    const NS='http://www.topografix.com/GPX/1/1';
+    const NGE='http://www.garmin.com/xmlschemas/TrackPointExtension/v1';
+    let tpts=Array.from(doc.getElementsByTagNameNS(NS,'trkpt'));
+    if(!tpts.length)tpts=Array.from(doc.getElementsByTagName('trkpt'));
+    if(!tpts.length)throw new Error('Aucun point trkpt trouvé');
+    function txt(el,tag){return(el.getElementsByTagNameNS(NS,tag)[0]||el.getElementsByTagName(tag)[0])?.textContent?.trim()||null;}
+    function getHR(p){
+      const h=p.getElementsByTagNameNS(NGE,'hr')[0];
+      if(h){const n=parseInt(h.textContent);if(!isNaN(n)&&n>0)return n;}
+      for(const t of['hr','heartrate','HeartRateBpm']){
+        const e=p.getElementsByTagName(t);
+        if(e.length){const v=e[0].getElementsByTagName('Value')[0]||e[0];const n=parseInt(v.textContent);if(!isNaN(n)&&n>0)return n;}
+      }
+      return null;
+    }
+    pts=[];hasBpm=false;
+    tpts.forEach(p=>{
+      const lat=parseFloat(p.getAttribute('lat')),lon=parseFloat(p.getAttribute('lon'));
+      if(isNaN(lat)||isNaN(lon))return;
+      const ele=parseFloat(txt(p,'ele')||'0');
+      const ts=txt(p,'time');
+      const hr=getHR(p);if(hr)hasBpm=true;
+      pts.push({lat,lon,ele:isNaN(ele)?0:ele,time:ts?new Date(ts):null,hr});
+    });
+    if(pts.length<2)throw new Error('Pas assez de points ('+pts.length+')');
+    if(pts[0].time)pts.sort((a,b)=>a.time-b.time);
+    err('');initApp(fname);
+  }catch(e){err('⚠ '+e.message);console.error(e);}
+}
+
+// ── Metrics ───────────────────────────────────────────────────
+function hav(a,b){
+  const R=6371000,r=x=>x*Math.PI/180;
+  const dL=r(b.lat-a.lat),dl=r(b.lon-a.lon);
+  const s=Math.sin(dL/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dl/2)**2;
+  return R*2*Math.atan2(Math.sqrt(s),Math.sqrt(1-s));
+}
+function build(){
+  let d=0,dp=0;
+  const dists=[0],dpc=[0];
+  for(let i=1;i<pts.length;i++){
+    d+=hav(pts[i-1],pts[i]);dists.push(d);
+    const e=pts[i].ele-pts[i-1].ele;dp+=e>0?e:0;dpc.push(dp);
+  }
+  return{dists,dpc,total:d};
+}
+function s2t(s){
+  const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=Math.floor(s%60);
+  return[h,m,ss].map(x=>String(x).padStart(2,'0')).join(':');
+}
+function paceStr(dm,s){
+  if(dm<10)return'—';
+  const spk=s/(dm/1000);
+  return`${Math.floor(spk/60)}:${String(Math.floor(spk%60)).padStart(2,'0')}`;
+}
+function gapStr(dm,secs,dplus){
+  // GAP: adjust pace for elevation grade
+  if(dm<10)return'—';
+  const grade=dplus/dm; // fraction
+  const rawPace=secs/(dm/1000);
+  const gapPace=rawPace*(1-grade*7.5);
+  if(gapPace<=0)return'—';
+  return`${Math.floor(gapPace/60)}:${String(Math.floor(gapPace%60)).padStart(2,'0')}`;
+}
+
+// ── Splits calculation ────────────────────────────────────────
+function buildSplits(){
+  splits=[];
+  let kmStart=0,tStart=0,dpStart=0,prevEle=pts[0].ele;
+  let curKm=1;
+  for(let i=1;i<pts.length;i++){
+    const d=met.dists[i];
+    if(d>=curKm*1000 || i===pts.length-1){
+      const dm=d-kmStart;
+      const secs=pts[0].time?(pts[i].time-pts[0].time)/1000*(pts[0].time?1:1):(i/pts.length)*gpxMs/1000;
+      const tEnd=pts[0].time?(pts[i].time-pts[0].time)/1000:(i/pts.length)*gpxMs/1000;
+      const tSeg=tEnd-tStart;
+      const dpSeg=met.dpc[i]-dpStart;
+      const eleDiff=Math.round(pts[i].ele-prevEle);
+      splits.push({
+        km:curKm<=Math.ceil(met.total/1000)?curKm:(met.total/1000).toFixed(2),
+        pace:paceStr(dm,tSeg),
+        gap:gapStr(dm,tSeg,dpSeg),
+        elev:(eleDiff>=0?'+':'')+eleDiff+'m',
+        endIdx:i
+      });
+      kmStart=d;tStart=tEnd;dpStart=met.dpc[i];prevEle=pts[i].ele;
+      curKm++;
+    }
+  }
+  // Render splits table
+  document.getElementById('splits-body').innerHTML=splits.map((s,i)=>`
+    <tr id="split-${i}"><td>${Number.isInteger(s.km)?s.km:s.km}</td><td>${s.pace}</td><td>${s.gap}</td><td>${s.elev}</td></tr>
+  `).join('');
+}
+
+// ── App init ──────────────────────────────────────────────────
+function addTiles(){
+  if(!map) return;
+  const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  const token = '{{ mapbox_token }}';
+  const styleId = isDark ? 'mapbox/dark-v11' : 'mapbox/outdoors-v12';
+  const url = 'https://api.mapbox.com/styles/v1/' + styleId + '/tiles/256/{z}/{x}/{y}@2x?access_token=' + token;
+  L.tileLayer(url, {
+    attribution: '© <a href="https://www.mapbox.com/">Mapbox</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 22,
+    tileSize: 256,
+    crossOrigin: 'anonymous',
+  }).addTo(map);
+  document.getElementById('map').style.filter = '';
+}
+
+function initApp(fname){
+  met=build();
+  gpxMs=pts[0].time&&pts[pts.length-1].time
+    ?pts[pts.length-1].time.getTime()-pts[0].time.getTime()
+    :pts.length*1000;
+  elapsed=0;
+
+  // Hide upload, show app (app is always in flow so #map has real dimensions)
+  document.getElementById('upload').style.display='none';
+  document.getElementById('app').classList.remove('hidden');
+  if(hasBpm){
+    document.getElementById('c-bpm').style.display='block';
+    document.getElementById('bb-bpm-wrap').style.display='block';
+    document.getElementById('bb-bpm-sep').style.display='block';
+  }
+  document.getElementById('t-tot').textContent=s2t(gpxMs/1000);
+
+  // Wait for browser to paint the now-visible #app before initialising Leaflet
+  // so the #map div has real pixel dimensions
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      if(!map){
+        map=L.map('map',{zoomControl:true});
+
+        addTiles();
+      }else{
+        if(ghostLine){map.removeLayer(ghostLine);}
+        if(drawnLine){map.removeLayer(drawnLine);}
+        if(dot){map.removeLayer(dot);}
+        map.eachLayer(l=>{if(l instanceof L.TileLayer)map.removeLayer(l);});
+        addTiles();
+      }
+      finishInit();
+    });
+  });
+}
+
+// Extracted from initApp — runs after map is ready
+function finishInit(){
+  const ll=pts.map(p=>[p.lat,p.lon]);
+
+  // Fit map to track, leaving room for sidebar
+  map.invalidateSize();
+  map.fitBounds(L.latLngBounds(ll),{paddingTopLeft:[60,40],paddingBottomRight:[320,60],maxZoom:15});
+
+  // Ghost track (faint, full route)
+  const isDarkMode = document.documentElement.getAttribute('data-theme') !== 'light';
+  // In dark mode, CSS filter inverts colors — use cyan so it renders as red after invert
+  const traceColor = isDarkMode ? '#00ccff' : '#ff3300';
+  const ghostColor = isDarkMode ? '#004455' : '#ff3300';
+  const dotBorder  = isDarkMode ? '#000' : '#fff';
+  dotColor = isDarkMode ? '#00ccff' : '#ff3300'; // assign to global
+
+  // Leaflet polylines for trace
+  ghostLine = L.polyline(ll, {color:'#ff3300', weight:3, opacity:0.22, dashArray:'5,8', lineCap:'round'}).addTo(map);
+  drawnLine  = L.polyline([], {color:'#ff3300', weight:5, opacity:0.95, lineCap:'round', lineJoin:'round'}).addTo(map);
+  L.circleMarker(ll[0],           {radius:7, color:'#fff', fillColor:'#4fc3f7', fillOpacity:1, weight:2}).bindTooltip('Départ').addTo(map);
+  L.circleMarker(ll[ll.length-1], {radius:7, color:'#fff', fillColor:'#ff3300', fillOpacity:1, weight:2}).bindTooltip('Arrivée').addTo(map);
+  dot = L.circleMarker(ll[0],     {radius:9, color:'#fff', fillColor:'#ff3300', fillOpacity:1, weight:2.5}).addTo(map);
+
+  buildSplits();
+  buildElev();
+  resetReplay();
+}
+
+// ── Elevation chart ───────────────────────────────────────────
+function buildElev(){
+  const svg=document.getElementById('elev-svg');
+  const W=svg.parentElement.clientWidth-28||240,H=48;
+  svg.setAttribute('width',W);
+  const eles=pts.map(p=>p.ele),minE=Math.min(...eles),maxE=Math.max(...eles),range=(maxE-minE)||1;
+  const xs=pts.map((_,i)=>(i/(pts.length-1))*W);
+  const ys=eles.map(e=>H-1-((e-minE)/range)*(H-3));
+  const path=xs.map((x,i)=>`${i===0?'M':'L'}${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
+  svg.innerHTML=`<defs><linearGradient id="eg" x1="0" x2="0" y1="0" y2="1">
+    <stop offset="0%" stop-color="#ff3300" stop-opacity=".5"/>
+    <stop offset="100%" stop-color="#ff3300" stop-opacity=".05"/>
+  </linearGradient></defs>
+  <path d="${path} L${W},${H} L0,${H}Z" fill="url(#eg)"/>
+  <path d="${path}" fill="none" stroke="#ff3300" stroke-width="1.5"/>
+  <line id="ecur" x1="0" y1="0" x2="0" y2="${H}" stroke="#ff6633" stroke-width="1.5" opacity="0"/>`;
+}
+function updateElevCursor(i){
+  const cur=document.getElementById('ecur');if(!cur)return;
+  const svg=document.getElementById('elev-svg');
+  const W=+svg.getAttribute('width')||240;
+  const x=((i/(pts.length-1))*W).toFixed(1);
+  cur.setAttribute('x1',x);cur.setAttribute('x2',x);cur.setAttribute('opacity','1');
+}
+
+// ── Animation ─────────────────────────────────────────────────
+function resetReplay(){
+  if(raf){cancelAnimationFrame(raf);raf=null;}
+  playing=false;idx=0;lastTs=null;elapsed=0;
+  document.getElementById('btn-play').textContent='▶ Play';
+  document.getElementById('pfill').style.width='0%';
+  document.getElementById('t-cur').textContent='00:00:00';
+  document.getElementById('bottom-bar').classList.remove('visible');
+  updateDisplay(0);
+  displayBearing=0; currentBearing=0;
+  if(drawnLine) drawnLine.setLatLngs([]);
+  if(dot && pts.length) dot.setLatLng([pts[0].lat, pts[0].lon]);
+  // Reset split highlights
+  document.querySelectorAll('#splits-body tr').forEach(r=>r.classList.remove('cur'));
+}
+
+function togglePlay(){
+  if(idx>=pts.length-1)resetReplay();
+  playing=!playing;
+  document.getElementById('btn-play').textContent=playing?'⏸ Pause':'▶ Play';
+  if(playing){
+    lastTs=null;
+    document.getElementById('bottom-bar').classList.add('visible');
+    raf=requestAnimationFrame(tick);
+  }else if(raf){cancelAnimationFrame(raf);}
+}
+
+function setSpd(s){
+  speed=s;
+  document.getElementById('spd-range').value=s;
+  document.getElementById('spd-val').textContent=s;
+}
+
+function tick(ts){
+  if(!playing)return;
+  if(!lastTs){lastTs=ts;raf=requestAnimationFrame(tick);return;}
+  elapsed+=(ts-lastTs)*speed;lastTs=ts;
+  if(elapsed>=gpxMs){
+    elapsed=gpxMs;idx=pts.length-1;
+    updateDisplay(idx);updateMap(idx);
+    playing=false;document.getElementById('btn-play').textContent='▶ Rejouer';
+    return;
+  }
+  if(pts[0].time){
+    const target=pts[0].time.getTime()+elapsed;
+    while(idx<pts.length-1&&pts[idx+1].time.getTime()<=target)idx++;
+  }else{
+    idx=Math.min(Math.floor((elapsed/gpxMs)*(pts.length-1)),pts.length-1);
+  }
+  updateDisplay(idx);updateMap(idx);
+  raf=requestAnimationFrame(tick);
+}
+
+// Bearing between two points
+function bearing(a,b){
+  const r=x=>x*Math.PI/180;
+  const dLon=r(b.lon-a.lon),lat1=r(a.lat),lat2=r(b.lat);
+  const y=Math.sin(dLon)*Math.cos(lat2);
+  const x=Math.cos(lat1)*Math.sin(lat2)-Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLon);
+  return(Math.atan2(y,x)*180/Math.PI+360)%360;
+}
+
+let currentBearing=0;
+let rotationEnabled=true;
+let lastPanIdx=-1;
+
+function updateMap(i){
+  if(drawnLine) drawnLine.setLatLngs(pts.slice(0,i+1).map(p=>[p.lat,p.lon]));
+  if(dot) dot.setLatLng([pts[i].lat, pts[i].lon]);
+
+  // Rotation + pan follow + redraw canvas
+  if(i < pts.length - 1){
+    const ahead = Math.min(i + 20, pts.length - 1);
+    const bear = bearing(pts[i], pts[ahead]);
+    rotateMap(bear);
+  } else {
+    drawCanvas();
+  }
+  if(map && (i - lastPanIdx) >= 3){
+    lastPanIdx = i;
+    map.panTo([pts[i].lat, pts[i].lon], {animate:true, duration:0.3, noMoveStart:true});
+  }
+
+  updateElevCursor(i);
+  // Highlight current split
+  const si=splits.findIndex(s=>s.endIdx>=i);
+  document.querySelectorAll('#splits-body tr').forEach((r,ri)=>{
+    r.classList.toggle('cur',ri===si);
+    if(ri===si)r.scrollIntoView({block:'nearest'});
+  });
+}
+
+function updateDisplay(i){
+  const dm=met.dists[i],dk=(dm/1000).toFixed(2),dp=Math.round(met.dpc[i]);
+  let secs=0;
+  if(pts[0].time&&pts[i].time)secs=(pts[i].time-pts[0].time)/1000;
+  else secs=(i/pts.length)*gpxMs/1000;
+  const lb=Math.min(i,20);let pa='—';
+  if(lb>0){const d=met.dists[i]-met.dists[i-lb];const t=pts[0].time?(pts[i].time-pts[i-lb].time)/1000:(lb/pts.length)*gpxMs/1000;pa=paceStr(d,t);}
+  const lb2=Math.min(i,5);let spd='0.0';
+  if(lb2>0){const d=met.dists[i]-met.dists[i-lb2];const t=pts[0].time?(pts[i].time-pts[i-lb2].time)/1000:(lb2/pts.length)*gpxMs/1000;if(t>0)spd=((d/t)*3.6).toFixed(1);}
+
+  // Sidebar
+  document.getElementById('s-dist').textContent=dk;
+  document.getElementById('s-time').textContent=s2t(secs);
+  document.getElementById('s-pace').textContent=pa;
+  document.getElementById('s-dplus').textContent=dp;
+  document.getElementById('s-spd').textContent=spd;
+  if(hasBpm&&pts[i].hr)document.getElementById('s-bpm').textContent=pts[i].hr;
+
+  // Bottom bar
+  document.getElementById('bb-dist').textContent=dk;
+  document.getElementById('bb-pace').textContent=pa;
+  document.getElementById('bb-dplus').textContent=dp;
+  if(hasBpm)document.getElementById('bb-bpm').textContent=pts[i].hr||'—';
+
+  // Progress
+  document.getElementById('pfill').style.width=((i/(pts.length-1))*100).toFixed(1)+'%';
+  document.getElementById('t-cur').textContent=s2t(secs);
+}
+
+function seekTo(e){
+  const bar=document.getElementById('pbar');
+  const pct=Math.min(Math.max(e.offsetX/bar.clientWidth,0),1);
+  idx=Math.round(pct*(pts.length-1));
+  elapsed=pct*gpxMs;
+  updateDisplay(idx);updateMap(idx);
+}
+
+// ── Recording via composite canvas ────────────────────────────
+
+
+function notify(msg){
+  // Reuse existing notif if in tracker, else create one
+  let n=document.getElementById('notif');
+  if(!n){
+    n=document.createElement('div');
+    n.id='notif';
+    n.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--accent);color:#000;padding:11px 22px;border-radius:8px;font-weight:700;font-size:13px;font-family:Space Mono,monospace;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;';
+    document.body.appendChild(n);
+  }
+  n.textContent=msg;
+  n.style.background=msg.startsWith('⚠')||msg.startsWith('✗')?'#ff4444':'#a8e63d';
+  n.style.color=msg.startsWith('⚠')||msg.startsWith('✗')?'#fff':'#000';
+  n.style.opacity='1';
+  clearTimeout(n._t);
+  n._t=setTimeout(()=>n.style.opacity='0', 4000);
+}
+
+
+
+// ── Canvas trace overlay ───────────────────────────────────────
+
+
+
+
+
+
+
+
+
+// ── Map rotation ──────────────────────────────────────────────
+let displayBearing = 0;
+
+function lerpAngle(a, b, t){
+  const diff = ((b - a + 540) % 360) - 180;
+  return a + diff * t;
+}
+
+function rotateMap(targetBear){
+  if(!rotationEnabled) return;
+  currentBearing = targetBear;
+  displayBearing = lerpAngle(displayBearing, targetBear, 0.12);
+}
+
+function resetNorth(){
+  currentBearing=0; displayBearing=0;
+  drawCanvas();
+}
+
+function toggleRotation(){
+  rotationEnabled=!rotationEnabled;
+  const btn=document.getElementById('btn-rotate');
+  btn.textContent=rotationEnabled?'🧭 Rotation ON':'🧭 Rotation OFF';
+  btn.style.borderColor=rotationEnabled?'var(--accent)':'var(--border)';
+  btn.style.color=rotationEnabled?'var(--accent)':'var(--text-muted)';
+  if(!rotationEnabled) resetNorth();
+}
+
+function resetNorth(){
+  currentBearing=0; displayBearing=0;
+  const mapEl=document.getElementById('map');
+  if(mapEl){ mapEl.style.transition='transform 0.5s ease'; mapEl.style.transform='rotate(0deg)'; }
+  const mPane=mapEl?.querySelector('.leaflet-marker-pane');
+  if(mPane){ mPane.style.transform=''; }
+  const oPane=mapEl?.querySelector('.leaflet-overlay-pane');
+  if(oPane){ oPane.style.transform=''; }
+}
+
+
+function notify(msg){
+  // Reuse existing notif if in tracker, else create one
+  let n=document.getElementById('notif');
+  if(!n){
+    n=document.createElement('div');
+    n.id='notif';
+    n.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--accent);color:#000;padding:11px 22px;border-radius:8px;font-weight:700;font-size:13px;font-family:Space Mono,monospace;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;';
+    document.body.appendChild(n);
+  }
+  n.textContent=msg;
+  n.style.background=msg.startsWith('⚠')||msg.startsWith('✗')?'#ff4444':'#a8e63d';
+  n.style.color=msg.startsWith('⚠')||msg.startsWith('✗')?'#fff':'#000';
+  n.style.opacity='1';
+  clearTimeout(n._t);
+  n._t=setTimeout(()=>n.style.opacity='0', 4000);
+}
+
+
+
+// ── Canvas trace overlay ───────────────────────────────────────
+
+
+
+
+
+
+
+
+
+function toggleRotation(){
+  rotationEnabled=!rotationEnabled;
+  const btn=document.getElementById('btn-rotate');
+  btn.textContent=rotationEnabled?'🧭 Rotation ON':'🧭 Rotation OFF';
+  btn.style.borderColor=rotationEnabled?'var(--accent)':'var(--border)';
+  btn.style.color=rotationEnabled?'var(--accent)':'var(--text-muted)';
+  if(!rotationEnabled) resetNorth();
+}
+
+function resetNorth(){
+  currentBearing=0; displayBearing=0;
+  const mapEl=document.getElementById('map');
+  if(mapEl){ mapEl.style.transition='transform 0.5s ease'; mapEl.style.transform='rotate(0deg)'; }
+  const mPane=mapEl?.querySelector('.leaflet-marker-pane');
+  if(mPane){ mPane.style.transform=''; }
+  const oPane=mapEl?.querySelector('.leaflet-overlay-pane');
+  if(oPane){ oPane.style.transform=''; }
+}
+
+
+
+// ── Keyboard ──────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(!pts.length)return;
+  if(e.code==='Space'&&e.target.tagName!=='INPUT'){e.preventDefault();togglePlay();}
+  if(e.code==='KeyR')resetReplay();
+  function jump(i){
+    idx=Math.max(0,Math.min(i,pts.length-1));
+    elapsed=pts[0].time?(pts[idx].time.getTime()-pts[0].time.getTime()):(idx/(pts.length-1))*gpxMs;
+    updateDisplay(idx);updateMap(idx);
+  }
+  if(e.code==='ArrowRight')jump(idx+Math.max(1,Math.round(pts.length*.015)));
+  if(e.code==='ArrowLeft')jump(idx-Math.max(1,Math.round(pts.length*.015)));
+});
+
+// ── Resize ────────────────────────────────────────────────────
+window.addEventListener('resize',()=>{if(map)map.invalidateSize();});
+</script>
+
+
+
+
+
+
+</body>
+</html>

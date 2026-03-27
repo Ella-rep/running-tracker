@@ -1,0 +1,46 @@
+services:
+
+  db:
+    image: postgres:16-alpine
+    container_name: runtracker_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-runner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-runner}
+      POSTGRES_DB: ${POSTGRES_DB:-runtracker}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-runner} -d ${POSTGRES_DB:-runtracker}"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: runtracker_app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    environment:
+      APP_ENV: prod
+      APP_SECRET: ${APP_SECRET}
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-runner}:${POSTGRES_PASSWORD:-runner}@db:5432/${POSTGRES_DB:-runtracker}?serverVersion=16&charset=utf8"
+      JWT_SECRET_KEY: /var/www/app/config/jwt/private.pem
+      JWT_PUBLIC_KEY: /var/www/app/config/jwt/public.pem
+      JWT_PASSPHRASE: ${JWT_PASSPHRASE}
+      JWT_TTL: ${JWT_TTL:-604800}
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-'^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$'}
+    volumes:
+      - jwt_keys:/var/www/app/config/jwt   # persist JWT keys across restarts
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    driver: local
+  jwt_keys:
+    driver: local

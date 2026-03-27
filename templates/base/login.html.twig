@@ -1,0 +1,122 @@
+{% extends 'base/layout.html.twig' %}
+{% block title %}Running Tracker — Connexion{% endblock %}
+
+{% block body %}
+<button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Thème clair/sombre"
+  style="position:fixed;top:20px;right:20px;z-index:10;">🌙</button>
+<div id="login-root">
+  <div class="login-box">
+    <div class="login-logo">RUN<span>/</span>TRACKER</div>
+    <div class="login-sub" id="login-mode-label">Connexion</div>
+
+    <div class="field">
+      <label for="auth-username">Nom d'utilisateur</label>
+      <input type="text" id="auth-username" autocomplete="username" placeholder="monpseudo">
+    </div>
+    <div class="field">
+      <label for="auth-password">Mot de passe</label>
+      <input type="password" id="auth-password" autocomplete="current-password" placeholder="••••••••"
+             onkeydown="if(event.key==='Enter') submitAuth()">
+    </div>
+
+    <div class="login-error" id="auth-error"></div>
+
+    <button class="btn" style="width:100%" onclick="submitAuth()" id="auth-btn">Se connecter</button>
+
+    <div class="login-footer">
+      Pas encore de compte ? <a id="toggle-mode" onclick="toggleAuthMode()">Créer un compte</a>
+    </div>
+  </div>
+</div>
+
+<style>
+  body { display:flex; align-items:center; justify-content:center; min-height:100vh; }
+  #login-root { width:100%; max-width:400px; padding:20px; }
+  .login-logo { font-family:'Space Mono',monospace; font-size:14px; letter-spacing:4px; color:var(--accent); text-align:center; margin-bottom:6px; }
+  .login-logo span { color:var(--text-muted); }
+  .login-sub { font-size:12px; color:var(--text-muted); font-family:'Space Mono',monospace; text-align:center; margin-bottom:28px; }
+  .login-box { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:36px; }
+  .login-error { color:var(--accent3); font-size:12px; font-family:'Space Mono',monospace; min-height:20px; margin-bottom:10px; text-align:center; }
+  .login-footer { margin-top:18px; font-size:11px; color:var(--text-muted); font-family:'Space Mono',monospace; text-align:center; }
+  .login-footer a { color:var(--accent2); cursor:pointer; text-decoration:underline; }
+</style>
+
+<script>
+const API = '/api';
+let mode = 'login';
+
+function toggleAuthMode() {
+  mode = mode === 'login' ? 'register' : 'login';
+  document.getElementById('login-mode-label').textContent = mode === 'login' ? 'Connexion' : 'Créer un compte';
+  document.getElementById('auth-btn').textContent        = mode === 'login' ? 'Se connecter' : 'Créer le compte';
+  document.getElementById('toggle-mode').textContent     = mode === 'login' ? 'Créer un compte' : 'Se connecter';
+  document.querySelector('.login-footer').firstChild.textContent = mode === 'login' ? 'Pas encore de compte ? ' : 'Déjà un compte ? ';
+  document.getElementById('auth-error').textContent = '';
+}
+
+async function submitAuth() {
+  const username = document.getElementById('auth-username').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const btn      = document.getElementById('auth-btn');
+  const errEl    = document.getElementById('auth-error');
+
+  if (!username || !password) { errEl.textContent = 'Remplis les deux champs.'; return; }
+
+  btn.textContent = '…';
+  errEl.textContent = '';
+
+  try {
+    if (mode === 'register') {
+      const r = await fetch(API + '/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, plainPassword: password }),
+      });
+      if (!r.ok) {
+        const e = await r.json();
+        throw new Error(e['hydra:description'] || e.detail || 'Erreur inscription');
+      }
+    }
+
+    // Login (JSON login via Symfony security)
+    const r = await fetch(API + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!r.ok) throw new Error('Identifiants incorrects');
+
+    const { token } = await r.json();
+    localStorage.setItem('rt_token', token);
+    window.location.href = '/app';
+  } catch(e) {
+    errEl.textContent = e.message;
+    btn.textContent = mode === 'login' ? 'Se connecter' : 'Créer le compte';
+  }
+}
+
+// ── Theme ────────────────────────────────────────
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = theme === 'light' ? '🌙' : '☀️';
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = current === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('rt_theme', next);
+  applyTheme(next);
+}
+applyTheme(localStorage.getItem('rt_theme') || 'dark');
+
+// Redirect if already logged in
+(async () => {
+  const token = localStorage.getItem('rt_token');
+  if (!token) return;
+  try {
+    const r = await fetch(API + '/auth/me', { headers: { Authorization: 'Bearer ' + token } });
+    if (r.ok) window.location.href = '/app';
+  } catch {}
+})();
+</script>
+{% endblock %}

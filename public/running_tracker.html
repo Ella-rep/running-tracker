@@ -1,0 +1,2155 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Running Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  /* ── DARK MODE (default) ──────────────────────── */
+  :root {
+    --bg: #0a120b;
+    --surface: #111c12;
+    --surface2: #182619;
+    --border: #243826;
+    --accent: #a8e63d;
+    --accent2: #66bb6a;
+    --accent3: #ff7043;
+    --text: #f2f5ee;
+    --text-muted: #6e8c6f;
+    --z1: #a8e63d;
+    --z2: #4fc3f7;
+    --z3: #ffca28;
+    --z4: #ff7043;
+    --z5: #ef5350;
+    --header-bg: var(--header-bg);
+    --overlay-bg: var(--overlay-bg);
+    --overlay-bg2: var(--overlay-bg2);
+    --row-border: rgba(36,56,38,0.5);
+    --row-border2: rgba(36,56,38,0.4);
+    --badge-future-bg: rgba(36,56,38,0.8);
+    --badge-done-bg: rgba(168,230,61,0.15);
+    --badge-next-bg: rgba(168,230,61,0.15);
+    --alert-bg: rgba(255,112,67,0.10);
+    --alert-border: rgba(255,112,67,0.30);
+    --alert-ok-bg: rgba(168,230,61,0.08);
+    --alert-ok-border: rgba(168,230,61,0.25);
+    --filter-active-bg: rgba(102,187,106,0.07);
+    --confirm-border: rgba(255,112,67,0.40);
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+
+  [data-theme="light"] {
+    --bg: #f4f7f0;
+    --surface: #ffffff;
+    --surface2: #eef4eb;
+    --border: #c8dcc0;
+    --accent: #5a9e1a;
+    --accent2: #1a7a3c;
+    --accent3: #d44a1a;
+    --text: #1a2e1a;
+    --text-muted: #5a7a5a;
+    --z1: #3d8b00;
+    --z2: #0077b6;
+    --z3: #b07d00;
+    --z4: #c94a00;
+    --z5: #c62828;
+    --header-bg: rgba(244,247,240,0.95);
+    --overlay-bg: rgba(0,0,0,0.45);
+    --overlay-bg2: rgba(0,0,0,0.50);
+    --row-border: rgba(180,210,170,0.6);
+    --row-border2: rgba(180,210,170,0.5);
+    --badge-future-bg: rgba(180,210,170,0.5);
+    --badge-done-bg: rgba(90,158,26,0.15);
+    --badge-next-bg: rgba(90,158,26,0.15);
+    --alert-bg: rgba(212,74,26,0.08);
+    --alert-border: rgba(212,74,26,0.25);
+    --alert-ok-bg: rgba(90,158,26,0.08);
+    --alert-ok-border: rgba(90,158,26,0.25);
+    --filter-active-bg: rgba(26,122,60,0.08);
+    --confirm-border: rgba(212,74,26,0.35);
+    --shadow: 0 4px 24px rgba(0,0,0,0.10);
+  }
+
+  /* ── LIGHT MODE ────────────────────────────────── */
+  [data-theme="light"] {
+    --bg: #f4f7f0;
+    --surface: #ffffff;
+    --surface2: #eef4eb;
+    --border: #c8dcc0;
+    --accent: #5a9e1a;
+    --accent2: #1a7a3c;
+    --accent3: #d44a1a;
+    --text: #1a2e1a;
+    --text-muted: #5a7a5a;
+    --z1: #3d8b00;
+    --z2: #0077b6;
+    --z3: #b07d00;
+    --z4: #c94a00;
+    --z5: #c62828;
+    --header-bg: rgba(244,247,240,0.95);
+    --overlay-bg: rgba(0,0,0,0.45);
+    --overlay-bg2: rgba(0,0,0,0.50);
+    --row-border: rgba(180,210,170,0.6);
+    --row-border2: rgba(180,210,170,0.5);
+    --badge-future-bg: rgba(180,210,170,0.5);
+    --badge-done-bg: rgba(90,158,26,0.15);
+    --badge-next-bg: rgba(90,158,26,0.15);
+    --alert-bg: rgba(212,74,26,0.08);
+    --alert-border: rgba(212,74,26,0.25);
+    --alert-ok-bg: rgba(90,158,26,0.08);
+    --alert-ok-border: rgba(90,158,26,0.25);
+    --filter-active-bg: rgba(26,122,60,0.08);
+    --confirm-border: rgba(212,74,26,0.35);
+    --shadow: 0 4px 24px rgba(0,0,0,0.10);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--header-bg);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+
+  .logo span { color: var(--text-muted); }
+
+  nav { display: flex; gap: 4px; }
+
+  nav button {
+    background: none;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    padding: 7px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+
+  nav button:hover { color: var(--text); border-color: var(--border); }
+  nav button.active { background: var(--accent); color: #000; border-color: var(--accent); }
+
+  /* MAIN */
+  main { padding: 32px; max-width: 1200px; margin: 0 auto; }
+
+  section { display: none; }
+  section.visible { display: block; }
+
+  /* DASHBOARD */
+  .section-title {
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+
+  .section-sub {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-family: 'Space Mono', monospace;
+    margin-bottom: 28px;
+  }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .kpi::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .kpi.accent::before { background: var(--accent); }
+  .kpi.blue::before { background: var(--accent2); }
+  .kpi.orange::before { background: var(--accent3); }
+  .kpi.green::before { background: var(--z1); }
+
+  .kpi-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-family: 'Space Mono', monospace;
+    margin-bottom: 10px;
+  }
+
+  .kpi-value {
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .kpi-unit {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* PROGRESS BAR */
+  .progress-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 28px;
+  }
+
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .progress-label span:first-child { font-weight: 700; font-size: 15px; }
+  .progress-label span:last-child { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--accent); }
+
+  .progress-bar {
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    transition: width 0.8s ease;
+  }
+
+  .progress-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* CHART SIMPLE */
+  .chart-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 28px;
+  }
+
+  .chart-title {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .chart-title::before {
+    content: '';
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+
+  .bar-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 120px;
+  }
+
+  .bar-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    justify-content: flex-end;
+  }
+
+  .bar {
+    width: 100%;
+    background: var(--accent2);
+    border-radius: 3px 3px 0 0;
+    transition: height 0.6s ease;
+    position: relative;
+    cursor: pointer;
+  }
+
+  .bar:hover { filter: brightness(1.3); }
+
+  .bar-label {
+    font-size: 9px;
+    color: var(--text-muted);
+    font-family: 'Space Mono', monospace;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  /* COURSES TABLE */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 28px;
+  }
+
+  .table-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  table { width: 100%; border-collapse: collapse; }
+
+  th {
+    text-align: left;
+    padding: 10px 16px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-family: 'Space Mono', monospace;
+    border-bottom: 1px solid var(--border);
+    font-weight: 400;
+  }
+
+  td {
+    padding: 12px 16px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--row-border);
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+  }
+
+  .badge-done { background: var(--badge-done-bg); color: var(--z1); }
+  .badge-next { background: var(--badge-next-bg); color: var(--accent); }
+  .badge-future { background: var(--badge-future-bg); color: var(--text-muted); }
+
+  /* PLAN VIEW */
+  .week-grid {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .week-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .week-header {
+    background: var(--surface2);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .week-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+
+  .week-date {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .session-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--row-border2);
+    transition: background 0.15s;
+    cursor: pointer;
+  }
+
+  .session-row:last-child { border-bottom: none; }
+  .session-row:hover { background: var(--surface2); }
+
+  .session-check {
+    width: 18px; height: 18px;
+    border-radius: 4px;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    font-size: 11px;
+  }
+
+  .session-check.done { background: var(--z1); border-color: var(--z1); color: #000; }
+
+  .session-format {
+    flex: 1;
+    font-size: 13px;
+    font-family: 'Space Mono', monospace;
+    line-height: 1.4;
+  }
+
+  .zone-tag {
+    display: inline-block;
+    width: 20px; height: 16px;
+    border-radius: 3px;
+    font-size: 9px;
+    text-align: center;
+    line-height: 16px;
+    font-weight: 700;
+    margin-right: 1px;
+  }
+
+  .session-meta {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    align-items: center;
+  }
+
+  .pe-badge {
+    font-size: 10px;
+    font-family: 'Space Mono', monospace;
+    color: var(--text-muted);
+    background: var(--surface2);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+
+  .duration-badge {
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    color: var(--accent2);
+  }
+
+  .optional-tag {
+    font-size: 9px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  /* LOG FORM */
+  .form-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 28px;
+  }
+
+  .form-card h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 20px;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-family: 'Space Mono', monospace;
+    margin-bottom: 6px;
+  }
+
+  .field input, .field select, .field textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    padding: 10px 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .field input:focus, .field select:focus { border-color: var(--accent2); }
+
+  .btn {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 11px 24px;
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+  .btn-ghost {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .btn-ghost:hover { border-color: var(--text-muted); background: var(--surface2); transform: none; }
+
+  /* Log table */
+  .mono { font-family: 'Space Mono', monospace; }
+
+  .allure-fast { color: var(--z1); }
+  .allure-mid { color: var(--accent2); }
+  .allure-slow { color: var(--text-muted); }
+
+  /* Alerts */
+  .alert {
+    background: var(--alert-bg);
+    border: 1px solid var(--alert-border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    font-size: 13px;
+  }
+
+  .alert-title {
+    font-weight: 700;
+    color: var(--accent3);
+    margin-bottom: 4px;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .alert-ok {
+    background: var(--alert-ok-bg);
+    border-color: var(--alert-ok-border);
+  }
+
+  .alert-ok .alert-title { color: var(--z1); }
+
+  .filter-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .filter-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    transition: all 0.2s;
+  }
+
+  .filter-btn:hover, .filter-btn.active {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    background: var(--filter-active-bg);
+  }
+
+  .zone-legend {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .zone-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    color: var(--text-muted);
+  }
+
+  .zone-dot {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .notif {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--accent);
+    color: #000;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 13px;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s ease;
+    z-index: 999;
+  }
+
+  .notif.show { transform: translateY(0); opacity: 1; }
+
+  /* ACTION ICONS */
+  .action-btns { display: flex; gap: 6px; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
+  tr:hover .action-btns, .session-row:hover .action-btns { opacity: 1; }
+  .action-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text-muted);
+    width: 26px; height: 26px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .action-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  .action-btn.del:hover { border-color: var(--accent3); color: var(--accent3); }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: var(--overlay-bg);
+    backdrop-filter: blur(4px);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    animation: modalIn 0.2s ease;
+  }
+  @keyframes modalIn {
+    from { transform: translateY(16px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .modal-title {
+    font-size: 17px;
+    font-weight: 800;
+    margin-bottom: 20px;
+    padding-right: 24px;
+  }
+  .modal-close {
+    position: absolute;
+    top: 20px; right: 20px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 18px;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .modal-close:hover { color: var(--text); }
+  .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+
+  /* CONFIRM DELETE */
+  .confirm-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: var(--overlay-bg2);
+    z-index: 600;
+    align-items: center;
+    justify-content: center;
+  }
+  .confirm-overlay.open { display: flex; }
+  .confirm-box {
+    background: var(--surface);
+    border: 1px solid var(--confirm-border);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 380px;
+    text-align: center;
+    animation: modalIn 0.15s ease;
+  }
+  .confirm-box p { margin-bottom: 20px; font-size: 14px; color: var(--text-muted); }
+  .confirm-box strong { display: block; font-size: 16px; color: var(--text); margin-bottom: 8px; }
+  .confirm-actions { display: flex; gap: 10px; justify-content: center; }
+  .btn-danger { background: var(--accent3); color: #fff; }
+  .btn-danger:hover { filter: brightness(1.1); }
+
+  @media (max-width: 640px) {
+    header { padding: 14px 16px; }
+    main { padding: 16px; }
+    nav button { padding: 6px 10px; font-size: 12px; }
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── THEME TOGGLE ─────────────────────────────── */
+  .theme-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); background: var(--surface2); }
+  [data-theme="light"] header { box-shadow: 0 1px 0 var(--border); }
+  [data-theme="light"] input,
+  [data-theme="light"] select { background: var(--bg); color: var(--text); border-color: var(--border); }
+  [data-theme="light"] input::placeholder { color: var(--text-muted); }
+  [data-theme="light"] nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  [data-theme="light"] .btn { color: #fff; }
+  [data-theme="light"] tr:hover td { background: var(--surface2); }
+
+
+  .theme-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); background: var(--surface2); }
+  [data-theme="light"] header { box-shadow: 0 1px 0 var(--border); }
+  [data-theme="light"] input,
+  [data-theme="light"] select { background: var(--bg); color: var(--text); border-color: var(--border); }
+  [data-theme="light"] input::placeholder { color: var(--text-muted); }
+  [data-theme="light"] nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  [data-theme="light"] .btn { color: #fff; }
+  [data-theme="light"] tr:hover td { background: var(--surface2); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">RUN<span>/</span>TRACKER</div>
+  <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Thème clair/sombre">🌙</button>
+  <nav>
+    <button class="active" onclick="showSection('dashboard', this)">Dashboard</button>
+    <button onclick="showSection('tempo', this)">Tempo</button>
+    <button onclick="showSection('prep', this)">Prép. Semi</button>
+    <button onclick="showSection('semi', this)">Plan Semi</button>
+    <button onclick="showSection('log', this)">Log</button>
+    <button onclick="showSection('courses', this)">Courses</button>
+    <a href="gpx-replay.html" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);padding:7px 16px;border-radius:6px;cursor:pointer;font-family:'Syne',sans-serif;font-size:13px;font-weight:600;text-decoration:none;transition:all 0.2s;display:inline-flex;align-items:center;gap:6px;" onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'" onmouseout="this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'">🗺️ Replay GPX</a>
+  </nav>
+</header>
+
+<main>
+
+<!-- ===== DASHBOARD ===== -->
+<section id="dashboard" class="visible">
+  <div class="section-title">Vue d'ensemble 🏃</div>
+  <div class="section-sub">Mise à jour · 25 mars 2026</div>
+
+  <div class="kpi-grid" id="kpi-grid"></div>
+
+  <div class="chart-wrap" id="projections-wrap">
+    <div class="chart-title">Temps projetés — basé sur tes 5 dernières sorties</div>
+    <div id="projections-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:4px;"></div>
+    <div id="projections-meta" style="margin-top:14px;font-size:11px;color:var(--text-muted);font-family:Space Mono,monospace;"></div>
+  </div>
+
+  <div class="chart-wrap" id="ef-wrap">
+    <div class="chart-title">Progression Endurance Fondamentale</div>
+    <div id="ef-kpis" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;"></div>
+    <div id="ef-chart-container" style="position:relative;height:180px;margin-bottom:20px;">
+      <canvas id="ef-chart" style="width:100%;height:100%"></canvas>
+    </div>
+    <div id="ef-table-wrap" style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;border-bottom:1px solid var(--border);">Date</th>
+            <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;border-bottom:1px solid var(--border);">Km</th>
+            <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;border-bottom:1px solid var(--border);">BPM</th>
+            <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;border-bottom:1px solid var(--border);">Allure</th>
+            <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;border-bottom:1px solid var(--border);">Indice EF</th>
+            <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;border-bottom:1px solid var(--border);">Tendance</th>
+          </tr>
+        </thead>
+        <tbody id="ef-tbody"></tbody>
+      </table>
+    </div>
+    <div id="ef-meta" style="margin-top:12px;font-size:11px;color:var(--text-muted);font-family:'Space Mono',monospace;"></div>
+  </div>
+
+  <div class="progress-section">
+    <div class="progress-label">
+      <span>Phase actuelle : Tempo (pré-préparation)</span>
+      <span id="tempo-pct">—</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="tempo-bar" style="width:0%"></div></div>
+    <div class="progress-meta" id="tempo-meta"></div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-title">Kilométrage mensuel (2026)</div>
+    <div class="bar-chart" id="monthly-chart"></div>
+  </div>
+
+  <div class="table-wrap">
+    <div class="table-header">📅 Prochaines courses</div>
+    <table>
+      <thead><tr><th>Course</th><th>Date</th><th>Distance</th><th>Objectif</th><th>Statut</th></tr></thead>
+      <tbody id="race-tbody"></tbody>
+    </table>
+  </div>
+
+  <div id="coherence-section"></div>
+</section>
+
+<!-- ===== TEMPO ===== -->
+<section id="tempo">
+  <div class="section-title">Phase Tempo</div>
+  <div class="section-sub">Bloc de préparation actuel · 16 séances</div>
+  <div class="zone-legend">
+    <div class="zone-item"><div class="zone-dot" style="background:var(--z1)"></div>Z1 récup</div>
+    <div class="zone-item"><div class="zone-dot" style="background:var(--z2)"></div>Z2 endurance</div>
+    <div class="zone-item"><div class="zone-dot" style="background:var(--z3)"></div>Z3 tempo</div>
+    <div class="zone-item"><div class="zone-dot" style="background:var(--z4)"></div>Z4 seuil</div>
+    <div class="zone-item"><div class="zone-dot" style="background:var(--z5)"></div>Z5 VO2max</div>
+  </div>
+  <div id="tempo-weeks"></div>
+</section>
+
+<!-- ===== PREP SEMI ===== -->
+<section id="prep">
+  <div class="section-title">Préparation Semi</div>
+  <div class="section-sub">Plan de préparation avant le plan semi · 48 séances</div>
+  <div class="zone-legend">
+    <div class="zone-item"><div class="zone-dot" style="background:var(--z1)"></div>Z1 récup</div>
+    <div class="zone-item"><div class="zone-dot" style="background:var(--z2)"></div>Z2 endurance</div>
+    <div class="zone-item"><div class="zone-dot" style="background:var(--z3)"></div>Z3 tempo</div>
+    <div class="zone-item"><div class="zone-dot" style="background:var(--z4)"></div>Z4 seuil</div>
+    <div class="zone-item"><div class="zone-dot" style="background:var(--z5)"></div>Z5 VO2max</div>
+  </div>
+  <div id="prep-weeks"></div>
+</section>
+
+<!-- ===== PLAN SEMI ===== -->
+<section id="semi">
+  <div class="section-title">Plan Semi-Marathon</div>
+  <div class="section-sub">Plan 12 semaines vers la Parisienne (13 sept.) · 48 séances</div>
+  <div class="zone-legend">
+    <div class="zone-item"><div class="zone-dot" style="background:var(--z1)"></div>Z1 récup</div>
+    <div class="zone-item"><div class="zone-dot" style="background:var(--z2)"></div>Z2 endurance</div>
+    <div class="zone-item"><div class="zone-dot" style="background:var(--z3)"></div>Z3 tempo</div>
+    <div class="zone-item"><div class="zone-dot" style="background:var(--z4)"></div>Z4 seuil</div>
+    <div class="zone-item"><div class="zone-dot" style="background:var(--z5)"></div>Z5 VO2max</div>
+  </div>
+  <div id="semi-weeks"></div>
+</section>
+
+<!-- ===== LOG ===== -->
+<section id="log">
+  <div class="section-title">Journal de course</div>
+  <div class="section-sub">25 sorties enregistrées</div>
+
+  <div class="form-card">
+    <h3>➕ Ajouter une sortie</h3>
+    <div class="form-grid">
+      <div class="field"><label>Date</label><input type="date" id="log-date"></div>
+      <div class="field"><label>Distance (km)</label><input type="number" id="log-km" step="0.01" placeholder="5.00"></div>
+      <div class="field"><label>Durée (hh:mm:ss)</label><input type="text" id="log-dur" placeholder="00:45:00"></div>
+      <div class="field"><label>BPM moy.</label><input type="number" id="log-bpm" placeholder="150"></div>
+      <div class="field"><label>Type</label>
+        <select id="log-type">
+          <option value="">—</option>
+          <option value="EF">EF – Endurance fondamentale</option>
+          <option value="FC">FC – Fractionné court</option>
+          <option value="FL">FL – Sortie longue</option>
+          <option value="T">T – Tempo</option>
+          <option value="Race">🏁 Course</option>
+        </select>
+      </div>
+      <div class="field"><label>D+ (mètres)</label><input type="number" id="log-dplus" placeholder="0"></div>
+      <div class="field"><label>Notes</label><input type="text" id="log-notes" placeholder="..."></div>
+    </div>
+    <button class="btn" onclick="addLog()">Enregistrer</button>
+  </div>
+
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="filterLog('all', this)">Tout</button>
+    <button class="filter-btn" onclick="filterLog('EF', this)">EF</button>
+    <button class="filter-btn" onclick="filterLog('FC', this)">Fractionné</button>
+    <button class="filter-btn" onclick="filterLog('FL', this)">Longue</button>
+    <button class="filter-btn" onclick="filterLog('Race', this)">Courses</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th><button id="sort-date-btn" onclick="toggleSort()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;display:flex;align-items:center;gap:5px;padding:0;white-space:nowrap;">Date <span id="sort-icon">↓</span></button></th><th>Km</th><th>Durée</th><th>Allure</th><th>GAP</th><th>D+</th><th>BPM</th><th>Type</th><th>Notes</th><th></th></tr></thead>
+      <tbody id="log-tbody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ===== COURSES ===== -->
+<section id="courses">
+  <div class="section-title">Calendrier des courses</div>
+  <div class="section-sub">Saison 2026</div>
+
+  <div class="form-card">
+    <h3>➕ Ajouter une course</h3>
+    <div class="form-grid">
+      <div class="field"><label>Nom</label><input type="text" id="r-name" placeholder="Ex: 10km de Paris"></div>
+      <div class="field"><label>Date</label><input type="date" id="r-date"></div>
+      <div class="field"><label>Distance</label><input type="text" id="r-dist" placeholder="10km"></div>
+      <div class="field"><label>Objectif (hh:mm:ss)</label><input type="text" id="r-obj" placeholder="00:55:00"></div>
+      <div class="field"><label>Résultat (si passé)</label><input type="text" id="r-real" placeholder="00:53:22"></div>
+    </div>
+    <button class="btn" onclick="addRace()">Ajouter</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Échéance</th><th>Course</th><th>Date</th><th>Distance</th><th>Objectif</th><th>Résultat</th><th>Écart</th></tr></thead>
+      <tbody id="races-tbody"></tbody>
+    </table>
+  </div>
+</section>
+
+</main>
+
+<div class="notif" id="notif"></div>
+
+<!-- MODAL PLAN SESSION EDIT -->
+<div class="modal-overlay" id="plan-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('plan-modal')">✕</button>
+    <div class="modal-title">Modifier la séance</div>
+    <input type="hidden" id="pm-statekey">
+    <input type="hidden" id="pm-idx">
+    <div class="form-grid" style="grid-template-columns:1fr;">
+      <div class="field"><label>Format</label><input type="text" id="pm-format"></div>
+      <div class="field"><label>Date</label><input type="date" id="pm-date"></div>
+      <div class="field"><label>PE</label><input type="text" id="pm-pe" placeholder="ex: 6/10"></div>
+      <div class="field"><label>Durée totale (min)</label><input type="number" id="pm-total"></div>
+      <div class="field" style="display:flex;align-items:center;gap:10px;padding-top:6px;">
+        <input type="checkbox" id="pm-opt" style="width:16px;height:16px;accent-color:var(--accent2)">
+        <label for="pm-opt" style="font-size:13px;letter-spacing:0;text-transform:none;color:var(--text)">Séance optionnelle</label>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="savePlanEdit()">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeModal('plan-modal')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL LOG EDIT -->
+<div class="modal-overlay" id="log-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('log-modal')">✕</button>
+    <div class="modal-title">Modifier la sortie</div>
+    <input type="hidden" id="lm-idx">
+    <div class="form-grid">
+      <div class="field"><label>Date</label><input type="date" id="lm-date"></div>
+      <div class="field"><label>Distance (km)</label><input type="number" id="lm-km" step="0.01"></div>
+      <div class="field"><label>Durée (hh:mm:ss)</label><input type="text" id="lm-dur"></div>
+      <div class="field"><label>BPM moy.</label><input type="number" id="lm-bpm"></div>
+      <div class="field"><label>Type</label>
+        <select id="lm-type">
+          <option value="">—</option>
+          <option value="EF">EF – Endurance fondamentale</option>
+          <option value="FC">FC – Fractionné court</option>
+          <option value="FL">FL – Sortie longue</option>
+          <option value="T">T – Tempo</option>
+          <option value="Race">🏁 Course</option>
+        </select>
+      </div>
+      <div class="field"><label>D+ (mètres)</label><input type="number" id="lm-dplus" placeholder="0"></div>
+      <div class="field"><label>Notes</label><input type="text" id="lm-notes"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="saveLogEdit()">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeModal('log-modal')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RACE EDIT -->
+<div class="modal-overlay" id="race-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('race-modal')">✕</button>
+    <div class="modal-title">Modifier la course</div>
+    <input type="hidden" id="rm-idx">
+    <div class="form-grid">
+      <div class="field"><label>Nom</label><input type="text" id="rm-name"></div>
+      <div class="field"><label>Date</label><input type="date" id="rm-date"></div>
+      <div class="field"><label>Distance</label><input type="text" id="rm-dist"></div>
+      <div class="field"><label>Objectif</label><input type="text" id="rm-obj" placeholder="hh:mm:ss"></div>
+      <div class="field"><label>Résultat</label><input type="text" id="rm-real" placeholder="hh:mm:ss"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="saveRaceEdit()">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeModal('race-modal')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM DELETE -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <strong id="confirm-title">Supprimer ?</strong>
+    <p id="confirm-msg">Cette action est irréversible.</p>
+    <div class="confirm-actions">
+      <button class="btn btn-danger" onclick="confirmDelete()">Supprimer</button>
+      <button class="btn btn-ghost" onclick="closeConfirm()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Theme ─────────────────────────────────────────
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  const b = document.getElementById('theme-toggle');
+  if (b) b.textContent = t === 'light' ? '🌙' : '☀️';
+}
+function toggleTheme() {
+  const c = document.documentElement.getAttribute('data-theme') || 'dark';
+  const n = c === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('rt_theme', n);
+  applyTheme(n);
+}
+applyTheme(localStorage.getItem('rt_theme') || 'dark');
+
+// ============================================================
+// DATA
+// ============================================================
+
+const tempoData = [
+  {sem:1, date:'2026-03-24', format:"40'@Z2", pe:'3/10', total:40, done:true},
+  {sem:1, date:'2026-03-25', format:"20'@Z2 >> 8x (45''@Z5 + 30''@Z1) >> 5'@Z1", pe:'6/10', total:35, done:false},
+  {sem:null, date:'2026-03-28', format:"10km (course)", pe:'7/10', total:null, done:false},
+  {sem:1, date:'2026-03-29', format:"20'@Z2 >> 4x (5'@Z4 + 2'@Z1) >> 5'@Z1", pe:'6/10', total:53, done:false},
+  {sem:2, date:'2026-03-30', format:"45'@Z2", pe:'3/10', total:45, done:false},
+  {sem:2, date:'2026-03-31', format:"20'@Z2 >> 2x (5'@Z4 +2'@Z1) + 4x (1'@Z5 +1'@Z1) >> 5'@Z1", pe:'6/10', total:47, done:false},
+  {sem:2, date:'2026-04-05', format:"20'@Z2 >> 20'@Z3 >> 10@Z2", pe:'6/10', total:50, done:false},
+  {sem:1, date:'2026-04-06', format:"45'@Z2", pe:'3/10', total:45, done:false},
+  {sem:1, date:'2026-04-07', format:"20'@Z2 >> 3x (7'@Z4 + 2'@Z1) >> 5'@Z1", pe:'6/10', total:52, done:false},
+  {sem:1, date:'2026-04-12', format:"15'@Z2 >> 30'@Z3 >> 15'@Z2", pe:'6/10', total:60, done:false},
+  {sem:2, date:null, format:"45'@Z2", pe:'3/10', total:45, done:false},
+  {sem:2, date:null, format:"20'@Z2 >> 8x (1'@Z5 + 1'@Z1) >> 10'@Z2", pe:'5/10', total:46, done:false},
+  {sem:2, date:null, format:"20'@Z2 >> 4x (8'@Z4 + 2'@Z1) >> 5'@Z1", pe:'6/10', total:65, done:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, done:false},
+  {sem:1, date:null, format:"20'@Z2 >> 10x (20''@Z5 + 40''@Z1) >> 5'@Z1", pe:'6/10', total:35, done:false},
+  {sem:1, date:null, format:"20'@Z2 >> 4x (5'@Z4 + 2'@Z2) >> 5'@Z1", pe:'6/10', total:53, done:false},
+];
+
+const prepData = [
+  {sem:1, date:null, format:"25'@Z2", pe:'3/10', total:25, opt:false},
+  {sem:1, date:null, format:"30'@Z2 >> 5x (20\"@Z5 + 40\"@Z1) >> 5'@Z1", pe:'4/10', total:40, opt:false},
+  {sem:1, date:null, format:"30'@Z2", pe:'3/10', total:30, opt:true},
+  {sem:1, date:'2026-05-04', format:"60'@Z2", pe:'4/10', total:60, opt:false},
+  {sem:2, date:null, format:"45'@Z2", pe:'3/10', total:45, opt:false},
+  {sem:2, date:null, format:"25'@Z2 >> 2x (6'@Z3 + 2'@Z1) >> 5'@Z1", pe:'6/10', total:46, opt:false},
+  {sem:2, date:null, format:"35'@Z2", pe:'3/10', total:35, opt:true},
+  {sem:2, date:'2026-05-11', format:"65'@Z2", pe:'4/10', total:65, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:false},
+  {sem:1, date:null, format:"25'@Z2 >> 5x (2'@Z4 + 1'@Z1) >> 10'@Z2", pe:'5/10', total:50, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:true},
+  {sem:1, date:'2026-05-18', format:"60'@Z2", pe:'4/10', total:60, opt:false},
+  {sem:2, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:false},
+  {sem:2, date:null, format:"25'@Z2 >> 4x (3'@Z4 + 1'30\"@Z1) >> 10'@Z1", pe:'5/10', total:50, opt:false},
+  {sem:2, date:null, format:"40'@Z2", pe:'6/10', total:40, opt:true},
+  {sem:2, date:'2026-05-25', format:"65'@Z2", pe:'4/10', total:65, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:false},
+  {sem:1, date:null, format:"25'@Z2 >> 10x (1'@Z4 + 1'@Z1) >> 10'@Z1", pe:'3/10', total:55, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:true},
+  {sem:1, date:'2026-06-01', format:"65'@Z2", pe:'4/10', total:65, opt:false},
+  {sem:2, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:false},
+  {sem:2, date:null, format:"35'@Z2 >> 6x (1'@Z5 + 1'@Z1) >> 5'@Z1", pe:'6/10', total:57, opt:false},
+  {sem:2, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:true},
+  {sem:2, date:'2026-06-08', format:"70'@Z2", pe:'4/10', total:70, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:true},
+  {sem:1, date:null, format:"25'@Z2 >> 4x (5'@Z4 + 2'@Z1) >> 5'@Z1", pe:'6/10', total:58, opt:false},
+  {sem:1, date:'2026-06-15', format:"75'@Z2", pe:'4/10', total:75, opt:false},
+  {sem:2, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:false},
+  {sem:2, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:true},
+  {sem:2, date:null, format:"25'@Z2 >> 4x (7'@Z4 + 2'@Z1) >> 5'@Z1", pe:'6/10', total:65, opt:false},
+  {sem:2, date:'2026-06-22', format:"75'@Z2", pe:'4/10', total:75, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:true},
+  {sem:1, date:null, format:"30'@Z2 >> 25'@Z3 >> 5'@Z1", pe:'5/10', total:60, opt:false},
+  {sem:1, date:'2026-06-29', format:"80'@Z2", pe:'4/10', total:80, opt:false},
+  {sem:2, date:null, format:"45'@Z2", pe:'3/10', total:45, opt:false},
+  {sem:2, date:null, format:"45'@Z2", pe:'3/10', total:45, opt:true},
+  {sem:2, date:null, format:"25'@Z2 >> 5x (7'@Z4 + 2'@Z1) >> 5'@Z1", pe:'6/10', total:70, opt:false},
+  {sem:2, date:'2026-07-06', format:"85'@Z2", pe:'4/10', total:85, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:true},
+  {sem:1, date:null, format:"30'@Z2 >> 2x (15'@Z3 + 5'@Z1) >> 5'@Z1", pe:'5/10', total:70, opt:false},
+  {sem:1, date:'2026-07-13', format:"75'@Z2", pe:'4/10', total:75, opt:false},
+  {sem:2, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:false},
+  {sem:2, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:true},
+  {sem:2, date:null, format:"25'@Z2 >> 3x (10'@Z4 + 3'@Z1) >> 5'@Z1", pe:'6/10', total:71, opt:false},
+  {sem:2, date:'2026-07-20', format:"60'@Z2 (récup)", pe:'3/10', total:60, opt:false},
+];
+
+const semiData = [
+  {sem:1, date:null, format:"45'@Z2", pe:'3/10', total:45, opt:false},
+  {sem:1, date:null, format:"20'@Z2 >> 10x (30\"@Z5 + 30\"@Z1) >> 5'@Z1", pe:'4/10', total:35, opt:false},
+  {sem:1, date:null, format:"30'@Z2", pe:'3/10', total:30, opt:true},
+  {sem:1, date:'2026-07-26', format:"15'@Z2 >> 15'@Z3 + 15'@Z4 >> 15'@Z2", pe:'5/10', total:60, opt:false},
+  {sem:2, date:null, format:"45'@Z2", pe:'3/10', total:45, opt:false},
+  {sem:2, date:null, format:"20'@Z2 >> 8x (1'@Z5 + 1'@Z1) >> 5'@Z1", pe:'5/10', total:41, opt:false},
+  {sem:2, date:null, format:"35'@Z2", pe:'3/10', total:35, opt:true},
+  {sem:2, date:'2026-08-02', format:"25'@Z2 >> 15'@Z4 >> 25'@Z2", pe:'5/10', total:65, opt:false},
+  {sem:1, date:null, format:"45'@Z2 >> 8x (20\"@Z5 + 40\"@Z1) >> 5'@Z1", pe:'4/10', total:58, opt:false},
+  {sem:1, date:null, format:"20'@Z2 >> 8x (1'@Z5 + 1'@Z1) >> 15'@Z2", pe:'5/10', total:51, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:true},
+  {sem:1, date:'2026-08-09', format:"70'@Z2", pe:'4/10', total:70, opt:false},
+  {sem:2, date:null, format:"25'@Z2 >> 5x (2'@Z5 + 2'@Z1) >> 5'@Z1", pe:'5/10', total:50, opt:false},
+  {sem:2, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:true},
+  {sem:2, date:null, format:"20'@Z2 >> 3x (8'@Z4 + 3'@Z1) >> 5'@Z1", pe:'6/10', total:58, opt:false},
+  {sem:2, date:'2026-08-16', format:"75'@Z2", pe:'4/10', total:75, opt:false},
+  {sem:1, date:null, format:"20'@Z2 >> 10x (3'@Z4 + 1'30\"@Z1) >> 5'@Z1", pe:'6/10', total:60, opt:false},
+  {sem:1, date:null, format:"45'@Z2", pe:'3/10', total:45, opt:true},
+  {sem:1, date:null, format:"20'@Z2 >> 2x (10'@Z3 + 3'@Z1) >> 5'@Z1", pe:'4/10', total:51, opt:false},
+  {sem:1, date:'2026-08-23', format:"80'@Z2", pe:'4/10', total:80, opt:false},
+  {sem:2, date:null, format:"25'@Z2 >> 10x (2'@Z5 + 1'@Z1) >> 5'@Z1", pe:'6/10', total:60, opt:false},
+  {sem:2, date:null, format:"45'@Z2", pe:'3/10', total:45, opt:true},
+  {sem:2, date:null, format:"20'@Z2 >> 4x (7'@Z4 + 3'@Z1) >> 5'@Z1", pe:'6/10', total:65, opt:false},
+  {sem:2, date:'2026-08-30', format:"85'@Z2", pe:'4/10', total:85, opt:false},
+  {sem:1, date:null, format:"25'@Z2 >> 8x (2'30\"@Z5 + 2'@Z1) >> 5'@Z1", pe:'6/10', total:66, opt:false},
+  {sem:1, date:null, format:"50'@Z2", pe:'3/10', total:50, opt:true},
+  {sem:1, date:null, format:"25'@Z2 >> 20'@Z3 >> 5'@Z1", pe:'4/10', total:50, opt:false},
+  {sem:1, date:'2026-09-06', format:"90'@Z2", pe:'4/10', total:90, opt:false},
+  {sem:2, date:null, format:"25'@Z2 >> 6x (2'@Z5 + 1'@Z1) >> 15'@Z2", pe:'5/10', total:58, opt:false},
+  {sem:2, date:null, format:"45'@Z2", pe:'3/10', total:45, opt:true},
+  {sem:2, date:null, format:"20'@Z2 >> 3x (10'@Z4 + 3'@Z1) >> 5'@Z1", pe:'6/10', total:66, opt:false},
+  {sem:2, date:'2026-09-13', format:"🏁 LA PARISIENNE — SEMI-MARATHON", pe:'—', total:null, opt:false},
+  // Tapering
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:false},
+  {sem:1, date:null, format:"20'@Z2 >> 6x (1'@Z5 + 1'@Z1) >> 10'@Z2", pe:'4/10', total:46, opt:false},
+  {sem:1, date:null, format:"30'@Z2", pe:'3/10', total:30, opt:true},
+  {sem:1, date:'2026-09-13', format:"🏁 LA PARISIENNE", pe:'—', total:null, opt:false},
+  {sem:2, date:null, format:"30'@Z2 récup", pe:'2/10', total:30, opt:true},
+  {sem:2, date:null, format:"20'@Z2 >> 3x (1'@Z5 + 1'@Z1) >> 10'@Z2", pe:'3/10', total:34, opt:false},
+  {sem:2, date:null, format:"30'@Z2 récup", pe:'2/10', total:30, opt:true},
+  {sem:2, date:'2026-09-13', format:"🏁 LA PARISIENNE (RACE DAY)", pe:'—', total:null, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'2/10', total:40, opt:false},
+  {sem:1, date:null, format:"20'@Z2 >> 4x (1'@Z5 + 1'@Z1) >> 10'@Z2", pe:'3/10', total:38, opt:false},
+  {sem:1, date:null, format:"30'@Z2", pe:'2/10', total:30, opt:true},
+  {sem:1, date:'2026-09-13', format:"🏁 LA PARISIENNE", pe:'—', total:null, opt:false},
+  {sem:2, date:null, format:"30'@Z2 récup", pe:'2/10', total:30, opt:true},
+  {sem:2, date:null, format:"20'@Z2 >> 3x (1'@Z5 + 1'@Z1) >> 5'@Z2", pe:'3/10', total:29, opt:false},
+  {sem:2, date:null, format:"30'@Z2 récup", pe:'2/10', total:30, opt:true},
+  {sem:2, date:'2026-09-13', format:"🏁 LA PARISIENNE (RACE DAY)", pe:'—', total:null, opt:false},
+];
+
+let logData = [
+  {date:'2026-01-06', km:3.00, dur:'00:26:47', bpm:null, type:'', notes:'', allure:'08:55'},
+  {date:'2026-01-12', km:3.06, dur:'00:29:14', bpm:null, type:'', notes:'', allure:'09:33'},
+  {date:'2026-01-13', km:3.64, dur:'00:33:27', bpm:null, type:'', notes:'', allure:'09:11'},
+  {date:'2026-01-16', km:3.87, dur:'00:34:06', bpm:null, type:'', notes:'', allure:'08:49'},
+  {date:'2026-01-17', km:6.09, dur:'00:53:19', bpm:null, type:'', notes:'', allure:'08:45'},
+  {date:'2026-01-19', km:4.84, dur:'00:43:15', bpm:null, type:'', notes:'', allure:'08:56'},
+  {date:'2026-01-21', km:4.20, dur:'00:39:37', bpm:null, type:'', notes:'', allure:'09:26'},
+  {date:'2026-01-24', km:6.08, dur:'00:52:51', bpm:null, type:'', notes:'', allure:'08:42'},
+  {date:'2026-01-26', km:4.85, dur:'00:42:49', bpm:null, type:'', notes:'', allure:'08:50'},
+  {date:'2026-01-28', km:5.03, dur:'00:42:48', bpm:null, type:'', notes:'', allure:'08:31'},
+  {date:'2026-01-31', km:6.03, dur:'00:49:49', bpm:null, type:'', notes:'', allure:'08:16'},
+  {date:'2026-02-02', km:5.45, dur:'00:45:05', bpm:null, type:'', notes:'', allure:'08:16'},
+  {date:'2026-02-05', km:6.01, dur:'00:54:07', bpm:null, type:'', notes:'', allure:'09:00'},
+  {date:'2026-02-07', km:6.68, dur:'00:54:11', bpm:null, type:'', notes:'', allure:'08:07'},
+  {date:'2026-02-14', km:5.11, dur:'00:45:05', bpm:146, type:'EF', notes:'', allure:'08:49'},
+  {date:'2026-02-27', km:4.20, dur:'00:35:04', bpm:null, type:'', notes:'', allure:'08:21'},
+  {date:'2026-03-01', km:5.17, dur:'00:44:24', bpm:null, type:'', notes:'', allure:'08:35'},
+  {date:'2026-03-04', km:6.05, dur:'00:52:24', bpm:null, type:'', notes:'', allure:'08:40'},
+  {date:'2026-03-08', km:5.23, dur:'00:38:50', bpm:null, type:'Race', notes:'La Putéolienne', allure:'07:26'},
+  {date:'2026-03-11', km:5.22, dur:'00:45:14', bpm:154, type:'EF', notes:'', allure:'08:40'},
+  {date:'2026-03-13', km:6.18, dur:'00:52:39', bpm:null, type:'FC', notes:'', allure:'08:31'},
+  {date:'2026-03-15', km:8.59, dur:'01:10:07', bpm:null, type:'FL', notes:'', allure:'08:10'},
+  {date:'2026-03-18', km:4.42, dur:'00:40:14', bpm:151, type:'EF', notes:'', allure:'09:06'},
+  {date:'2026-03-22', km:10.19, dur:'01:28:37', bpm:null, type:'Race', notes:'Eco Trail', allure:'08:42'},
+  {date:'2026-03-24', km:4.37, dur:'00:40:03', bpm:147, type:'EF', notes:'', allure:'09:10'},
+];
+
+let racesData = [
+  {name:'La Putéolienne', date:'2026-03-08', dist:'5km', obj:'00:40:00', real:'00:38:50'},
+  {name:'Ecotrail', date:'2026-03-22', dist:'10km', obj:'01:30:00', real:'01:28:37'},
+  {name:'Sine qua non', date:'2026-03-28', dist:'10km', obj:'', real:''},
+  {name:'Unicef Boulogne', date:'2026-05-10', dist:'10km', obj:'', real:''},
+  {name:'Adidas Paris', date:'2026-06-07', dist:'10km', obj:'', real:''},
+  {name:'La course des princesses', date:'2026-06-28', dist:'8km', obj:'', real:''},
+  {name:'La Parisienne', date:'2026-09-13', dist:'10km', obj:'', real:''},
+  {name:'20km de Paris', date:'2026-10-11', dist:'20km', obj:'', real:''},
+];
+
+// States (persist to localStorage)
+const STATE_KEY = 'runtracker_v2';
+let state = {
+  tempoDone: {},
+  prepDone: {},
+  semiDone: {},
+  logs: logData,
+  races: racesData,
+};
+
+function loadState() {
+  try {
+    const s = localStorage.getItem(STATE_KEY);
+    if (s) {
+      const parsed = JSON.parse(s);
+      state = {...state, ...parsed};
+      logData = state.logs;
+      racesData = state.races;
+    }
+  } catch(e) {}
+}
+
+function saveState() {
+  state.logs = logData;
+  state.races = racesData;
+  localStorage.setItem(STATE_KEY, JSON.stringify(state));
+}
+
+// ============================================================
+// NAV
+// ============================================================
+function showSection(id, btn) {
+  document.querySelectorAll('section').forEach(s => s.classList.remove('visible'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('visible');
+  btn.classList.add('active');
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function durToSec(dur) {
+  if (!dur || dur === 'NaN') return null;
+  const parts = dur.split(':').map(Number);
+  if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+  if (parts.length === 2) return parts[0]*60 + parts[1];
+  return null;
+}
+
+function secToDur(s) {
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  const sec = Math.floor(s%60);
+  return [h,m,sec].map(x => String(x).padStart(2,'0')).join(':');
+}
+
+function allureClass(allure) {
+  if (!allure) return '';
+  const [m] = allure.split(':').map(Number);
+  if (m <= 8) return 'allure-fast';
+  if (m <= 9) return 'allure-mid';
+  return 'allure-slow';
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('fr-FR', {day:'2-digit', month:'short', year:'numeric'});
+}
+
+function getDaysTo(dateStr) {
+  const now = new Date('2026-03-25');
+  const d = new Date(dateStr);
+  return Math.round((d - now) / 86400000);
+}
+
+function formatZones(format) {
+  return format.replace(/@Z(\d)/g, (_, z) => {
+    const colors = {1:'var(--z1)',2:'var(--z2)',3:'var(--z3)',4:'var(--z4)',5:'var(--z5)'};
+    return `<span style="color:${colors[z]||'#fff'}">@Z${z}</span>`;
+  });
+}
+
+function notify(msg) {
+  const n = document.getElementById('notif');
+  n.textContent = msg;
+  n.classList.add('show');
+  setTimeout(() => n.classList.remove('show'), 2500);
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function renderDashboard() {
+  // KPIs
+  const totalKm = logData.reduce((a, r) => a + (r.km || 0), 0);
+  const totalSorties = logData.length;
+  const avgAllure = (() => {
+    const secs = logData.map(r => durToSec(r.allure ? '00:' + r.allure : null)).filter(Boolean);
+    if (!secs.length) return '—';
+    return secToDur(secs.reduce((a,b)=>a+b,0)/secs.length).slice(3);
+  })();
+  const longestRun = Math.max(...logData.map(r => r.km || 0));
+  const longestDurSec = Math.max(...logData.map(r => durToSec(r.dur) || 0));
+  const longestDurStr = longestDurSec > 0 ? secToDur(longestDurSec).replace(/^00:/, '') : '—';
+  const lastBpms = logData.filter(r => r.bpm).map(r => r.bpm);
+  const avgBpm = lastBpms.length ? Math.round(lastBpms.reduce((a,b)=>a+b,0)/lastBpms.length) : '—';
+
+  document.getElementById('kpi-grid').innerHTML = `
+    <div class="kpi green">
+      <div class="kpi-label">Allure moy.</div>
+      <div class="kpi-value">${avgAllure}</div>
+      <div class="kpi-unit">min/km</div>
+    </div>
+    <div class="kpi orange">
+      <div class="kpi-label">Durée la plus longue</div>
+      <div class="kpi-value">${longestDurStr}</div>
+      <div class="kpi-unit">hh:mm:ss</div>
+    </div>
+    <div class="kpi accent">
+      <div class="kpi-label">Plus grande distance</div>
+      <div class="kpi-value">${longestRun.toFixed(1)}</div>
+      <div class="kpi-unit">km</div>
+    </div>
+    <div class="kpi blue">
+      <div class="kpi-label">BPM moy. EF</div>
+      <div class="kpi-value">${avgBpm}</div>
+      <div class="kpi-unit">bpm</div>
+    </div>
+  `;
+
+  // Tempo progress
+  const done = Object.values(state.tempoDone).filter(Boolean).length;
+  const pct = Math.round(done / tempoData.length * 100);
+  document.getElementById('tempo-pct').textContent = `${pct}%`;
+  document.getElementById('tempo-bar').style.width = pct + '%';
+  document.getElementById('tempo-meta').textContent = `${done} / ${tempoData.length} séances complétées`;
+
+  // Monthly bar chart
+  const months = ['Jan','Fév','Mar'];
+  const monthly = {Jan:0, Fév:0, Mar:0};
+  logData.forEach(r => {
+    if (!r.date) return;
+    const m = new Date(r.date).getMonth();
+    if (m === 0) monthly.Jan += r.km || 0;
+    else if (m === 1) monthly.Fév += r.km || 0;
+    else if (m === 2) monthly.Mar += r.km || 0;
+  });
+  const maxKm = Math.max(...Object.values(monthly), 1);
+  document.getElementById('monthly-chart').innerHTML = months.map(m => {
+    const km = monthly[m];
+    const h = Math.round((km / maxKm) * 100);
+    return `<div class="bar-col">
+      <div class="bar" style="height:${h}px;background:var(--accent2)" title="${km.toFixed(1)} km"></div>
+      <div class="bar-label">${m}<br>${km.toFixed(0)}km</div>
+    </div>`;
+  }).join('');
+
+  // Races table
+  const today = new Date('2026-03-25');
+  document.getElementById('race-tbody').innerHTML = racesData.map(r => {
+    const days = getDaysTo(r.date);
+    let badge, status;
+    if (r.real) { badge = 'badge-done'; status = '✓ Terminée'; }
+    else if (days <= 7) { badge = 'badge-next'; status = `J-${days}`; }
+    else { badge = 'badge-future'; status = days < 0 ? 'Passée' : `S-${Math.round(days/7)}`; }
+    const diff = r.real && r.obj ? (() => {
+      const diff = durToSec(r.real) - durToSec(r.obj);
+      return diff < 0 ? `<span style="color:var(--z1)">-${secToDur(-diff).slice(3)}</span>` : `+${secToDur(diff).slice(3)}`;
+    })() : '—';
+    return `<tr>
+      <td><span class="badge ${badge}">${status}</span></td>
+      <td><strong>${r.name}</strong></td>
+      <td class="mono">${formatDate(r.date)}</td>
+      <td>${r.dist}</td>
+      <td class="mono">${r.obj || '—'}</td>
+      <td class="mono">${r.real || '—'}</td>
+    </tr>`;
+  }).join('');
+
+  // Coherence alerts
+  renderCoherence();
+  renderProjections();
+  renderEF();
+}
+
+// ============================================================
+// EF TRACKER
+// ============================================================
+function renderEF() {
+  // Only EF runs with BPM + allure
+  const efRuns = logData
+    .filter(r => r.type === 'EF' && r.bpm && r.allure && r.date)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  const efAll = logData
+    .filter(r => r.allure && r.date && r.type !== 'Race')
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  // EF index = allure pace (sec/km) / bpm — lower = more efficient
+  // Normalized: lower index = better aerobic efficiency
+  function efIndex(r) {
+    const [m, s] = r.allure.split(':').map(Number);
+    return Math.round(((m * 60 + s) / r.bpm) * 100) / 100;
+  }
+
+  // ── KPIs ───────────────────────────────────────────────────
+  const kpiEl = document.getElementById('ef-kpis');
+  if (efRuns.length < 2) {
+    kpiEl.innerHTML = `<div style="grid-column:1/-1;color:var(--text-muted);font-size:13px;font-family:'Space Mono',monospace;">
+      Pas encore assez de sorties EF avec BPM enregistré (minimum 2).
+    </div>`;
+    document.getElementById('ef-tbody').innerHTML = '';
+    document.getElementById('ef-chart-container').style.display = 'none';
+    return;
+  }
+  document.getElementById('ef-chart-container').style.display = 'block';
+
+  const first = efRuns[0], last = efRuns[efRuns.length - 1];
+  const firstPace = durToSec('00:' + first.allure);
+  const lastPace  = durToSec('00:' + last.allure);
+  const paceDelta = firstPace - lastPace; // positive = improvement
+
+  const firstIdx = efIndex(first), lastIdx = efIndex(last);
+  const idxDelta = firstIdx - lastIdx;   // positive = improvement
+
+  const avgBpm = Math.round(efRuns.reduce((s, r) => s + r.bpm, 0) / efRuns.length);
+
+  const paceSign  = paceDelta >= 0 ? '↗' : '↘';
+  const paceColor = paceDelta >= 0 ? 'var(--z1)' : 'var(--accent3)';
+  const idxSign   = idxDelta  >= 0 ? '↗' : '↘';
+  const idxColor  = idxDelta  >= 0 ? 'var(--z1)' : 'var(--accent3)';
+  const paceStr   = secToDur(Math.abs(paceDelta)).slice(3);
+
+  kpiEl.innerHTML = `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:8px;">Gain d'allure EF</div>
+      <div style="font-size:22px;font-weight:800;color:${paceColor}">${paceSign} ${paceStr}/km</div>
+      <div style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-top:4px;">${first.allure} → ${last.allure} /km</div>
+    </div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:8px;">BPM moyen EF</div>
+      <div style="font-size:22px;font-weight:800;color:var(--accent2)">${avgBpm} <span style="font-size:14px">bpm</span></div>
+      <div style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-top:4px;">sur ${efRuns.length} sorties EF</div>
+    </div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:8px;">Indice aérobie</div>
+      <div style="font-size:22px;font-weight:800;color:${idxColor}">${idxSign} ${Math.abs(idxDelta).toFixed(2)}</div>
+      <div style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-top:4px;">${first.allure}/km @ ${first.bpm}bpm → ${last.allure}/km @ ${last.bpm}bpm</div>
+    </div>`;
+
+  // ── Chart (SVG inline — no lib needed) ─────────────────────
+  const chartEl = document.getElementById('ef-chart-container');
+  const W = chartEl.clientWidth || 600, H = 180;
+  const PAD = { top: 16, right: 48, bottom: 32, left: 48 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+
+  // Data points: all runs with allure, mark EF+bpm specially
+  const pts = efAll.map((r, i) => ({
+    x: i,
+    pace: durToSec('00:' + r.allure),
+    bpm: r.bpm || null,
+    isEF: r.type === 'EF' && r.bpm,
+    date: r.date,
+    allure: r.allure,
+    type: r.type,
+  }));
+
+  const paces = pts.map(p => p.pace);
+  const minP = Math.min(...paces) - 10, maxP = Math.max(...paces) + 10;
+  const bpms = pts.filter(p => p.bpm).map(p => p.bpm);
+  const minB = bpms.length ? Math.min(...bpms) - 5 : 130;
+  const maxB = bpms.length ? Math.max(...bpms) + 5 : 160;
+
+  const xScale = i => PAD.left + (i / Math.max(pts.length - 1, 1)) * cW;
+  const yPace  = p => PAD.top + ((p - minP) / (maxP - minP)) * cH;
+  const yBpm   = b => PAD.top + (1 - (b - minB) / (maxB - minB)) * cH;
+
+  // Build polylines
+  const paceLine = pts.map((p, i) => `${xScale(i).toFixed(1)},${(H - yPace(p.pace) - PAD.bottom + PAD.top).toFixed(1)}`).join(' ');
+  // Invert y: lower pace (faster) = higher on chart
+  const paceY = p => PAD.top + (1 - (p.pace - minP) / (maxP - minP)) * cH;
+
+  const allPacePts = pts.map((p, i) => `${xScale(i).toFixed(1)},${paceY(p).toFixed(1)}`).join(' ');
+  const bpmPts = pts.filter(p => p.bpm).map(p => {
+    const i = pts.indexOf(p);
+    return `${xScale(i).toFixed(1)},${yBpm(p.bpm).toFixed(1)}`;
+  }).join(' ');
+  const efPts = pts.filter(p => p.isEF).map(p => {
+    const i = pts.indexOf(p);
+    return { x: xScale(i), py: paceY(p), by: yBpm(p.bpm), p };
+  });
+
+  // Grid lines
+  const gridLines = [0, 0.25, 0.5, 0.75, 1].map(t => {
+    const y = PAD.top + t * cH;
+    const pVal = Math.round(minP + (1 - t) * (maxP - minP));
+    const mm = Math.floor(pVal / 60), ss = pVal % 60;
+    const pStr = `${mm}:${String(ss).padStart(2,'0')}`;
+    return `<line x1="${PAD.left}" y1="${y.toFixed(1)}" x2="${W - PAD.right}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1"/>
+      <text x="${PAD.left - 6}" y="${(y + 4).toFixed(1)}" text-anchor="end" fill="var(--text-muted)" font-size="9" font-family="monospace">${pStr}</text>`;
+  }).join('');
+
+  // BPM right axis labels
+  const bpmLabels = bpms.length ? [0, 0.5, 1].map(t => {
+    const y = PAD.top + (1 - t) * cH;
+    const bVal = Math.round(minB + t * (maxB - minB));
+    return `<text x="${W - PAD.right + 6}" y="${(y + 4).toFixed(1)}" fill="var(--accent2)" font-size="9" font-family="monospace">${bVal}</text>`;
+  }).join('') : '';
+
+  // EF dot highlights
+  const efDots = efPts.map(ep =>
+    `<circle cx="${ep.x.toFixed(1)}" cy="${ep.py.toFixed(1)}" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"/>
+     <circle cx="${ep.x.toFixed(1)}" cy="${ep.by.toFixed(1)}" r="4" fill="var(--accent2)" stroke="var(--surface)" stroke-width="1.5"/>`
+  ).join('');
+
+  chartEl.innerHTML = `
+    <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+      ${gridLines}
+      ${bpmLabels}
+      <!-- All runs pace line -->
+      <polyline points="${allPacePts}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-opacity="0.4" stroke-dasharray="3,3"/>
+      <!-- BPM line (EF only) -->
+      ${bpms.length > 1 ? `<polyline points="${bpmPts}" fill="none" stroke="var(--accent2)" stroke-width="2" stroke-opacity="0.7"/>` : ''}
+      <!-- EF highlighted dots -->
+      ${efDots}
+      <!-- Legend -->
+      <circle cx="${PAD.left + 8}" cy="${H - 8}" r="4" fill="var(--accent)"/>
+      <text x="${PAD.left + 16}" y="${H - 4}" fill="var(--text-muted)" font-size="9" font-family="monospace">Allure (toutes sorties)</text>
+      <circle cx="${PAD.left + 150}" cy="${H - 8}" r="4" fill="var(--accent2)"/>
+      <text x="${PAD.left + 158}" y="${H - 4}" fill="var(--text-muted)" font-size="9" font-family="monospace">BPM EF (axe droit)</text>
+    </svg>`;
+
+  // ── Tableau ─────────────────────────────────────────────────
+  let prevIdx = null;
+  document.getElementById('ef-tbody').innerHTML = efRuns.map((r, i) => {
+    const idx = efIndex(r);
+    const trend = prevIdx === null ? '—'
+      : idx < prevIdx - 0.05 ? '<span style="color:var(--z1)">↗ mieux</span>'
+      : idx > prevIdx + 0.05 ? '<span style="color:var(--accent3)">↘ moins bien</span>'
+      : '<span style="color:var(--text-muted)">→ stable</span>';
+    prevIdx = idx;
+    const idxColor = i === 0 ? 'var(--text-muted)'
+      : idx < efIndex(efRuns[i-1]) - 0.05 ? 'var(--z1)'
+      : idx > efIndex(efRuns[i-1]) + 0.05 ? 'var(--accent3)'
+      : 'var(--text-muted)';
+    return `<tr>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--row-border);font-family:'Space Mono',monospace;">${formatDate(r.date)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--row-border);font-family:'Space Mono',monospace;">${r.km?.toFixed(1)||'—'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--row-border);font-family:'Space Mono',monospace;color:var(--accent2);">${r.bpm} bpm</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--row-border);font-family:'Space Mono',monospace;">${r.allure}/km</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--row-border);font-family:'Space Mono',monospace;color:${idxColor};font-weight:700;">${idx.toFixed(2)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--row-border);">${trend}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('ef-meta').textContent =
+    `Indice aérobie = allure (sec/km) ÷ BPM · Plus il est bas, meilleure est ton efficacité aérobie à effort constant`;
+}
+
+function renderCoherence() {
+  const alerts = [];
+
+  // Check 1: missing dates in tempo
+  const missingDates = tempoData.filter(s => !s.date).length;
+  if (missingDates > 0) {
+    alerts.push({ok: false, title:'Dates manquantes (Tempo)', msg:`${missingDates} séances dans le plan Tempo n'ont pas de date assignée. La périodisation reste à compléter.`});
+  } else {
+    alerts.push({ok: true, title:'Dates Tempo complètes', msg:'Toutes les séances de la phase Tempo sont datées.'});
+  }
+
+  // Check 2: allure de la Putéolienne (5km en 38:50 = 7:46/km) vs EF typique (~8:30-9:30)
+  alerts.push({ok: true, title:'Progression cohérente', msg:'Les allures progressent de ~9:30/km (jan) vers ~8:10/km (mars). Amélioration de ~14% en 3 mois. ✓'});
+
+  // Check 3: BPM EF autour de 147-154 → zone 2 valide
+  alerts.push({ok: true, title:'BPM endurance fondamentale', msg:'Les BPM enregistrés en EF (146-154) correspondent bien à la Zone 2. Cohérent.'});
+
+  // Check 4: gap de 13 jours en février
+  alerts.push({ok: false, title:'Coupure détectée (fév)', msg:'Un gap de 13 jours (02/02 → 14/02) puis une coupure jusqu\'au 27/02. À surveiller dans la progression.'});
+
+  // Check 5: séances sans semaine (sem: null) — juste des courses hors plan, OK
+  const tempoNullSem = tempoData.filter(s => s.sem === null).length;
+  if (tempoNullSem > 0) {
+    alerts.push({ok: true, title:'Séances hors semaine (Tempo)', msg:`${tempoNullSem} séance(s) marquée(s) sans numéro de semaine — il s'agit de courses ponctuelles hors plan, non comptabilisées dans le suivi de progression.`});
+  }
+
+  document.getElementById('coherence-section').innerHTML = `
+    <div class="section-title" style="font-size:18px;margin-bottom:16px">Analyse de cohérence</div>
+    ${alerts.map(a => `
+      <div class="alert ${a.ok ? 'alert-ok' : ''}">
+        <div class="alert-title">${a.ok ? '✓' : '⚠'} ${a.title}</div>
+        <div>${a.msg}</div>
+      </div>
+    `).join('')}
+  `;
+}
+
+// ============================================================
+// PLAN RENDERER
+// ============================================================
+function groupByBlocks(data, blockSize) {
+  // Group into blocks of blockSize sessions
+  const blocks = [];
+  for (let i = 0; i < data.length; i += blockSize) {
+    blocks.push(data.slice(i, i + blockSize));
+  }
+  return blocks;
+}
+
+function renderPlan(containerId, data, stateKey) {
+  // Group by index blocks of 4 (one week = 4 sessions typically)
+  const container = document.getElementById(containerId);
+  let html = '';
+  let blockNum = 1;
+  let i = 0;
+
+  while (i < data.length) {
+    // Find end of current week block (look for long run or 4 sessions)
+    let blockEnd = Math.min(i + 4, data.length);
+    const block = data.slice(i, blockEnd);
+    const weekDate = block.find(s => s.date)?.date;
+
+    html += `<div class="week-card">
+      <div class="week-header">
+        <span class="week-num">BLOC ${blockNum}</span>
+        <span class="week-date">${weekDate ? formatDate(weekDate) : '—'}</span>
+      </div>`;
+
+    block.forEach((session, j) => {
+      const globalIdx = i + j;
+      const done = state[stateKey][globalIdx];
+      html += `<div class="session-row" onclick="toggleSession('${stateKey}', ${globalIdx}, this)">
+        <div class="session-check ${done ? 'done' : ''}">
+          ${done ? '✓' : ''}
+        </div>
+        <div class="session-format">${formatZones(session.format)}${session.opt ? ' <span class="optional-tag">(optionnel)</span>' : ''}</div>
+        <div class="session-meta">
+          ${session.pe ? `<span class="pe-badge">PE ${session.pe}</span>` : ''}
+          ${session.total ? `<span class="duration-badge">${session.total}'</span>` : ''}
+          <div class="action-btns">
+            <button class="action-btn" onclick="event.stopPropagation();openPlanEdit('${stateKey}',${globalIdx})" title="Modifier">✏️</button>
+            <button class="action-btn del" onclick="event.stopPropagation();deletePlanSession('${stateKey}',${globalIdx})" title="Supprimer">🗑</button>
+          </div>
+        </div>
+      </div>`;
+    });
+
+    html += `</div>`;
+    i = blockEnd;
+    blockNum++;
+  }
+
+  container.innerHTML = html;
+}
+
+function toggleSession(stateKey, idx, row) {
+  state[stateKey][idx] = !state[stateKey][idx];
+  saveState();
+  const check = row.querySelector('.session-check');
+  check.classList.toggle('done', !!state[stateKey][idx]);
+  check.textContent = state[stateKey][idx] ? '✓' : '';
+  notify(state[stateKey][idx] ? '✓ Séance validée !' : 'Séance décochée');
+  if (stateKey === 'tempoDone') renderDashboard();
+}
+
+// ============================================================
+// LOG
+// ============================================================
+let logFilter = 'all';
+let logSortAsc = false; // desc by default
+
+function toggleSort() {
+  logSortAsc = !logSortAsc;
+  document.getElementById('sort-icon').textContent = logSortAsc ? '↑' : '↓';
+  renderLog();
+}
+
+function renderLog() {
+  let allIndices = logData.map((r, i) => ({r, i}));
+  // Sort by date
+  allIndices.sort((a, b) => {
+    const da = new Date(a.r.date || 0), db = new Date(b.r.date || 0);
+    return logSortAsc ? da - db : db - da;
+  });
+  const filtered = logFilter === 'all' ? allIndices : allIndices.filter(({r}) => r.type === logFilter);
+  document.getElementById('log-tbody').innerHTML = filtered.map(({r, i}) => {
+    const ac = allureClass(r.allure);
+    const gapStr = r.gap ? `<span style="color:var(--accent2)">${r.gap}/km</span>` : '—';
+    const dplusStr = r.dplus ? `<span style="color:var(--z3)">${r.dplus}m</span>` : '—';
+    return `<tr>
+      <td class="mono">${formatDate(r.date)}</td>
+      <td class="mono"><strong>${r.km?.toFixed(2) || '—'}</strong></td>
+      <td class="mono">${r.dur || '—'}</td>
+      <td class="mono ${ac}">${r.allure || '—'}/km</td>
+      <td class="mono">${gapStr}</td>
+      <td class="mono">${dplusStr}</td>
+      <td class="mono">${r.bpm || '—'}</td>
+      <td>${r.type ? `<span class="badge badge-done">${r.type}</span>` : '—'}</td>
+      <td style="font-size:12px;color:var(--text-muted)">${r.notes || '—'}</td>
+      <td><div class="action-btns" style="opacity:0">
+        <button class="action-btn" onclick="openLogEdit(${i})" title="Modifier">✏️</button>
+        <button class="action-btn del" onclick="deleteLog(${i})" title="Supprimer">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+  addHoverListeners('log-tbody');
+}
+
+function estTime(secPerKm, distKm) {
+  // Riegel formula adjustment for longer distances
+  // t2 = t1 * (d2/d1)^1.06
+  const t = secPerKm * distKm;
+  return secToDur(Math.round(t));
+}
+
+function renderProjections() {
+  // Use last 5 valid runs (with allure), excluding races
+  const recent = logData
+    .filter(r => r.allure && r.type !== 'Race' && r.date)
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 5);
+
+  if (recent.length === 0) {
+    document.getElementById('projections-grid').innerHTML = '<div style="color:var(--text-muted);font-size:13px;grid-column:1/-1">Pas encore assez de données.</div>';
+    return;
+  }
+
+  // Use GAP if available, otherwise raw allure — for each run
+  const paceSecList = recent.map(r => {
+    const src = (r.gap && r.dplus) ? r.gap : r.allure;
+    const [m, s] = src.split(':').map(Number);
+    return m * 60 + s;
+  });
+  const avgSecPerKm = paceSecList.reduce((a, b) => a + b, 0) / paceSecList.length;
+
+  const runsWithGAP = recent.filter(r => r.gap && r.dplus).length;
+  const paceLabel = runsWithGAP > 0 ? 'GAP moy.' : 'Allure moy.';
+  const avgAllureStr = secToDur(Math.round(avgSecPerKm)).slice(3);
+
+  const distances = [
+    { label: '5 km',  dist: 5    },
+    { label: '10 km', dist: 10   },
+    { label: '21 km', dist: 21.1 },
+    { label: '42 km', dist: 42.2 },
+  ];
+
+  // Riegel: t2 = t1 * (d2/d1)^1.06, using 5km base
+  const base5km = avgSecPerKm * 5;
+
+  document.getElementById('projections-grid').innerHTML = distances.map(d => {
+    const projected = d.dist === 5
+      ? base5km
+      : base5km * Math.pow(d.dist / 5, 1.06);
+    const time = secToDur(Math.round(projected));
+    const paceForDist = Math.round(projected / d.dist);
+    const paceStr = secToDur(paceForDist).slice(3);
+    const displayTime = time.startsWith('00:') ? time.slice(3) : time;
+
+    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:8px;">${d.label}</div>
+      <div style="font-size:22px;font-weight:800;line-height:1;color:var(--accent)">${displayTime}</div>
+      <div style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-top:6px;">${paceStr}/km</div>
+    </div>`;
+  }).join('');
+
+  const gapNote = runsWithGAP > 0
+    ? ` · ${runsWithGAP}/${recent.length} sorties avec D+ corrigé (GAP)`
+    : ' · Aucun D+ renseigné — allure brute utilisée';
+  document.getElementById('projections-meta').textContent =
+    `${paceLabel} des ${recent.length} dernières sorties EF : ${avgAllureStr}/km · Riegel (1.06)${gapNote}`;
+}
+
+function est5k(allure) {
+  if (!allure) return '—';
+  const [m, s] = allure.split(':').map(Number);
+  const secPerKm = m * 60 + s;
+  return secToDur(secPerKm * 5).slice(3);
+}
+
+function filterLog(type, btn) {
+  logFilter = type;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderLog();
+}
+
+function computeGAP(allureSec, km, dplus) {
+  // GAP: Grade Adjusted Pace
+  // Strava/industry rule: each 100m D+ per km adds ~33 sec/km to equivalent flat pace
+  // So flat_pace = actual_pace - (dplus/km) * 0.33
+  if (!dplus || dplus <= 0 || !km) return null;
+  const gradePct = dplus / (km * 1000); // elevation grade as fraction
+  // GAP correction: ~7.5% time reduction per % grade (Strava formula approximation)
+  const correctionSecPerKm = gradePct * 7.5 * allureSec;
+  const gapSec = Math.round(allureSec - correctionSecPerKm);
+  return gapSec > 0 ? secToDur(gapSec).slice(3) : null;
+}
+
+function addLog() {
+  const date = document.getElementById('log-date').value;
+  const km = parseFloat(document.getElementById('log-km').value);
+  const dur = document.getElementById('log-dur').value;
+  const bpm = parseInt(document.getElementById('log-bpm').value) || null;
+  const type = document.getElementById('log-type').value;
+  const notes = document.getElementById('log-notes').value;
+  const dplus = parseInt(document.getElementById('log-dplus').value) || null;
+
+  if (!date || !km || !dur) { notify('⚠ Remplis date, km et durée'); return; }
+
+  const secs = durToSec(dur);
+  const allureSec = Math.round(secs / km);
+  const allure = secToDur(allureSec).slice(3);
+  const gap = computeGAP(allureSec, km, dplus);
+
+  logData.unshift({date, km, dur, bpm, type, notes, allure, dplus, gap});
+  saveState();
+  renderLog();
+  renderDashboard();
+  ['log-km','log-dur','log-bpm','log-notes','log-dplus'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('log-type').value = '';
+  notify('✓ Sortie enregistrée !');
+}
+
+// ============================================================
+// RACES
+// ============================================================
+function addHoverListeners(tbodyId) {
+  document.querySelectorAll(`#${tbodyId} tr`).forEach(tr => {
+    const btns = tr.querySelector('.action-btns');
+    if (!btns) return;
+    tr.addEventListener('mouseenter', () => btns.style.opacity = '1');
+    tr.addEventListener('mouseleave', () => btns.style.opacity = '0');
+  });
+}
+
+function renderRaces() {
+  document.getElementById('races-tbody').innerHTML = racesData.map((r, i) => {
+    const days = getDaysTo(r.date);
+    let status;
+    if (r.real) status = `<span class="badge badge-done">✓ Terminée</span>`;
+    else if (days < 0) status = `<span class="badge badge-future">Passée</span>`;
+    else if (days <= 10) status = `<span class="badge badge-next">J-${days}</span>`;
+    else status = `<span class="badge badge-future">S-${Math.round(days/7)}</span>`;
+
+    let diff = '—';
+    if (r.real && r.obj) {
+      const d = durToSec(r.real) - durToSec(r.obj);
+      diff = d < 0
+        ? `<span style="color:var(--z1)">-${secToDur(-d).slice(3)}</span>`
+        : `<span style="color:var(--accent3)">+${secToDur(d).slice(3)}</span>`;
+    }
+
+    return `<tr>
+      <td>${status}</td>
+      <td><strong>${r.name}</strong></td>
+      <td class="mono">${formatDate(r.date)}</td>
+      <td>${r.dist}</td>
+      <td class="mono">${r.obj || '—'}</td>
+      <td class="mono">${r.real || '—'}</td>
+      <td class="mono">${diff}</td>
+      <td><div class="action-btns" style="opacity:0">
+        <button class="action-btn" onclick="openRaceEdit(${i})" title="Modifier">✏️</button>
+        <button class="action-btn del" onclick="deleteRace(${i})" title="Supprimer">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+  addHoverListeners('races-tbody');
+}
+
+function addRace() {
+  const name = document.getElementById('r-name').value.trim();
+  const date = document.getElementById('r-date').value;
+  const dist = document.getElementById('r-dist').value.trim();
+  const obj = document.getElementById('r-obj').value.trim();
+  const real = document.getElementById('r-real').value.trim();
+  if (!name || !date) { notify('⚠ Nom et date requis'); return; }
+  racesData.push({name, date, dist, obj, real});
+  racesData.sort((a,b) => new Date(a.date) - new Date(b.date));
+  saveState();
+  renderRaces();
+  renderDashboard();
+  ['r-name','r-date','r-dist','r-obj','r-real'].forEach(id => document.getElementById(id).value='');
+  notify('✓ Course ajoutée !');
+}
+
+// ============================================================
+// MODAL HELPERS
+// ============================================================
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+
+// Click outside modal to close
+document.addEventListener('click', e => {
+  ['plan-modal','log-modal','race-modal'].forEach(id => {
+    const el = document.getElementById(id);
+    if (e.target === el) el.classList.remove('open');
+  });
+});
+
+// ============================================================
+// CONFIRM DELETE HELPER
+// ============================================================
+let _pendingDelete = null;
+
+function askConfirm(title, msg, fn) {
+  _pendingDelete = fn;
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent = msg;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+function confirmDelete() {
+  if (_pendingDelete) _pendingDelete();
+  _pendingDelete = null;
+  closeConfirm();
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+}
+
+// ============================================================
+// PLAN EDIT / DELETE
+// ============================================================
+const planDataMap = { tempoDone: tempoData, prepDone: prepData, semiDone: semiData };
+const planContainerMap = { tempoDone: 'tempo-weeks', prepDone: 'prep-weeks', semiDone: 'semi-weeks' };
+
+function openPlanEdit(stateKey, idx) {
+  const data = planDataMap[stateKey];
+  const s = data[idx];
+  document.getElementById('pm-statekey').value = stateKey;
+  document.getElementById('pm-idx').value = idx;
+  document.getElementById('pm-format').value = s.format || '';
+  document.getElementById('pm-date').value = s.date || '';
+  document.getElementById('pm-pe').value = s.pe || '';
+  document.getElementById('pm-total').value = s.total || '';
+  document.getElementById('pm-opt').checked = !!s.opt;
+  openModal('plan-modal');
+}
+
+function savePlanEdit() {
+  const stateKey = document.getElementById('pm-statekey').value;
+  const idx = parseInt(document.getElementById('pm-idx').value);
+  const data = planDataMap[stateKey];
+  data[idx].format = document.getElementById('pm-format').value;
+  data[idx].date = document.getElementById('pm-date').value || null;
+  data[idx].pe = document.getElementById('pm-pe').value;
+  data[idx].total = parseInt(document.getElementById('pm-total').value) || null;
+  data[idx].opt = document.getElementById('pm-opt').checked;
+  saveState();
+  renderPlan(planContainerMap[stateKey], data, stateKey);
+  closeModal('plan-modal');
+  notify('✓ Séance modifiée !');
+}
+
+function deletePlanSession(stateKey, idx) {
+  const data = planDataMap[stateKey];
+  askConfirm('Supprimer la séance ?', `"${data[idx].format}"`, () => {
+    data.splice(idx, 1);
+    // Shift done state keys above idx
+    const newDone = {};
+    Object.entries(state[stateKey]).forEach(([k, v]) => {
+      const ki = parseInt(k);
+      if (ki < idx) newDone[ki] = v;
+      else if (ki > idx) newDone[ki - 1] = v;
+    });
+    state[stateKey] = newDone;
+    saveState();
+    renderPlan(planContainerMap[stateKey], data, stateKey);
+    if (stateKey === 'tempoDone') renderDashboard();
+    notify('🗑 Séance supprimée');
+  });
+}
+
+// ============================================================
+// LOG EDIT / DELETE
+// ============================================================
+function openLogEdit(realIdx) {
+  const r = logData[realIdx];
+  document.getElementById('lm-idx').value = realIdx;
+  document.getElementById('lm-date').value = r.date || '';
+  document.getElementById('lm-km').value = r.km || '';
+  document.getElementById('lm-dur').value = r.dur || '';
+  document.getElementById('lm-bpm').value = r.bpm || '';
+  document.getElementById('lm-type').value = r.type || '';
+  document.getElementById('lm-dplus').value = r.dplus || '';
+  document.getElementById('lm-notes').value = r.notes || '';
+  openModal('log-modal');
+}
+
+function saveLogEdit() {
+  const idx = parseInt(document.getElementById('lm-idx').value);
+  const dur = document.getElementById('lm-dur').value;
+  const km = parseFloat(document.getElementById('lm-km').value);
+  const secs = durToSec(dur);
+  const allureSec = (secs && km) ? Math.round(secs / km) : null;
+  const allure = allureSec ? secToDur(allureSec).slice(3) : logData[idx].allure;
+  const dplus = parseInt(document.getElementById('lm-dplus').value) || null;
+  const gap = allureSec ? computeGAP(allureSec, km, dplus) : logData[idx].gap;
+  logData[idx] = {
+    date: document.getElementById('lm-date').value,
+    km,
+    dur,
+    bpm: parseInt(document.getElementById('lm-bpm').value) || null,
+    type: document.getElementById('lm-type').value,
+    dplus,
+    gap,
+    notes: document.getElementById('lm-notes').value,
+    allure,
+  };
+  saveState();
+  renderLog();
+  renderDashboard();
+  closeModal('log-modal');
+  notify('✓ Sortie modifiée !');
+}
+
+function deleteLog(realIdx) {
+  askConfirm('Supprimer la sortie ?', `${formatDate(logData[realIdx].date)} — ${logData[realIdx].km} km`, () => {
+    logData.splice(realIdx, 1);
+    saveState();
+    renderLog();
+    renderDashboard();
+    notify('🗑 Sortie supprimée');
+  });
+}
+
+// ============================================================
+// RACE EDIT / DELETE
+// ============================================================
+function openRaceEdit(idx) {
+  const r = racesData[idx];
+  document.getElementById('rm-idx').value = idx;
+  document.getElementById('rm-name').value = r.name || '';
+  document.getElementById('rm-date').value = r.date || '';
+  document.getElementById('rm-dist').value = r.dist || '';
+  document.getElementById('rm-obj').value = r.obj || '';
+  document.getElementById('rm-real').value = r.real || '';
+  openModal('race-modal');
+}
+
+function saveRaceEdit() {
+  const idx = parseInt(document.getElementById('rm-idx').value);
+  racesData[idx] = {
+    name: document.getElementById('rm-name').value,
+    date: document.getElementById('rm-date').value,
+    dist: document.getElementById('rm-dist').value,
+    obj: document.getElementById('rm-obj').value,
+    real: document.getElementById('rm-real').value,
+  };
+  racesData.sort((a,b) => new Date(a.date) - new Date(b.date));
+  saveState();
+  renderRaces();
+  renderDashboard();
+  closeModal('race-modal');
+  notify('✓ Course modifiée !');
+}
+
+function deleteRace(idx) {
+  askConfirm('Supprimer la course ?', racesData[idx].name, () => {
+    racesData.splice(idx, 1);
+    saveState();
+    renderRaces();
+    renderDashboard();
+    notify('🗑 Course supprimée');
+  });
+}
+
+// ============================================================
+// INIT
+// ============================================================
+loadState();
+renderDashboard();
+renderPlan('tempo-weeks', tempoData, 'tempoDone');
+renderPlan('prep-weeks', prepData, 'prepDone');
+renderPlan('semi-weeks', semiData, 'semiDone');
+renderLog();
+renderRaces();
+
+// Set today's date in log form
+document.getElementById('log-date').value = '2026-03-25';
+document.getElementById('r-date').value = '2026-03-25';
+</script>
+</body>
+</html>

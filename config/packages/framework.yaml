@@ -1,0 +1,17 @@
+framework:
+    secret: '%env(APP_SECRET)%'
+    http_method_override: true
+    handle_all_throwables: true
+    session:
+        handler_id: null
+        cookie_secure: auto
+        cookie_samesite: lax
+    php_errors:
+        log: true
+    serializer:
+        enabled: true
+        enable_annotations: true
+    property_access: true
+    validation:
+        enabled: true
+        enable_attributes: true
