@@ -19,6 +19,18 @@ class PageController extends AbstractController
     }
 
     /**
+     * Main tracker app — requires auth
+     */
+    #[Route('/tracker', name: 'app_tracker')]
+    #[IsGranted('ROLE_USER')]
+    public function tracker(): Response
+    {
+        return $this->render('base/tracker.html.twig', [
+            'username' => $this->getUser()?->getUserIdentifier(),
+        ]);
+    }
+
+    /**
      * Main SPA shell — requires auth (JS handles the rest via API)
      */
     #[Route('/app', name: 'app_home')]

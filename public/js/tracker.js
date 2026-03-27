@@ -1,0 +1,1848 @@
+// ── Theme ─────────────────────────────────────────
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  const b = document.getElementById('theme-toggle');
+  if (b) b.textContent = t === 'light' ? '🌙' : '☀️';
+}
+function toggleTheme() {
+  const c = document.documentElement.getAttribute('data-theme') || 'dark';
+  const n = c === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('rt_theme', n);
+  applyTheme(n);
+}
+applyTheme(localStorage.getItem('rt_theme') || 'light');
+
+// ============================================================
+// DATA
+// ============================================================
+
+let tempoData = [
+  {sem:1, date:'2026-03-24', format:"40'@Z2", pe:'3/10', total:40, done:true},
+  {sem:1, date:'2026-03-25', format:"20'@Z2 >> 8x (45''@Z5 + 30''@Z1) >> 5'@Z1", pe:'6/10', total:35, done:false},
+  {sem:null, date:'2026-03-28', format:"10km (course)", pe:'7/10', total:null, done:false},
+  {sem:1, date:'2026-03-29', format:"20'@Z2 >> 4x (5'@Z4 + 2'@Z1) >> 5'@Z1", pe:'6/10', total:53, done:false},
+  {sem:2, date:'2026-03-30', format:"45'@Z2", pe:'3/10', total:45, done:false},
+  {sem:2, date:'2026-03-31', format:"20'@Z2 >> 2x (5'@Z4 +2'@Z1) + 4x (1'@Z5 +1'@Z1) >> 5'@Z1", pe:'6/10', total:47, done:false},
+  {sem:2, date:'2026-04-05', format:"20'@Z2 >> 20'@Z3 >> 10@Z2", pe:'6/10', total:50, done:false},
+  {sem:1, date:'2026-04-06', format:"45'@Z2", pe:'3/10', total:45, done:false},
+  {sem:1, date:'2026-04-07', format:"20'@Z2 >> 3x (7'@Z4 + 2'@Z1) >> 5'@Z1", pe:'6/10', total:52, done:false},
+  {sem:1, date:'2026-04-12', format:"15'@Z2 >> 30'@Z3 >> 15'@Z2", pe:'6/10', total:60, done:false},
+  {sem:2, date:null, format:"45'@Z2", pe:'3/10', total:45, done:false},
+  {sem:2, date:null, format:"20'@Z2 >> 8x (1'@Z5 + 1'@Z1) >> 10'@Z2", pe:'5/10', total:46, done:false},
+  {sem:2, date:null, format:"20'@Z2 >> 4x (8'@Z4 + 2'@Z1) >> 5'@Z1", pe:'6/10', total:65, done:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, done:false},
+  {sem:1, date:null, format:"20'@Z2 >> 10x (20''@Z5 + 40''@Z1) >> 5'@Z1", pe:'6/10', total:35, done:false},
+  {sem:1, date:null, format:"20'@Z2 >> 4x (5'@Z4 + 2'@Z2) >> 5'@Z1", pe:'6/10', total:53, done:false},
+];
+
+let prepData = [
+  {sem:1, date:null, format:"25'@Z2", pe:'3/10', total:25, opt:false},
+  {sem:1, date:null, format:"30'@Z2 >> 5x (20\"@Z5 + 40\"@Z1) >> 5'@Z1", pe:'4/10', total:40, opt:false},
+  {sem:1, date:null, format:"30'@Z2", pe:'3/10', total:30, opt:true},
+  {sem:1, date:'2026-05-04', format:"60'@Z2", pe:'4/10', total:60, opt:false},
+  {sem:2, date:null, format:"45'@Z2", pe:'3/10', total:45, opt:false},
+  {sem:2, date:null, format:"25'@Z2 >> 2x (6'@Z3 + 2'@Z1) >> 5'@Z1", pe:'6/10', total:46, opt:false},
+  {sem:2, date:null, format:"35'@Z2", pe:'3/10', total:35, opt:true},
+  {sem:2, date:'2026-05-11', format:"65'@Z2", pe:'4/10', total:65, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:false},
+  {sem:1, date:null, format:"25'@Z2 >> 5x (2'@Z4 + 1'@Z1) >> 10'@Z2", pe:'5/10', total:50, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:true},
+  {sem:1, date:'2026-05-18', format:"60'@Z2", pe:'4/10', total:60, opt:false},
+  {sem:2, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:false},
+  {sem:2, date:null, format:"25'@Z2 >> 4x (3'@Z4 + 1'30\"@Z1) >> 10'@Z1", pe:'5/10', total:50, opt:false},
+  {sem:2, date:null, format:"40'@Z2", pe:'6/10', total:40, opt:true},
+  {sem:2, date:'2026-05-25', format:"65'@Z2", pe:'4/10', total:65, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:false},
+  {sem:1, date:null, format:"25'@Z2 >> 10x (1'@Z4 + 1'@Z1) >> 10'@Z1", pe:'3/10', total:55, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:true},
+  {sem:1, date:'2026-06-01', format:"65'@Z2", pe:'4/10', total:65, opt:false},
+  {sem:2, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:false},
+  {sem:2, date:null, format:"35'@Z2 >> 6x (1'@Z5 + 1'@Z1) >> 5'@Z1", pe:'6/10', total:57, opt:false},
+  {sem:2, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:true},
+  {sem:2, date:'2026-06-08', format:"70'@Z2", pe:'4/10', total:70, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:true},
+  {sem:1, date:null, format:"25'@Z2 >> 4x (5'@Z4 + 2'@Z1) >> 5'@Z1", pe:'6/10', total:58, opt:false},
+  {sem:1, date:'2026-06-15', format:"75'@Z2", pe:'4/10', total:75, opt:false},
+  {sem:2, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:false},
+  {sem:2, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:true},
+  {sem:2, date:null, format:"25'@Z2 >> 4x (7'@Z4 + 2'@Z1) >> 5'@Z1", pe:'6/10', total:65, opt:false},
+  {sem:2, date:'2026-06-22', format:"75'@Z2", pe:'4/10', total:75, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:true},
+  {sem:1, date:null, format:"30'@Z2 >> 25'@Z3 >> 5'@Z1", pe:'5/10', total:60, opt:false},
+  {sem:1, date:'2026-06-29', format:"80'@Z2", pe:'4/10', total:80, opt:false},
+  {sem:2, date:null, format:"45'@Z2", pe:'3/10', total:45, opt:false},
+  {sem:2, date:null, format:"45'@Z2", pe:'3/10', total:45, opt:true},
+  {sem:2, date:null, format:"25'@Z2 >> 5x (7'@Z4 + 2'@Z1) >> 5'@Z1", pe:'6/10', total:70, opt:false},
+  {sem:2, date:'2026-07-06', format:"85'@Z2", pe:'4/10', total:85, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:true},
+  {sem:1, date:null, format:"30'@Z2 >> 2x (15'@Z3 + 5'@Z1) >> 5'@Z1", pe:'5/10', total:70, opt:false},
+  {sem:1, date:'2026-07-13', format:"75'@Z2", pe:'4/10', total:75, opt:false},
+  {sem:2, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:false},
+  {sem:2, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:true},
+  {sem:2, date:null, format:"25'@Z2 >> 3x (10'@Z4 + 3'@Z1) >> 5'@Z1", pe:'6/10', total:71, opt:false},
+  {sem:2, date:'2026-07-20', format:"60'@Z2 (récup)", pe:'3/10', total:60, opt:false},
+];
+
+let semiData = [
+  {sem:1, date:null, format:"45'@Z2", pe:'3/10', total:45, opt:false},
+  {sem:1, date:null, format:"20'@Z2 >> 10x (30\"@Z5 + 30\"@Z1) >> 5'@Z1", pe:'4/10', total:35, opt:false},
+  {sem:1, date:null, format:"30'@Z2", pe:'3/10', total:30, opt:true},
+  {sem:1, date:'2026-07-26', format:"15'@Z2 >> 15'@Z3 + 15'@Z4 >> 15'@Z2", pe:'5/10', total:60, opt:false},
+  {sem:2, date:null, format:"45'@Z2", pe:'3/10', total:45, opt:false},
+  {sem:2, date:null, format:"20'@Z2 >> 8x (1'@Z5 + 1'@Z1) >> 5'@Z1", pe:'5/10', total:41, opt:false},
+  {sem:2, date:null, format:"35'@Z2", pe:'3/10', total:35, opt:true},
+  {sem:2, date:'2026-08-02', format:"25'@Z2 >> 15'@Z4 >> 25'@Z2", pe:'5/10', total:65, opt:false},
+  {sem:1, date:null, format:"45'@Z2 >> 8x (20\"@Z5 + 40\"@Z1) >> 5'@Z1", pe:'4/10', total:58, opt:false},
+  {sem:1, date:null, format:"20'@Z2 >> 8x (1'@Z5 + 1'@Z1) >> 15'@Z2", pe:'5/10', total:51, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:true},
+  {sem:1, date:'2026-08-09', format:"70'@Z2", pe:'4/10', total:70, opt:false},
+  {sem:2, date:null, format:"25'@Z2 >> 5x (2'@Z5 + 2'@Z1) >> 5'@Z1", pe:'5/10', total:50, opt:false},
+  {sem:2, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:true},
+  {sem:2, date:null, format:"20'@Z2 >> 3x (8'@Z4 + 3'@Z1) >> 5'@Z1", pe:'6/10', total:58, opt:false},
+  {sem:2, date:'2026-08-16', format:"75'@Z2", pe:'4/10', total:75, opt:false},
+  {sem:1, date:null, format:"20'@Z2 >> 10x (3'@Z4 + 1'30\"@Z1) >> 5'@Z1", pe:'6/10', total:60, opt:false},
+  {sem:1, date:null, format:"45'@Z2", pe:'3/10', total:45, opt:true},
+  {sem:1, date:null, format:"20'@Z2 >> 2x (10'@Z3 + 3'@Z1) >> 5'@Z1", pe:'4/10', total:51, opt:false},
+  {sem:1, date:'2026-08-23', format:"80'@Z2", pe:'4/10', total:80, opt:false},
+  {sem:2, date:null, format:"25'@Z2 >> 10x (2'@Z5 + 1'@Z1) >> 5'@Z1", pe:'6/10', total:60, opt:false},
+  {sem:2, date:null, format:"45'@Z2", pe:'3/10', total:45, opt:true},
+  {sem:2, date:null, format:"20'@Z2 >> 4x (7'@Z4 + 3'@Z1) >> 5'@Z1", pe:'6/10', total:65, opt:false},
+  {sem:2, date:'2026-08-30', format:"85'@Z2", pe:'4/10', total:85, opt:false},
+  {sem:1, date:null, format:"25'@Z2 >> 8x (2'30\"@Z5 + 2'@Z1) >> 5'@Z1", pe:'6/10', total:66, opt:false},
+  {sem:1, date:null, format:"50'@Z2", pe:'3/10', total:50, opt:true},
+  {sem:1, date:null, format:"25'@Z2 >> 20'@Z3 >> 5'@Z1", pe:'4/10', total:50, opt:false},
+  {sem:1, date:'2026-09-06', format:"90'@Z2", pe:'4/10', total:90, opt:false},
+  {sem:2, date:null, format:"25'@Z2 >> 6x (2'@Z5 + 1'@Z1) >> 15'@Z2", pe:'5/10', total:58, opt:false},
+  {sem:2, date:null, format:"45'@Z2", pe:'3/10', total:45, opt:true},
+  {sem:2, date:null, format:"20'@Z2 >> 3x (10'@Z4 + 3'@Z1) >> 5'@Z1", pe:'6/10', total:66, opt:false},
+  {sem:2, date:'2026-09-13', format:"🏁 LA PARISIENNE — SEMI-MARATHON", pe:'—', total:null, opt:false},
+  // Tapering
+  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40, opt:false},
+  {sem:1, date:null, format:"20'@Z2 >> 6x (1'@Z5 + 1'@Z1) >> 10'@Z2", pe:'4/10', total:46, opt:false},
+  {sem:1, date:null, format:"30'@Z2", pe:'3/10', total:30, opt:true},
+  {sem:1, date:'2026-09-13', format:"🏁 LA PARISIENNE", pe:'—', total:null, opt:false},
+  {sem:2, date:null, format:"30'@Z2 récup", pe:'2/10', total:30, opt:true},
+  {sem:2, date:null, format:"20'@Z2 >> 3x (1'@Z5 + 1'@Z1) >> 10'@Z2", pe:'3/10', total:34, opt:false},
+  {sem:2, date:null, format:"30'@Z2 récup", pe:'2/10', total:30, opt:true},
+  {sem:2, date:'2026-09-13', format:"🏁 LA PARISIENNE (RACE DAY)", pe:'—', total:null, opt:false},
+  {sem:1, date:null, format:"40'@Z2", pe:'2/10', total:40, opt:false},
+  {sem:1, date:null, format:"20'@Z2 >> 4x (1'@Z5 + 1'@Z1) >> 10'@Z2", pe:'3/10', total:38, opt:false},
+  {sem:1, date:null, format:"30'@Z2", pe:'2/10', total:30, opt:true},
+  {sem:1, date:'2026-09-13', format:"🏁 LA PARISIENNE", pe:'—', total:null, opt:false},
+  {sem:2, date:null, format:"30'@Z2 récup", pe:'2/10', total:30, opt:true},
+  {sem:2, date:null, format:"20'@Z2 >> 3x (1'@Z5 + 1'@Z1) >> 5'@Z2", pe:'3/10', total:29, opt:false},
+  {sem:2, date:null, format:"30'@Z2 récup", pe:'2/10', total:30, opt:true},
+  {sem:2, date:'2026-09-13', format:"🏁 LA PARISIENNE (RACE DAY)", pe:'—', total:null, opt:false},
+];
+
+// Initial data snapshots (used to seed empty localStorage)
+let logData = [
+  {date:'2026-01-06', km:3.00, dur:'00:26:47', bpm:null, type:'', notes:'', allure:'08:55'},
+  {date:'2026-01-12', km:3.06, dur:'00:29:14', bpm:null, type:'', notes:'', allure:'09:33'},
+  {date:'2026-01-13', km:3.64, dur:'00:33:27', bpm:null, type:'', notes:'', allure:'09:11'},
+  {date:'2026-01-16', km:3.87, dur:'00:34:06', bpm:null, type:'', notes:'', allure:'08:49'},
+  {date:'2026-01-17', km:6.09, dur:'00:53:19', bpm:null, type:'', notes:'', allure:'08:45'},
+  {date:'2026-01-19', km:4.84, dur:'00:43:15', bpm:null, type:'', notes:'', allure:'08:56'},
+  {date:'2026-01-21', km:4.20, dur:'00:39:37', bpm:null, type:'', notes:'', allure:'09:26'},
+  {date:'2026-01-24', km:6.08, dur:'00:52:51', bpm:null, type:'', notes:'', allure:'08:42'},
+  {date:'2026-01-26', km:4.85, dur:'00:42:49', bpm:null, type:'', notes:'', allure:'08:50'},
+  {date:'2026-01-28', km:5.03, dur:'00:42:48', bpm:null, type:'', notes:'', allure:'08:31'},
+  {date:'2026-01-31', km:6.03, dur:'00:49:49', bpm:null, type:'', notes:'', allure:'08:16'},
+  {date:'2026-02-02', km:5.45, dur:'00:45:05', bpm:null, type:'', notes:'', allure:'08:16'},
+  {date:'2026-02-05', km:6.01, dur:'00:54:07', bpm:null, type:'', notes:'', allure:'09:00'},
+  {date:'2026-02-07', km:6.68, dur:'00:54:11', bpm:null, type:'', notes:'', allure:'08:07'},
+  {date:'2026-02-14', km:5.11, dur:'00:45:05', bpm:146, type:'EF', notes:'', allure:'08:49'},
+  {date:'2026-02-27', km:4.20, dur:'00:35:04', bpm:null, type:'', notes:'', allure:'08:21'},
+  {date:'2026-03-01', km:5.17, dur:'00:44:24', bpm:null, type:'', notes:'', allure:'08:35'},
+  {date:'2026-03-04', km:6.05, dur:'00:52:24', bpm:null, type:'', notes:'', allure:'08:40'},
+  {date:'2026-03-08', km:5.23, dur:'00:38:50', bpm:null, type:'Race', notes:'La Putéolienne', allure:'07:26'},
+  {date:'2026-03-11', km:5.22, dur:'00:45:14', bpm:154, type:'EF', notes:'', allure:'08:40'},
+  {date:'2026-03-13', km:6.18, dur:'00:52:39', bpm:null, type:'FC', notes:'', allure:'08:31'},
+  {date:'2026-03-15', km:8.59, dur:'01:10:07', bpm:null, type:'FL', notes:'', allure:'08:10'},
+  {date:'2026-03-18', km:4.42, dur:'00:40:14', bpm:151, type:'EF', notes:'', allure:'09:06'},
+  {date:'2026-03-22', km:10.19, dur:'01:28:37', bpm:null, type:'Race', notes:'Eco Trail', allure:'08:42'},
+  {date:'2026-03-24', km:4.37, dur:'00:40:03', bpm:147, type:'EF', notes:'', allure:'09:10'},
+];
+
+let racesData = [
+  {name:'La Putéolienne', date:'2026-03-08', dist:'5km', obj:'00:40:00', real:'00:38:50'},
+  {name:'Ecotrail', date:'2026-03-22', dist:'10km', obj:'01:30:00', real:'01:28:37'},
+  {name:'Sine qua non', date:'2026-03-28', dist:'10km', obj:'', real:''},
+  {name:'Unicef Boulogne', date:'2026-05-10', dist:'10km', obj:'', real:''},
+  {name:'Adidas Paris', date:'2026-06-07', dist:'10km', obj:'', real:''},
+  {name:'La course des princesses', date:'2026-06-28', dist:'8km', obj:'', real:''},
+  {name:'La Parisienne', date:'2026-09-13', dist:'10km', obj:'', real:''},
+  {name:'20km de Paris', date:'2026-10-11', dist:'20km', obj:'', real:''},
+];
+
+const INITIAL_LOGS   = logData.map(r=>({...r}));
+const INITIAL_RACES  = racesData.map(r=>({...r}));
+const INITIAL_TEMPO  = tempoData.map(s=>({...s}));
+const INITIAL_PREP   = prepData.map(s=>({...s}));
+const INITIAL_SEMI   = semiData.map(s=>({...s}));
+
+// States (persist to localStorage)
+const STATE_KEY = 'runtracker_v2';
+let state = {
+  tempoDone: {},
+  prepDone: {},
+  semiDone: {},
+  planMeta: {},  // {tempo:{title,sub}, prep:{title,sub}, semi:{title,sub}}
+  logs: logData,
+  races: racesData,
+};
+
+function loadState() {
+  try {
+    const s = localStorage.getItem(STATE_KEY);
+    if (s) {
+      const parsed = JSON.parse(s);
+      // Only override if saved data has content (prevents empty-array overwrite)
+      if (parsed.logs && parsed.logs.length > 0) logData = parsed.logs;
+      if (parsed.races && parsed.races.length > 0) racesData = parsed.races;
+      if (parsed.tempoData && parsed.tempoData.length > 0) tempoData = parsed.tempoData;
+      if (parsed.prepData  && parsed.prepData.length  > 0) prepData  = parsed.prepData;
+      if (parsed.semiData  && parsed.semiData.length  > 0) semiData  = parsed.semiData;
+      state = {...state, ...parsed, logs: logData, races: racesData};
+    }
+    // Always reseed if data is empty (first load or cleared storage)
+    if (!logData || logData.length === 0) logData = INITIAL_LOGS;
+    if (!racesData || racesData.length === 0) racesData = INITIAL_RACES;
+  } catch(e) {
+    logData = INITIAL_LOGS;
+    racesData = INITIAL_RACES;
+  }
+}
+
+function saveState() {
+  state.logs = logData;
+  state.races = racesData;
+  state.tempoData = tempoData;
+  state.prepData = prepData;
+  state.semiData = semiData;
+  localStorage.setItem(STATE_KEY, JSON.stringify(state));
+}
+
+// ============================================================
+// NAV
+// ============================================================
+
+
+// ── Generic prompt modal (replaces browser prompt()) ──────────
+let _promptCallback = null;
+
+function showPrompt(title, defaultVal, inputType, callback) {
+  _promptCallback = callback;
+  const m = document.getElementById('prompt-modal');
+  document.getElementById('prompt-modal-title').textContent = title;
+
+  // Rebuild input with correct type (changing type on existing input is unreliable)
+  const field = document.getElementById('prompt-modal-field');
+  field.innerHTML = '';
+  const inp = document.createElement('input');
+  inp.id = 'prompt-modal-input';
+  inp.type = inputType || 'text';
+  inp.style.cssText = 'width:100%;box-sizing:border-box;';
+  inp.className = '';
+
+  // Set value — date inputs require yyyy-mm-dd
+  if (inputType === 'date') {
+    let val = defaultVal || '';
+    if (val.includes('/')) {
+      const [dd, mm, yyyy] = val.split('/');
+      val = yyyy + '-' + mm + '-' + dd;
+    }
+    inp.value = val;
+  } else {
+    inp.value = defaultVal || '';
+  }
+
+  field.appendChild(inp);
+  m.style.display = 'flex';
+  setTimeout(() => inp.focus(), 50);
+
+  // OK button
+  const okBtn = document.getElementById('prompt-modal-ok');
+  okBtn.onclick = () => {
+    const val = inp.value.trim();
+    const cb = _promptCallback;   // capture before closing
+    closePromptModal();
+    if (cb) cb(val);
+  };
+
+  // Enter key
+  inp.onkeydown = (e) => {
+    if (e.key === 'Enter') okBtn.click();
+    if (e.key === 'Escape') closePromptModal();
+  };
+
+  // Click outside
+  m.onclick = (e) => { if (e.target === m) closePromptModal(); };
+}
+
+function closePromptModal() {
+  document.getElementById('prompt-modal').style.display = 'none';
+  _promptCallback = null;
+}
+
+// ── Prépa hub ─────────────────────────────────────────────────
+let currentPlanId = null;
+
+const PLAN_DEFS = [
+  { id:'tempo', dataVar:'tempoData', doneKey:'tempoDone', weeksCId:'tempo-weeks' },
+  { id:'prep',  dataVar:'prepData',  doneKey:'prepDone',  weeksCId:'prep-weeks'  },
+  { id:'semi',  dataVar:'semiData',  doneKey:'semiDone',  weeksCId:'semi-weeks'  },
+];
+
+function getDefaultMeta(planId) {
+  return {
+    tempo: {title:'Phase Tempo',          sub:'Bloc de préparation actuel · 16 séances'},
+    prep:  {title:'Préparation Semi',     sub:'Plan de préparation avant le plan semi · 48 séances'},
+    semi:  {title:'Plan Semi-Marathon',   sub:'Plan 12 semaines vers la Parisienne (13 sept.) · 48 séances'},
+  }[planId] || {title: planId, sub:''};
+}
+
+function getPlanData(planId) {
+  // Always use current variable references (may be reassigned by loadState)
+  const map = {tempo:tempoData, prep:prepData, semi:semiData};
+  return map[planId] || [];
+}
+
+function planCard(id, title, sub, sessions, doneObj, archives, isExtra) {
+  const done = Object.values(doneObj || {}).filter(Boolean).length;
+  const pct  = sessions.length ? Math.round(done / sessions.length * 100) : 0;
+  const onclick = isExtra ? `openExtraPlan('${id}')` : `openPlan('${id}')`;
+  return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;
+                      padding:18px 20px;cursor:pointer;transition:border-color .2s;"
+               onmouseover="this.style.borderColor='var(--accent)'"
+               onmouseout="this.style.borderColor='var(--border)'"
+               onclick="${onclick}">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div style="flex:1;">
+        <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:4px;">${title}</div>
+        <div style="font-size:11px;color:var(--text-muted);font-family:'Space Mono',monospace;">${sub}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:22px;font-weight:800;color:var(--z1)">${pct}%</div>
+        <div style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;">${done}/${sessions.length} séances</div>
+        ${archives ? '<div style="font-size:10px;color:var(--accent2);font-family:Space Mono,monospace;margin-top:2px;">📦 '+archives+' archive'+(archives>1?'s':'')+'</div>' : ''}
+      </div>
+      <div style="color:var(--text-muted);font-size:18px;">›</div>
+    </div>
+    <div style="height:3px;background:var(--border);border-radius:2px;margin-top:14px;">
+      <div style="height:100%;width:${pct}%;background:var(--z1);border-radius:2px;transition:width .4s;"></div>
+    </div>
+  </div>`;
+}
+
+
+function openExtraPlan(planId) {
+  currentPlanId = planId;
+  const ep = (state.extraPlans || []).find(p => p.id === planId);
+  if (!ep) return;
+
+  document.getElementById('prepa-list').style.display = 'none';
+  document.querySelector('#prepa > .btn').style.display = 'none';
+  document.querySelector('#prepa > .zone-legend').style.display = 'none';
+  document.getElementById('prepa-detail').style.display = 'block';
+  const delBtn2 = document.getElementById('delete-extra-btn'); if(delBtn2) delBtn2.style.display = '';
+  document.getElementById('prepa-detail-title').textContent = ep.title;
+  document.getElementById('prepa-detail-sub').textContent = ep.sub;
+
+  renderExtraPlan(ep);
+}
+
+function renderExtraPlan(ep) {
+  const weeksEl = document.getElementById('prepa-detail-weeks');
+  // Build HTML manually using renderPlan logic but with ep.sessions
+  let html2 = '';
+  let blockNum = 1, i = 0;
+  while (i < ep.sessions.length) {
+    const blockEnd = Math.min(i + 4, ep.sessions.length);
+    const block = ep.sessions.slice(i, blockEnd);
+    const weekDate = block.find(s => s.date)?.date;
+    const blockIndices = block.map((_,j) => i+j);
+    html2 += `<div class="week-card">
+      <div class="week-header">
+        <span class="week-num">BLOC ${blockNum}</span>
+        <span class="week-date" onclick="editExtraBlockDate('${ep.id}', ${JSON.stringify(blockIndices)})"
+          title="Cliquer pour modifier la date"
+          style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;">
+          ${weekDate ? formatDate(weekDate) : '— définir date'}
+        </span>
+      </div>`;
+    block.forEach((session, j) => {
+      const globalIdx = i + j;
+      const done = ep.done[globalIdx];
+      html2 += `<div class="session-row" onclick="toggleExtraSession('${ep.id}', ${globalIdx}, this)">
+        <div class="session-check ${done ? 'done' : ''}">${done ? '✓' : ''}</div>
+        <div class="session-format">${formatZones(session.format)}${session.opt ? ' <span class="optional-tag">(optionnel)</span>' : ''}</div>
+        <div class="session-meta">
+          ${session.pe ? `<span class="pe-badge">PE ${session.pe}</span>` : ''}
+          ${session.total ? `<span class="duration-badge">${session.total}'</span>` : ''}
+          <div class="action-btns">
+            <button class="action-btn" onclick="event.stopPropagation();openExtraSessionEdit('${ep.id}',${globalIdx})" title="Modifier">✏️</button>
+            <button class="action-btn del" onclick="event.stopPropagation();deleteExtraSession('${ep.id}',${globalIdx})" title="Supprimer">🗑</button>
+          </div>
+        </div>
+      </div>`;
+    });
+    html2 += '</div>';
+    i = blockEnd; blockNum++;
+  }
+  weeksEl.innerHTML = html2;
+}
+
+function toggleExtraSession(planId, idx, row) {
+  const ep = (state.extraPlans || []).find(p => p.id === planId);
+  if (!ep) return;
+  ep.done[idx] = !ep.done[idx];
+  saveState();
+  const check = row.querySelector('.session-check');
+  check.classList.toggle('done', !!ep.done[idx]);
+  check.textContent = ep.done[idx] ? '✓' : '';
+  renderPrepaList();
+}
+
+function editExtraBlockDate(planId, indices) {
+  const ep = (state.extraPlans || []).find(p => p.id === planId);
+  if (!ep) return;
+  const cur = indices.map(i => ep.sessions[i]?.date).find(d => d) || '';
+  showPrompt('Date du bloc', cur, 'date', (d) => {
+    if (ep.sessions[indices[0]]) ep.sessions[indices[0]].date = d || null;
+    saveState();
+    renderExtraPlan(ep);
+  });
+}
+
+function openExtraSessionEdit(planId, idx) {
+  const ep = (state.extraPlans || []).find(p => p.id === planId);
+  if (!ep) return;
+  const s = ep.sessions[idx];
+  // Reuse plan-modal
+  document.getElementById('pm-statekey').value = 'extra:' + planId;
+  document.getElementById('pm-idx').value = idx;
+  document.getElementById('pm-format').value = s.format || '';
+  document.getElementById('pm-date').value = s.date || '';
+  document.getElementById('pm-pe').value = s.pe || '';
+  document.getElementById('pm-total').value = s.total || '';
+  document.getElementById('pm-opt').checked = !!s.opt;
+  openModal('plan-modal');
+}
+
+function deleteExtraSession(planId, idx) {
+  const ep = (state.extraPlans || []).find(p => p.id === planId);
+  if (!ep) return;
+  if (!confirm('Supprimer cette séance ?')) return;
+  ep.sessions.splice(idx, 1);
+  // Reindex done
+  const newDone = {};
+  Object.entries(ep.done).forEach(([k,v]) => {
+    const ki = parseInt(k);
+    if (ki < idx) newDone[ki] = v;
+    else if (ki > idx) newDone[ki-1] = v;
+  });
+  ep.done = newDone;
+  saveState();
+  renderExtraPlan(ep);
+  renderPrepaList();
+}
+
+function deleteExtraPlan(planId) {
+  if (!confirm('Supprimer définitivement ce plan ?')) return;
+  state.extraPlans = (state.extraPlans || []).filter(p => p.id !== planId);
+  saveState();
+  backToPrepaList();
+}
+
+function renderPrepaList() {
+  const container = document.getElementById('prepa-list');
+  if (!container) return;
+
+  // Built-in plans
+  const builtIn = PLAN_DEFS.map(p => {
+    const meta = (state.planMeta || {})[p.id] || getDefaultMeta(p.id);
+    const data = getPlanData(p.id);
+    const archives = ((state.archives || {})[p.id] || []).length;
+    return planCard(p.id, meta.title, meta.sub, data, state[p.doneKey], archives, false);
+  });
+
+  // Extra plans
+  const extras = (state.extraPlans || []).map(ep =>
+    planCard(ep.id, ep.title, ep.sub, ep.sessions, ep.done, 0, true)
+  );
+
+  container.innerHTML = [...builtIn, ...extras].join('');
+}
+
+function openPlan(planId) {
+  currentPlanId = planId;
+  const meta = (state.planMeta || {})[planId] || getDefaultMeta(planId);
+  const data = getPlanData(planId);
+  const doneKey = {tempo:'tempoDone', prep:'prepDone', semi:'semiDone'}[planId];
+
+  document.getElementById('prepa-list').style.display = 'none';
+  document.querySelector('#prepa > .btn').style.display = 'none';
+  document.querySelector('#prepa > .zone-legend').style.display = 'none';
+  document.getElementById('prepa-detail').style.display = 'block';
+  const delBtn = document.getElementById('delete-extra-btn'); if(delBtn) delBtn.style.display = 'none';
+  document.getElementById('prepa-detail-title').textContent = meta.title;
+  document.getElementById('prepa-detail-sub').textContent = meta.sub;
+
+  // Render sessions directly into the detail container
+  renderPlan('prepa-detail-weeks', data, doneKey);
+}
+
+function backToPrepaList() {
+  currentPlanId = null;
+  document.getElementById('prepa-list').style.display = 'flex';
+  document.getElementById('prepa-list').style.flexDirection = 'column';
+  document.querySelector('#prepa > .btn').style.display = '';
+  document.querySelector('#prepa > .zone-legend').style.display = '';
+  document.getElementById('prepa-detail').style.display = 'none';
+  document.getElementById('prepa-detail-weeks').innerHTML = '';
+  renderPrepaList();
+}
+
+function createNewPlanFromHub() {
+  openNewPlanModal();
+}
+
+function openNewPlanModal() {
+  const existing = document.getElementById('newplan-modal');
+  if (existing) existing.remove();
+  const m = document.createElement('div');
+  m.id = 'newplan-modal';
+  m.className = 'modal-overlay';
+  m.style.display = 'flex';
+  m.innerHTML = `
+    <div class="modal">
+      <button class="modal-close" onclick="document.getElementById('newplan-modal').remove()">✕</button>
+      <div class="modal-title">Nouveau plan</div>
+      <div class="form-grid" style="grid-template-columns:1fr;">
+        <div class="field"><label>Nom du plan</label><input type="text" id="np-title" placeholder="Ex: Plan 10km printemps" autofocus></div>
+        <div class="field"><label>Sous-titre</label><input type="text" id="np-sub" placeholder="Ex: 8 semaines · 32 séances"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="confirmCreatePlan()">Créer</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('newplan-modal').remove()">Annuler</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+  document.getElementById('np-title').focus();
+}
+
+function confirmCreatePlan() {
+  const title = document.getElementById('np-title').value.trim();
+  const sub   = document.getElementById('np-sub').value.trim();
+  if (!title) { notify('Saisis un nom de plan'); return; }
+
+  // Store extra plans in state.extraPlans = [{id, title, sub, sessions, done}]
+  if (!state.extraPlans) state.extraPlans = [];
+  const planId = 'extra_' + Date.now();
+  state.extraPlans.push({
+    id: planId,
+    title: title,
+    sub: sub || '',
+    sessions: [
+      {sem:1,date:null,format:"45'@Z2",pe:'3/10',total:45},
+      {sem:1,date:null,format:"45'@Z2",pe:'3/10',total:45},
+      {sem:1,date:null,format:"45'@Z2",pe:'3/10',total:45},
+      {sem:1,date:null,format:"60'@Z2",pe:'4/10',total:60},
+    ],
+    done: {},
+  });
+  saveState();
+  document.getElementById('newplan-modal').remove();
+  renderPrepaList();
+  openExtraPlan(planId);
+  notify('Plan "' + title + '" créé');
+}
+
+// Override editPlanMeta to refresh detail view after save
+const _origSavePlanMeta = typeof savePlanMeta === 'function' ? savePlanMeta : null;
+
+function showSection(id, btn) {
+  document.querySelectorAll('section').forEach(s => s.classList.remove('visible'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('visible');
+  btn.classList.add('active');
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function durToSec(dur) {
+  if (!dur || dur === 'NaN') return null;
+  const parts = dur.split(':').map(Number);
+  if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+  if (parts.length === 2) return parts[0]*60 + parts[1];
+  return null;
+}
+
+function secToDur(s) {
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  const sec = Math.floor(s%60);
+  return [h,m,sec].map(x => String(x).padStart(2,'0')).join(':');
+}
+
+function allureClass(allure) {
+  if (!allure) return '';
+  const [m] = allure.split(':').map(Number);
+  if (m <= 8) return 'allure-fast';
+  if (m <= 9) return 'allure-mid';
+  return 'allure-slow';
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d + (d.includes('T') ? '' : 'T00:00:00'));
+  return dt.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric'});
+}
+
+function getDaysTo(dateStr) {
+  const now = new Date('2026-03-25');
+  const d = new Date(dateStr);
+  return Math.round((d - now) / 86400000);
+}
+
+function formatZones(format) {
+  return format.replace(/@Z(\d)/g, (_, z) => {
+    const isDarkZone = document.documentElement.getAttribute('data-theme') !== 'light';
+    const colors = isDarkZone
+      ? {1:'#4ade80',2:'#8b9cf4',3:'#f0c040',4:'#d966e0',5:'#e05580'}
+      : {1:'var(--z1)',2:'var(--z2)',3:'var(--z3)',4:'var(--z4)',5:'var(--accent3)'};
+    return `<span style="color:${colors[z]||'#fff'}">@Z${z}</span>`;
+  });
+}
+
+function notify(msg) {
+  const n = document.getElementById('notif');
+  n.textContent = msg;
+  n.classList.add('show');
+  setTimeout(() => n.classList.remove('show'), 2500);
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+
+function renderAdvice() {
+  const el = document.getElementById('training-advice');
+  if (!el) return;
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1);
+  const d2 = new Date(today); d2.setDate(today.getDate()+2);
+  const d7ago = new Date(today); d7ago.setDate(today.getDate()-7);
+
+  const sorted = [...logData].sort((a,b) => new Date(b.date)-new Date(a.date));
+  const lastRun = sorted[0];
+  const lastDate = lastRun ? new Date(lastRun.date) : null;
+  const daysSince = lastDate ? Math.round((today-lastDate)/86400000) : 99;
+
+  // Weekly load
+  const weekRuns = sorted.filter(r => new Date(r.date) >= d7ago);
+  const weekKm = weekRuns.reduce((s,r)=>s+(r.km||0),0);
+  const weekCount = weekRuns.length;
+
+  function paceToSec(p){if(!p)return 999;const[m,s]=p.split(':').map(Number);return m*60+(s||0);}
+  const isIntense = r => r && (['Race','FC','FL','Tempo'].includes(r.type)||paceToSec(r.allure)<480);
+
+  const todayRun = sorted.find(r=>{const d=new Date(r.date);d.setHours(0,0,0,0);return d.getTime()===today.getTime();});
+  const yestRun  = sorted.find(r=>{const d=new Date(r.date);d.setHours(0,0,0,0);return d.getTime()===today.getTime()-86400000;});
+
+  // ── Upcoming races ─────────────────────────────────────────
+  const upcomingRaces = (racesData||[])
+    .filter(r=>r.date && !r.real)  // not yet run
+    .map(r=>({...r, d:new Date(r.date), daysTo:Math.round((new Date(r.date).setHours(0,0,0,0)-today)/86400000)}))
+    .filter(r=>r.daysTo>=0)
+    .sort((a,b)=>a.daysTo-b.daysTo);
+
+  const nextRace = upcomingRaces[0];
+  const raceToday = nextRace?.daysTo===0;
+  const raceTomorrow = nextRace?.daysTo===1;
+  const raceIn2 = nextRace?.daysTo===2;
+  const raceThisWeek = nextRace && nextRace.daysTo<=6;
+
+  // ── Decision logic ──────────────────────────────────────────
+  let icon,title,text,color,badge='';
+
+  if(raceToday){
+    icon='🏁'; color='#e05580';
+    title='Jour de course !';
+    badge=nextRace.name;
+    text=`C'est le jour de la ${nextRace.name} (${nextRace.dist}). Échauffement léger 15 min, reste bien hydraté·e, et bonne course !`;
+  } else if(raceTomorrow){
+    icon='😴'; color='#8b9cf4';
+    title='Course demain — repos absolu';
+    badge=nextRace.name+' J-1';
+    text=`La ${nextRace.name} (${nextRace.dist}) est demain. Aucune sortie aujourd'hui — jambes au repos, bonne hydratation, dormez tôt.`;
+  } else if(raceIn2){
+    icon='🧘'; color='#8b9cf4';
+    title='Course dans 2 jours — sortie très légère max';
+    badge=nextRace.name+' J-2';
+    text=`J-2 avant la ${nextRace.name} (${nextRace.dist}). Si tu sors, max 20–30 min très facile (< 9:00/km) juste pour activer les jambes.`;
+  } else if(raceThisWeek){
+    icon='⚡'; color='#f0c040';
+    title=`Course dans ${nextRace.daysTo} jours — charge réduite`;
+    badge=nextRace.name;
+    text=`La ${nextRace.name} (${nextRace.dist}) arrive ${nextRace.daysTo===3?'après-demain':'dans '+nextRace.daysTo+' jours'}. Réduis le volume, conserve quelques accélérations courtes. Pas de séance longue.`;
+  } else if(todayRun){
+    icon='✅'; color='#4ade80';
+    title='Séance effectuée';
+    text=`${todayRun.km} km à ${todayRun.allure}/km. Bien récupérer — hydratation et étirements.`;
+  } else if(yestRun && isIntense(yestRun)){
+    icon='🛌'; color='#8b9cf4';
+    title='Récupération conseillée';
+    badge='J-1 intense';
+    text=`Hier : ${yestRun.km} km à ${yestRun.allure}/km${yestRun.type?' ('+yestRun.type+')':''}. Laisse tes muscles récupérer aujourd'hui.`;
+  } else if(daysSince>=3){
+    icon='🚀'; color='#4ade80';
+    title='Il est temps de sortir !';
+    badge=daysSince+' jours sans sortie';
+    text=`Dernière sortie il y a ${daysSince} jours (${lastRun?.km} km le ${lastRun?.date}). Le corps est reposé — une sortie EF de 45–60 min serait idéale.`;
+  } else if(daysSince===1 && !isIntense(yestRun) && weekKm<35){
+    icon='👟'; color='#4ade80';
+    title='Bonne journée pour courir';
+    badge='J-1 facile';
+    text=`Hier : ${yestRun?.km} km à ${yestRun?.allure}/km (récupération OK). Tu peux enchaîner — EF ou tempo selon ton plan.`;
+  } else if(weekKm>40){
+    icon='⚠️'; color='#f0c040';
+    title='Charge élevée cette semaine';
+    badge=weekKm.toFixed(0)+' km / 7j';
+    text=`${weekKm.toFixed(1)} km en ${weekCount} sorties cette semaine — bonne charge ! Écoute ton corps et n'hésite pas à prendre un jour de repos.`;
+  } else {
+    icon='📅'; color='#8b9cf4';
+    title='Plan du jour';
+    text=weekKm>0
+      ?`${weekKm.toFixed(1)} km en ${weekCount} sortie${weekCount>1?'s':''} cette semaine. Continue sur ta lancée !`
+      :`Aucune sortie cette semaine — c'est le bon moment pour démarrer !`;
+  }
+
+  const isDarkMode = document.documentElement.getAttribute('data-theme') !== 'light';
+  el.innerHTML=`<div class="advice-card" style="border-color:${color}44;background:${isDarkMode?color+'18':color+'10'};">
+    <div class="advice-icon">${icon}</div>
+    <div class="advice-body">
+      <div class="advice-title" style="color:${color}">
+        ${title}
+        ${badge?`<span class="advice-badge" style="background:${color}22;color:${color}">${badge}</span>`:''}
+      </div>
+      <div class="advice-text">${text}</div>
+    </div>
+  </div>`;
+}
+
+function renderDashboard() {
+  const advEl=document.getElementById('training-advice');
+  if(advEl)advEl.style.display='';
+  renderAdvice();
+  // KPIs
+  const totalKm = logData.reduce((a, r) => a + (r.km || 0), 0);
+  const totalSorties = logData.length;
+  const avgAllure = (() => {
+    const secs = logData.map(r => durToSec(r.allure ? '00:' + r.allure : null)).filter(Boolean);
+    if (!secs.length) return '—';
+    return secToDur(secs.reduce((a,b)=>a+b,0)/secs.length).slice(3);
+  })();
+  const longestRun = Math.max(...logData.map(r => r.km || 0));
+  const longestDurSec = Math.max(...logData.map(r => durToSec(r.dur) || 0));
+  const longestDurStr = longestDurSec > 0 ? secToDur(longestDurSec).replace(/^00:/, '') : '—';
+  const lastBpms = logData.filter(r => r.bpm).map(r => r.bpm);
+  const avgBpm = lastBpms.length ? Math.round(lastBpms.reduce((a,b)=>a+b,0)/lastBpms.length) : '—';
+
+  document.getElementById('kpi-grid').innerHTML = `
+    <div class="kpi accent">
+      <div class="kpi-label">Allure moy.</div>
+      <div class="kpi-value">${avgAllure}</div>
+      <div class="kpi-unit">min/km</div>
+    </div>
+    <div class="kpi blue">
+      <div class="kpi-label">Durée la plus longue</div>
+      <div class="kpi-value">${longestDurStr}</div>
+      <div class="kpi-unit">hh:mm:ss</div>
+    </div>
+    <div class="kpi orange">
+      <div class="kpi-label">Plus grande distance</div>
+      <div class="kpi-value">${longestRun.toFixed(1)}</div>
+      <div class="kpi-unit">km</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-label">BPM moy. EF</div>
+      <div class="kpi-value">${avgBpm}</div>
+      <div class="kpi-unit">bpm</div>
+    </div>
+  `;
+
+  // Tempo progress
+  const done = Object.values(state.tempoDone).filter(Boolean).length;
+  const pct = Math.round(done / tempoData.length * 100);
+  document.getElementById('tempo-pct').textContent = `${pct}%`;
+  document.getElementById('tempo-bar').style.width = pct + '%';
+  document.getElementById('tempo-meta').textContent = `${done} / ${tempoData.length} séances complétées`;
+
+  // Monthly bar chart
+  const months = ['Jan','Fév','Mar'];
+  const monthly = {Jan:0, Fév:0, Mar:0};
+  logData.forEach(r => {
+    if (!r.date) return;
+    const m = new Date(r.date).getMonth();
+    if (m === 0) monthly.Jan += r.km || 0;
+    else if (m === 1) monthly.Fév += r.km || 0;
+    else if (m === 2) monthly.Mar += r.km || 0;
+  });
+  const maxKm = Math.max(...Object.values(monthly), 1);
+  document.getElementById('monthly-chart').innerHTML = months.map(m => {
+    const km = monthly[m];
+    const h = Math.round((km / maxKm) * 100);
+    return `<div class="bar-col">
+      <div class="bar" style="height:${h}px;background:var(--accent2)" title="${km.toFixed(1)} km"></div>
+      <div class="bar-label">${m}<br>${km.toFixed(0)}km</div>
+    </div>`;
+  }).join('');
+
+  // Races table
+  const today = new Date('2026-03-25');
+  document.getElementById('race-tbody').innerHTML = racesData.map(r => {
+    const days = getDaysTo(r.date);
+    let badge, status;
+    if (r.real) { badge = 'badge-done'; status = '✓ Terminée'; }
+    else if (days <= 7) { badge = 'badge-next'; status = `J-${days}`; }
+    else { badge = 'badge-future'; status = days < 0 ? 'Passée' : `S-${Math.round(days/7)}`; }
+    const diff = r.real && r.obj ? (() => {
+      const diff = durToSec(r.real) - durToSec(r.obj);
+      return diff < 0 ? `<span style="color:#4ade80;font-weight:700">-${secToDur(-diff).slice(3)}</span>` : `<span style="color:#e05580;font-weight:700">+${secToDur(diff).slice(3)}</span>`;
+    })() : '—';
+    return `<tr>
+      <td><span class="badge ${badge}">${status}</span></td>
+      <td><strong>${r.name}</strong></td>
+      <td class="mono">${formatDate(r.date)}</td>
+      <td>${r.dist}</td>
+      <td class="mono">${r.obj || '—'}</td>
+      <td class="mono">${r.real || '—'}</td>
+    </tr>`;
+  }).join('');
+
+  // Coherence alerts
+  renderCoherence();
+  renderProjections();
+  renderEF();
+}
+
+// ============================================================
+// EF TRACKER
+// ============================================================
+function renderEF() {
+  // Only EF runs with BPM + allure
+  const efRuns = logData
+    .filter(r => r.type === 'EF' && r.bpm && r.allure && r.date)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  const efAll = logData
+    .filter(r => r.allure && r.date && r.type !== 'Race')
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  // EF index = allure pace (sec/km) / bpm — lower = more efficient
+  // Normalized: lower index = better aerobic efficiency
+  function efIndex(r) {
+    const [m, s] = r.allure.split(':').map(Number);
+    return Math.round(((m * 60 + s) / r.bpm) * 100) / 100;
+  }
+
+  // ── KPIs ───────────────────────────────────────────────────
+  const kpiEl = document.getElementById('ef-kpis');
+  if (efRuns.length < 2) {
+    kpiEl.innerHTML = `<div style="grid-column:1/-1;color:var(--text-muted);font-size:13px;font-family:'Space Mono',monospace;">
+      Pas encore assez de sorties EF avec BPM enregistré (minimum 2).
+    </div>`;
+    document.getElementById('ef-tbody').innerHTML = '';
+    document.getElementById('ef-chart-container').style.display = 'none';
+    return;
+  }
+  document.getElementById('ef-chart-container').style.display = 'block';
+
+  const first = efRuns[0], last = efRuns[efRuns.length - 1];
+  const firstPace = durToSec('00:' + first.allure);
+  const lastPace  = durToSec('00:' + last.allure);
+  const paceDelta = firstPace - lastPace; // positive = improvement
+
+  const firstIdx = efIndex(first), lastIdx = efIndex(last);
+  const idxDelta = firstIdx - lastIdx;   // positive = improvement
+
+  const avgBpm = Math.round(efRuns.reduce((s, r) => s + r.bpm, 0) / efRuns.length);
+
+  const paceSign  = paceDelta >= 0 ? '↗' : '↘';
+  const paceColor = paceDelta >= 0 ? 'var(--z1)' : 'var(--accent3)';
+  const idxSign   = idxDelta  >= 0 ? '↗' : '↘';
+  const idxColor  = idxDelta  >= 0 ? 'var(--z1)' : 'var(--accent3)';
+  const paceStr   = secToDur(Math.abs(paceDelta)).slice(3);
+
+  kpiEl.innerHTML = `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:8px;">Gain d'allure EF</div>
+      <div style="font-size:22px;font-weight:800;color:${paceColor}">${paceSign} ${paceStr}/km</div>
+      <div style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-top:4px;">${first.allure} → ${last.allure} /km</div>
+    </div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:8px;">BPM moyen EF</div>
+      <div style="font-size:22px;font-weight:800;color:var(--accent2)">${avgBpm} <span style="font-size:14px">bpm</span></div>
+      <div style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-top:4px;">sur ${efRuns.length} sorties EF</div>
+    </div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:8px;">Indice aérobie</div>
+      <div style="font-size:22px;font-weight:800;color:${idxColor}">${idxSign} ${Math.abs(idxDelta).toFixed(2)}</div>
+      <div style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-top:4px;">${first.allure}/km @ ${first.bpm}bpm → ${last.allure}/km @ ${last.bpm}bpm</div>
+    </div>`;
+
+  // ── Chart (SVG inline — no lib needed) ─────────────────────
+  const chartEl = document.getElementById('ef-chart-container');
+  const W = chartEl.clientWidth || 600, H = 180;
+  const PAD = { top: 16, right: 48, bottom: 32, left: 48 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+
+  // Data points: all runs with allure, mark EF+bpm specially
+  const pts = efAll.map((r, i) => ({
+    x: i,
+    pace: durToSec('00:' + r.allure),
+    bpm: r.bpm || null,
+    isEF: r.type === 'EF' && r.bpm,
+    date: r.date,
+    allure: r.allure,
+    type: r.type,
+  }));
+
+  const paces = pts.map(p => p.pace);
+  const minP = Math.min(...paces) - 10, maxP = Math.max(...paces) + 10;
+  const bpms = pts.filter(p => p.bpm).map(p => p.bpm);
+  const minB = bpms.length ? Math.min(...bpms) - 5 : 130;
+  const maxB = bpms.length ? Math.max(...bpms) + 5 : 160;
+
+  const xScale = i => PAD.left + (i / Math.max(pts.length - 1, 1)) * cW;
+  const yPace  = p => PAD.top + ((p - minP) / (maxP - minP)) * cH;
+  const yBpm   = b => PAD.top + (1 - (b - minB) / (maxB - minB)) * cH;
+
+  // Build polylines
+  const paceLine = pts.map((p, i) => `${xScale(i).toFixed(1)},${(H - yPace(p.pace) - PAD.bottom + PAD.top).toFixed(1)}`).join(' ');
+  // Invert y: lower pace (faster) = higher on chart
+  const paceY = p => PAD.top + (1 - (p.pace - minP) / (maxP - minP)) * cH;
+
+  const allPacePts = pts.map((p, i) => `${xScale(i).toFixed(1)},${paceY(p).toFixed(1)}`).join(' ');
+  const bpmPts = pts.filter(p => p.bpm).map(p => {
+    const i = pts.indexOf(p);
+    return `${xScale(i).toFixed(1)},${yBpm(p.bpm).toFixed(1)}`;
+  }).join(' ');
+  const efPts = pts.filter(p => p.isEF).map(p => {
+    const i = pts.indexOf(p);
+    return { x: xScale(i), py: paceY(p), by: yBpm(p.bpm), p };
+  });
+
+  // Grid lines
+  const gridLines = [0, 0.25, 0.5, 0.75, 1].map(t => {
+    const y = PAD.top + t * cH;
+    const pVal = Math.round(minP + (1 - t) * (maxP - minP));
+    const mm = Math.floor(pVal / 60), ss = pVal % 60;
+    const pStr = `${mm}:${String(ss).padStart(2,'0')}`;
+    return `<line x1="${PAD.left}" y1="${y.toFixed(1)}" x2="${W - PAD.right}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1"/>
+      <text x="${PAD.left - 6}" y="${(y + 4).toFixed(1)}" text-anchor="end" fill="var(--text-muted)" font-size="9" font-family="monospace">${pStr}</text>`;
+  }).join('');
+
+  // BPM right axis labels
+  const bpmLabels = bpms.length ? [0, 0.5, 1].map(t => {
+    const y = PAD.top + (1 - t) * cH;
+    const bVal = Math.round(minB + t * (maxB - minB));
+    return `<text x="${W - PAD.right + 6}" y="${(y + 4).toFixed(1)}" fill="var(--accent2)" font-size="9" font-family="monospace">${bVal}</text>`;
+  }).join('') : '';
+
+  // EF dot highlights
+  const efDots = efPts.map(ep =>
+    `<circle cx="${ep.x.toFixed(1)}" cy="${ep.py.toFixed(1)}" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"/>
+     <circle cx="${ep.x.toFixed(1)}" cy="${ep.by.toFixed(1)}" r="4" fill="var(--accent2)" stroke="var(--surface)" stroke-width="1.5"/>`
+  ).join('');
+
+  chartEl.innerHTML = `
+    <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+      ${gridLines}
+      ${bpmLabels}
+      <!-- All runs pace line -->
+      <polyline points="${allPacePts}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-opacity="0.4" stroke-dasharray="3,3"/>
+      <!-- BPM line (EF only) -->
+      ${bpms.length > 1 ? `<polyline points="${bpmPts}" fill="none" stroke="var(--accent2)" stroke-width="2" stroke-opacity="0.7"/>` : ''}
+      <!-- EF highlighted dots -->
+      ${efDots}
+      <!-- Legend -->
+      <circle cx="${PAD.left + 8}" cy="${H - 8}" r="4" fill="var(--accent)"/>
+      <text x="${PAD.left + 16}" y="${H - 4}" fill="var(--text-muted)" font-size="9" font-family="monospace">Allure (toutes sorties)</text>
+      <circle cx="${PAD.left + 150}" cy="${H - 8}" r="4" fill="var(--accent2)"/>
+      <text x="${PAD.left + 158}" y="${H - 4}" fill="var(--text-muted)" font-size="9" font-family="monospace">BPM EF (axe droit)</text>
+    </svg>`;
+
+  // ── Tableau ─────────────────────────────────────────────────
+  let prevIdx = null;
+  document.getElementById('ef-tbody').innerHTML = efRuns.map((r, i) => {
+    const idx = efIndex(r);
+    const trend = prevIdx === null ? '—'
+      : idx < prevIdx - 0.05 ? '<span style="color:#4ade80;font-weight:700">↗ mieux</span>'
+      : idx > prevIdx + 0.05 ? '<span style="color:#e05580;font-weight:700">↘ moins bien</span>'
+      : '<span style="color:var(--text-muted)">→ stable</span>';
+    prevIdx = idx;
+    const idxColor = i === 0 ? 'var(--text-muted)'
+      : idx < efIndex(efRuns[i-1]) - 0.05 ? 'var(--z1)'
+      : idx > efIndex(efRuns[i-1]) + 0.05 ? 'var(--accent3)'
+      : 'var(--text-muted)';
+    return `<tr>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--row-border);font-family:'Space Mono',monospace;">${formatDate(r.date)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--row-border);font-family:'Space Mono',monospace;">${r.km?.toFixed(1)||'—'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--row-border);font-family:'Space Mono',monospace;color:var(--accent2);">${r.bpm} bpm</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--row-border);font-family:'Space Mono',monospace;">${r.allure}/km</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--row-border);font-family:'Space Mono',monospace;color:${idxColor};font-weight:700;">${idx.toFixed(2)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid var(--row-border);">${trend}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('ef-meta').textContent =
+    `Indice aérobie = allure (sec/km) ÷ BPM · Plus il est bas, meilleure est ton efficacité aérobie à effort constant`;
+}
+
+function renderCoherence() {
+  const alerts = [];
+
+  // Check 1: missing dates in tempo
+  const missingDates = tempoData.filter(s => !s.date).length;
+  if (missingDates > 0) {
+    alerts.push({ok: false, title:'Dates manquantes (Tempo)', msg:`${missingDates} séances dans le plan Tempo n'ont pas de date assignée. La périodisation reste à compléter.`});
+  } else {
+    alerts.push({ok: true, title:'Dates Tempo complètes', msg:'Toutes les séances de la phase Tempo sont datées.'});
+  }
+
+  // Check 2: allure de la Putéolienne (5km en 38:50 = 7:46/km) vs EF typique (~8:30-9:30)
+  alerts.push({ok: true, title:'Progression cohérente', msg:'Les allures progressent de ~9:30/km (jan) vers ~8:10/km (mars). Amélioration de ~14% en 3 mois. ✓'});
+
+  // Check 3: BPM EF autour de 147-154 → zone 2 valide
+  alerts.push({ok: true, title:'BPM endurance fondamentale', msg:'Les BPM enregistrés en EF (146-154) correspondent bien à la Zone 2. Cohérent.'});
+
+  // Check 4: gap de 13 jours en février
+  alerts.push({ok: false, title:'Coupure détectée (fév)', msg:'Un gap de 13 jours (02/02 → 14/02) puis une coupure jusqu\'au 27/02. À surveiller dans la progression.'});
+
+  // Check 5: séances sans semaine (sem: null) — juste des courses hors plan, OK
+  const tempoNullSem = tempoData.filter(s => s.sem === null).length;
+  if (tempoNullSem > 0) {
+    alerts.push({ok: true, title:'Séances hors semaine (Tempo)', msg:`${tempoNullSem} séance(s) marquée(s) sans numéro de semaine — il s'agit de courses ponctuelles hors plan, non comptabilisées dans le suivi de progression.`});
+  }
+
+  document.getElementById('coherence-section').innerHTML = `
+    <div class="section-title" style="font-size:18px;margin-bottom:16px">Analyse de cohérence</div>
+    ${alerts.map((a,i) => `
+      <div class="alert ${a.ok ? 'alert-ok' : ''}" id="alert-${i}" style="position:relative;padding-right:40px;">
+        <button onclick="document.getElementById('alert-${i}').style.display='none'"
+          style="position:absolute;top:10px;right:12px;background:none;border:none;cursor:pointer;
+                 font-size:16px;color:var(--text-muted);opacity:0.6;padding:0;line-height:1;transition:opacity .15s;"
+          onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'"
+          title="Fermer">✕</button>
+        <div class="alert-title">${a.ok ? '✓' : '⚠'} ${a.title}</div>
+        <div>${a.msg}</div>
+      </div>
+    `).join('')}
+  `;
+}
+
+// ============================================================
+// PLAN RENDERER
+// ============================================================
+function groupByBlocks(data, blockSize) {
+  // Group into blocks of blockSize sessions
+  const blocks = [];
+  for (let i = 0; i < data.length; i += blockSize) {
+    blocks.push(data.slice(i, i + blockSize));
+  }
+  return blocks;
+}
+
+function renderPlan(containerId, data, stateKey) {
+  // Group by index blocks of 4 (one week = 4 sessions typically)
+  const container = document.getElementById(containerId);
+  let html = '';
+  let blockNum = 1;
+  let i = 0;
+
+  // Group sessions by block: a new block starts when sem changes
+  // or when a session has a date that differs from the previous session's date group.
+  // Simplest stable approach: use sem field to detect block boundaries.
+  // A block boundary occurs when sem value changes from previous session.
+  const blocks = [];
+  let curBlock = [];
+  let prevSem = undefined;
+  data.forEach((session, idx) => {
+    const s = session.sem;
+    if (prevSem !== undefined && s !== null && s !== prevSem) {
+      // New block
+      blocks.push(curBlock);
+      curBlock = [];
+    }
+    curBlock.push({session, idx});
+    prevSem = s !== null ? s : prevSem;
+  });
+  if (curBlock.length > 0) blocks.push(curBlock);
+
+  blocks.forEach((block, bi) => {
+    const weekDate = block.map(b => b.session.date).find(d => d);
+    const indices = block.map(b => b.idx);
+    html += `<div class="week-card">
+      <div class="week-header">
+        <span class="week-num">BLOC ${bi + 1}</span>
+        <span class="week-date" 
+          onclick="editBlockDate('${stateKey}',${indices[0]},${JSON.stringify(indices)})"
+          title="Cliquer pour modifier la date"
+          style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;">
+          ${weekDate ? formatDate(weekDate) : '— définir date'}
+        </span>
+      </div>`;
+
+    block.forEach(({session, idx: globalIdx}) => {
+      const done = state[stateKey][globalIdx];
+      html += `<div class="session-row" onclick="toggleSession('${stateKey}', ${globalIdx}, this)">
+        <div class="session-check ${done ? 'done' : ''}">
+          ${done ? '✓' : ''}
+        </div>
+        <div class="session-format">${formatZones(session.format)}${session.opt ? ' <span class="optional-tag">(optionnel)</span>' : ''}</div>
+        <div class="session-meta">
+          ${session.pe ? `<span class="pe-badge">PE ${session.pe}</span>` : ''}
+          ${session.total ? `<span class="duration-badge">${session.total}'</span>` : ''}
+          <div class="action-btns">
+            <button class="action-btn" onclick="event.stopPropagation();openPlanEdit('${stateKey}',${globalIdx})" title="Modifier">✏️</button>
+            <button class="action-btn del" onclick="event.stopPropagation();deletePlanSession('${stateKey}',${globalIdx})" title="Supprimer">🗑</button>
+          </div>
+        </div>
+      </div>`;
+    });
+
+    html += `</div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function toggleSession(stateKey, idx, row) {
+  state[stateKey][idx] = !state[stateKey][idx];
+  saveState();
+  const check = row.querySelector('.session-check');
+  check.classList.toggle('done', !!state[stateKey][idx]);
+  check.textContent = state[stateKey][idx] ? '✓' : '';
+  notify(state[stateKey][idx] ? '✓ Séance validée !' : 'Séance décochée');
+  if (stateKey === 'tempoDone') renderDashboard();
+}
+
+// ============================================================
+// LOG
+// ============================================================
+let logFilter = 'all';
+let logSortAsc = false; // desc by default
+
+function toggleSort() {
+  logSortAsc = !logSortAsc;
+  document.getElementById('sort-icon').textContent = logSortAsc ? '↑' : '↓';
+  renderLog();
+}
+
+
+// ── Plan meta editing ─────────────────────────────────────────
+function editPlanMeta(planId) {
+  // Handle extra plans
+  if (planId && planId.startsWith('extra_')) {
+    const ep = (state.extraPlans || []).find(p => p.id === planId);
+    if (!ep) return;
+    openPlanMetaModal(planId, ep.title, ep.sub);
+    return;
+  }
+  const defaultTitles = {
+    tempo: {title:'Phase Tempo', sub:'Bloc de préparation actuel · 16 séances'},
+    prep:  {title:'Préparation Semi', sub:'Plan de préparation avant le plan semi · 48 séances'},
+    semi:  {title:'Plan Semi-Marathon', sub:'Plan 12 semaines vers la Parisienne (13 sept.) · 48 séances'},
+  };
+  const cur = (state.planMeta || {})[planId] || defaultTitles[planId];
+  openPlanMetaModal(planId, cur.title, cur.sub);
+}
+
+function openPlanMetaModal(planId, curTitle, curSub) {
+  // Remove existing modal if any
+  const existing = document.getElementById('meta-modal');
+  if (existing) existing.remove();
+
+  const m = document.createElement('div');
+  m.id = 'meta-modal';
+  m.className = 'modal-overlay';
+  m.style.display = 'flex';
+  m.innerHTML = `
+    <div class="modal">
+      <button class="modal-close" onclick="document.getElementById('meta-modal').remove()">✕</button>
+      <div class="modal-title">Modifier le plan</div>
+      <div class="form-grid" style="grid-template-columns:1fr;">
+        <div class="field">
+          <label>Titre</label>
+          <input type="text" id="meta-title" value="${curTitle.replace(/"/g,'&quot;')}">
+        </div>
+        <div class="field">
+          <label>Sous-titre</label>
+          <input type="text" id="meta-sub" value="${curSub.replace(/"/g,'&quot;')}">
+        </div>
+      </div>
+      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
+        <div style="font-size:11px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:10px;letter-spacing:1px;text-transform:uppercase;">Gestion du plan</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-ghost" onclick="resetPlan('${planId}')" style="font-size:11px;padding:6px 12px;">↺ Réinitialiser les coches</button>
+          <button class="btn btn-ghost" onclick="archivePlan('${planId}')" style="font-size:11px;padding:6px 12px;border-color:var(--accent2);color:var(--accent2);">📦 Archiver ce plan</button>
+          <button class="btn btn-ghost" onclick="createNewPlan('${planId}')" style="font-size:11px;padding:6px 12px;border-color:var(--z1);color:var(--z1);">+ Nouveau plan vide</button>
+        </div>
+        ${renderArchiveHistory(planId)}
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="savePlanMeta('${planId}')">Enregistrer</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('meta-modal').remove()">Annuler</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+  document.getElementById('meta-title').focus();
+}
+
+function savePlanMeta(planId) {
+  const title = document.getElementById('meta-title').value.trim();
+  const sub   = document.getElementById('meta-sub').value.trim();
+  if (!title) return;
+  if (planId && planId.startsWith('extra_')) {
+    const ep = (state.extraPlans || []).find(p => p.id === planId);
+    if (ep) { ep.title = title; ep.sub = sub; }
+  } else {
+    if (!state.planMeta) state.planMeta = {};
+    state.planMeta[planId] = {title, sub};
+    const t = document.getElementById(planId+'-title');
+    const s = document.getElementById(planId+'-sub');
+    if (t) t.textContent = title;
+    if (s) s.textContent = sub;
+  }
+  saveState();
+  // Update prepa detail header if open
+  if (currentPlanId === planId) {
+    const dt = document.getElementById('prepa-detail-title');
+    const ds = document.getElementById('prepa-detail-sub');
+    if (dt) dt.textContent = title;
+    if (ds) ds.textContent = sub;
+  }
+  renderPrepaList();
+  document.getElementById('meta-modal').remove();
+}
+
+function resetPlan(planId) {
+  const keyMap = {tempo:'tempoDone', prep:'prepDone', semi:'semiDone'};
+  if (!confirm('Remettre toutes les coches à zéro ?')) return;
+  state[keyMap[planId]] = {};
+  saveState();
+  const dataMap = {tempo:tempoData, prep:prepData, semi:semiData};
+  const cIdMap  = {tempo:'tempo-weeks', prep:'prep-weeks', semi:'semi-weeks'};
+  renderPlan(cIdMap[planId], dataMap[planId], keyMap[planId]);
+  document.getElementById('meta-modal').remove();
+  notify('Plan réinitialisé');
+}
+
+function archivePlan(planId) {
+  const keyMap = {tempo:'tempoDone', prep:'prepDone', semi:'semiDone'};
+  archivePlanSilent(planId);
+  state[keyMap[planId]] = {};
+  saveState();
+  document.getElementById('meta-modal').remove();
+  notify('Plan archivé — tu peux maintenant le modifier pour le prochain cycle');
+}
+
+function createNewPlan(planId) {
+  const dataMap = {tempo:tempoData, prep:prepData, semi:semiData};
+  const keyMap  = {tempo:'tempoDone', prep:'prepDone', semi:'semiDone'};
+  if (!confirm('Créer un plan vide ? Les séances actuelles seront effacées (archive recommandée d\'abord).')) return;
+  dataMap[planId].length = 0;
+  dataMap[planId].push(
+    {sem:1, date:null, format:"45'@Z2", pe:'3/10', total:45},
+    {sem:1, date:null, format:"45'@Z2", pe:'3/10', total:45},
+    {sem:1, date:null, format:"45'@Z2", pe:'3/10', total:45},
+    {sem:1, date:null, format:"60'@Z2", pe:'4/10', total:60},
+  );
+  state[keyMap[planId]] = {};
+  saveState();
+  const cIdMap = {tempo:'tempo-weeks', prep:'prep-weeks', semi:'semi-weeks'};
+  renderPlan(cIdMap[planId], dataMap[planId], keyMap[planId]);
+  document.getElementById('meta-modal').remove();
+  notify('Nouveau plan créé — modifie les séances avec ✏️');
+}
+
+
+function renderArchiveHistory(planId) {
+  const archives = (state.archives || {})[planId];
+  if (!archives || archives.length === 0) return '';
+  const rows = [...archives].reverse().map((a, ri) => {
+    const origIdx = archives.length - 1 - ri;
+    const pct = a.sessions ? Math.round(a.done / a.sessions * 100) : 0;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+      <div style="flex:1;">
+        <div style="font-size:12px;font-weight:700;color:var(--text)">${a.title}</div>
+        <div style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-top:2px;">
+          ${a.date} · ${a.done}/${a.sessions} séances (${pct}%)
+        </div>
+      </div>
+      <button onclick="restoreArchive('${planId}', ${origIdx})"
+        style="font-size:10px;padding:4px 10px;background:none;border:1px solid var(--accent2);color:var(--accent2);border-radius:5px;cursor:pointer;white-space:nowrap;">
+        ↩ Restaurer
+      </button>
+      <button onclick="deleteArchive('${planId}', ${origIdx})"
+        style="font-size:10px;padding:4px 8px;background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;cursor:pointer;">
+        🗑
+      </button>
+    </div>`;
+  }).join('');
+
+  return `<div style="margin-top:14px;">
+    <div style="font-size:11px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:8px;letter-spacing:1px;text-transform:uppercase;">
+      📦 Archives (${archives.length})
+    </div>
+    ${rows}
+  </div>`;
+}
+
+function restoreArchive(planId, archiveIdx) {
+  const archive = (state.archives || {})[planId]?.[archiveIdx];
+  if (!archive) return;
+  if (!confirm('Restaurer l\'archive "' + archive.title + '" du ' + archive.date + ' ?\nLe plan actuel sera archivé automatiquement.')) return;
+
+  // Archive current plan first
+  archivePlanSilent(planId);
+
+  // Restore from archive — we only have summary, not full sessions
+  // So we reset coches and update title
+  const keyMap = {tempo:'tempoDone', prep:'prepDone', semi:'semiDone'};
+  state[keyMap[planId]] = {};
+  if (!state.planMeta) state.planMeta = {};
+  state.planMeta[planId] = {
+    title: archive.title,
+    sub: 'Plan archivé du ' + archive.date + ' · ' + archive.sessions + ' séances'
+  };
+  saveState();
+  applyPlanMeta();
+  document.getElementById('meta-modal').remove();
+  notify('Archive "' + archive.title + '" restaurée');
+}
+
+function archivePlanSilent(planId) {
+  const dataMap = {tempo:tempoData, prep:prepData, semi:semiData};
+  const keyMap  = {tempo:'tempoDone', prep:'prepDone', semi:'semiDone'};
+  if (!state.archives) state.archives = {};
+  state.archives[planId] = state.archives[planId] || [];
+  const data = dataMap[planId];
+  state.archives[planId].push({
+    date: new Date().toISOString().slice(0,10),
+    title: (state.planMeta?.[planId]?.title) || planId,
+    sessions: data.length,
+    done: Object.values(state[keyMap[planId]]||{}).filter(Boolean).length,
+  });
+}
+
+function deleteArchive(planId, archiveIdx) {
+  if (!confirm('Supprimer cette archive définitivement ?')) return;
+  state.archives[planId].splice(archiveIdx, 1);
+  saveState();
+  // Refresh the modal
+  const m = document.getElementById('meta-modal');
+  if (m) {
+    const cur = (state.planMeta || {})[planId] || {};
+    m.remove();
+    openPlanMetaModal(planId, cur.title || planId, cur.sub || '');
+  }
+}
+
+function applyPlanMeta() {
+  if (!state.planMeta) return;
+  Object.entries(state.planMeta).forEach(([planId, meta]) => {
+    const t = document.getElementById(planId+'-title');
+    const s = document.getElementById(planId+'-sub');
+    if (t && meta.title) t.textContent = meta.title;
+    if (s && meta.sub)   s.textContent = meta.sub;
+  });
+}
+
+
+function editBlockDate(stateKey, blockStartIdx, sessionIndices) {
+  const data = planDataMap()[stateKey];
+  if (!data) return;
+  // Find first session with a date in this block
+  const cur = sessionIndices.map(i => data[i]?.date).find(d => d) || '';
+  showPrompt('Date du bloc', cur, 'date', (newDate) => {
+    if (data[sessionIndices[0]]) data[sessionIndices[0]].date = newDate || null;
+    saveState();
+    const containerId = stateKey === 'tempoDone' ? 'tempo-weeks' : stateKey === 'prepDone' ? 'prep-weeks' : 'semi-weeks';
+    renderPlan(containerId, data, stateKey);
+    if (currentPlanId && !currentPlanId.startsWith('extra_')) {
+      renderPlan('prepa-detail-weeks', data, stateKey);
+    }
+  });
+}
+function addPlanSession(planId) {
+  if (planId && planId.startsWith('extra_')) {
+    const ep = (state.extraPlans || []).find(p => p.id === planId);
+    if (!ep) return;
+    ep.sessions.push({sem:1, date:null, format:"45'@Z2", pe:'3/10', total:45});
+    saveState();
+    renderExtraPlan(ep);
+    renderPrepaList();
+    notify('Séance ajoutée');
+    return;
+  }
+  const dataMap = {tempo: tempoData, prep: prepData, semi: semiData};
+  const keyMap  = {tempo: 'tempoDone', prep: 'prepDone', semi: 'semiDone'};
+  const data = dataMap[planId];
+  if (!data) return;
+  data.push({sem:1, date:null, format:"45'@Z2", pe:'3/10', total:45, done:false});
+  saveState();
+  const containerId = planId === 'tempo' ? 'tempo-weeks' : planId === 'prep' ? 'prep-weeks' : 'semi-weeks';
+  renderPlan(containerId, data, keyMap[planId]);
+  notify('Séance ajoutée');
+  if (currentPlanId === planId) renderPlan('prepa-detail-weeks', data, keyMap[planId]);
+  renderPrepaList();
+}
+
+function renderLog() {
+  let allIndices = logData.map((r, i) => ({r, i}));
+  // Sort by date
+  allIndices.sort((a, b) => {
+    const da = new Date(a.r.date || 0), db = new Date(b.r.date || 0);
+    return logSortAsc ? da - db : db - da;
+  });
+  const filtered = logFilter === 'all' ? allIndices : allIndices.filter(({r}) => r.type === logFilter);
+  document.getElementById('log-tbody').innerHTML = filtered.map(({r, i}) => {
+    const ac = allureClass(r.allure);
+    const gapStr = r.gap ? `<span style="color:var(--accent2)">${r.gap}/km</span>` : '—';
+    const dplusStr = r.dplus ? `<span style="color:var(--z3)">${r.dplus}m</span>` : '—';
+    return `<tr>
+      <td class="mono">${formatDate(r.date)}</td>
+      <td class="mono"><strong>${r.km?.toFixed(2) || '—'}</strong></td>
+      <td class="mono">${r.dur || '—'}</td>
+      <td class="mono ${ac}">${r.allure || '—'}/km</td>
+      <td class="mono">${gapStr}</td>
+      <td class="mono">${dplusStr}</td>
+      <td class="mono">${r.bpm || '—'}</td>
+      <td>${r.type ? (() => {
+        const typeColors = {EF:'#4ade80',FC:'#8b9cf4',FL:'#8b9cf4',Tempo:'#d966e0',Race:'#e05580'};
+        const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+        const col = isDark ? (typeColors[r.type]||'var(--accent)') : 'var(--accent)';
+        return `<span class="badge" style="background:${col}22;color:${col};border:1px solid ${col}44">${r.type}</span>`;
+      })() : '—'}</td>
+      <td style="font-size:12px;color:var(--text-muted)">${r.notes || '—'}</td>
+      <td><div class="action-btns" style="opacity:0">
+        <button class="action-btn" onclick="openLogEdit(${i})" title="Modifier">✏️</button>
+        <button class="action-btn del" onclick="deleteLog(${i})" title="Supprimer">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+  addHoverListeners('log-tbody');
+}
+
+function estTime(secPerKm, distKm) {
+  // Riegel formula adjustment for longer distances
+  // t2 = t1 * (d2/d1)^1.06
+  const t = secPerKm * distKm;
+  return secToDur(Math.round(t));
+}
+
+function renderProjections() {
+  // Use last 5 valid runs (with allure), excluding races
+  const recent = logData
+    .filter(r => r.allure && r.type !== 'Race' && r.date)
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 5);
+
+  if (recent.length === 0) {
+    document.getElementById('projections-grid').innerHTML = '<div style="color:var(--text-muted);font-size:13px;grid-column:1/-1">Pas encore assez de données.</div>';
+    return;
+  }
+
+  // Use GAP if available, otherwise raw allure — for each run
+  const paceSecList = recent.map(r => {
+    const src = (r.gap && r.dplus) ? r.gap : r.allure;
+    const [m, s] = src.split(':').map(Number);
+    return m * 60 + s;
+  });
+  const avgSecPerKm = paceSecList.reduce((a, b) => a + b, 0) / paceSecList.length;
+
+  const runsWithGAP = recent.filter(r => r.gap && r.dplus).length;
+  const paceLabel = runsWithGAP > 0 ? 'GAP moy.' : 'Allure moy.';
+  const avgAllureStr = secToDur(Math.round(avgSecPerKm)).slice(3);
+
+  const distances = [
+    { label: '5 km',  dist: 5    },
+    { label: '10 km', dist: 10   },
+    { label: '21 km', dist: 21.1 },
+    { label: '42 km', dist: 42.2 },
+  ];
+
+  // Riegel: t2 = t1 * (d2/d1)^1.06, using 5km base
+  const base5km = avgSecPerKm * 5;
+
+  const projColors = ['#d966e0', '#8b9cf4', '#e05580', '#4ade80']; // violet/bleu/rose/vert
+  document.getElementById('projections-grid').innerHTML = distances.map((d, ci) => {
+    const projected = d.dist === 5
+      ? base5km
+      : base5km * Math.pow(d.dist / 5, 1.06);
+    const time = secToDur(Math.round(projected));
+    const paceForDist = Math.round(projected / d.dist);
+    const paceStr = secToDur(paceForDist).slice(3);
+    const displayTime = time.startsWith('00:') ? time.slice(3) : time;
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    const col = isDark ? projColors[ci % projColors.length] : 'var(--accent)';
+
+    return `<div style="background:var(--surface2);border:1px solid var(--border);border-top:3px solid ${col};border-radius:10px;padding:16px;text-align:center;">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:8px;">${d.label}</div>
+      <div style="font-size:22px;font-weight:800;line-height:1;color:var(--text)">${displayTime}</div>
+      <div style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-top:6px;">${paceStr}/km</div>
+    </div>`;
+  }).join('');
+
+  const gapNote = runsWithGAP > 0
+    ? ` · ${runsWithGAP}/${recent.length} sorties avec D+ corrigé (GAP)`
+    : ' · Aucun D+ renseigné — allure brute utilisée';
+  document.getElementById('projections-meta').textContent =
+    `${paceLabel} des ${recent.length} dernières sorties EF : ${avgAllureStr}/km · Riegel (1.06)${gapNote}`;
+}
+
+function est5k(allure) {
+  if (!allure) return '—';
+  const [m, s] = allure.split(':').map(Number);
+  const secPerKm = m * 60 + s;
+  return secToDur(secPerKm * 5).slice(3);
+}
+
+function filterLog(type, btn) {
+  logFilter = type;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderLog();
+}
+
+function computeGAP(allureSec, km, dplus) {
+  // GAP: Grade Adjusted Pace
+  // Strava/industry rule: each 100m D+ per km adds ~33 sec/km to equivalent flat pace
+  // So flat_pace = actual_pace - (dplus/km) * 0.33
+  if (!dplus || dplus <= 0 || !km) return null;
+  const gradePct = dplus / (km * 1000); // elevation grade as fraction
+  // GAP correction: ~7.5% time reduction per % grade (Strava formula approximation)
+  const correctionSecPerKm = gradePct * 7.5 * allureSec;
+  const gapSec = Math.round(allureSec - correctionSecPerKm);
+  return gapSec > 0 ? secToDur(gapSec).slice(3) : null;
+}
+
+function addLog() {
+  const date = document.getElementById('log-date').value;
+  const km = parseFloat(document.getElementById('log-km').value);
+  const dur = document.getElementById('log-dur').value;
+  const bpm = parseInt(document.getElementById('log-bpm').value) || null;
+  const type = document.getElementById('log-type').value;
+  const notes = document.getElementById('log-notes').value;
+  const dplus = parseInt(document.getElementById('log-dplus').value) || null;
+
+  if (!date || !km || !dur) { notify('⚠ Remplis date, km et durée'); return; }
+
+  const secs = durToSec(dur);
+  const allureSec = Math.round(secs / km);
+  const allure = secToDur(allureSec).slice(3);
+  const gap = computeGAP(allureSec, km, dplus);
+
+  logData.unshift({date, km, dur, bpm, type, notes, allure, dplus, gap});
+  saveState();
+  renderLog();
+  renderDashboard();
+  ['log-km','log-dur','log-bpm','log-notes','log-dplus'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('log-type').value = '';
+  notify('✓ Sortie enregistrée !');
+}
+
+// ============================================================
+// RACES
+// ============================================================
+function addHoverListeners(tbodyId) {
+  document.querySelectorAll(`#${tbodyId} tr`).forEach(tr => {
+    const btns = tr.querySelector('.action-btns');
+    if (!btns) return;
+    tr.addEventListener('mouseenter', () => btns.style.opacity = '1');
+    tr.addEventListener('mouseleave', () => btns.style.opacity = '0');
+  });
+}
+
+function renderRaces() {
+  document.getElementById('races-tbody').innerHTML = racesData.map((r, i) => {
+    const days = getDaysTo(r.date);
+    let status;
+    if (r.real) status = `<span class="badge badge-done">✓ Terminée</span>`;
+    else if (days < 0) status = `<span class="badge badge-future">Passée</span>`;
+    else if (days <= 10) status = `<span class="badge badge-next">J-${days}</span>`;
+    else status = `<span class="badge badge-future">S-${Math.round(days/7)}</span>`;
+
+    let diff = '—';
+    if (r.real && r.obj) {
+      const d = durToSec(r.real) - durToSec(r.obj);
+      diff = d < 0
+        ? `<span style="color:#4ade80;font-weight:700">-${secToDur(-d).slice(3)}</span>`
+        : `<span style="color:#e05580;font-weight:700">+${secToDur(d).slice(3)}</span>`;
+    }
+
+    return `<tr>
+      <td>${status}</td>
+      <td><strong>${r.name}</strong></td>
+      <td class="mono">${formatDate(r.date)}</td>
+      <td>${r.dist}</td>
+      <td class="mono">${r.obj || '—'}</td>
+      <td class="mono">${r.real || '—'}</td>
+      <td class="mono">${diff}</td>
+      <td><div class="action-btns" style="opacity:0">
+        <button class="action-btn" onclick="openRaceEdit(${i})" title="Modifier">✏️</button>
+        <button class="action-btn del" onclick="deleteRace(${i})" title="Supprimer">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+  addHoverListeners('races-tbody');
+}
+
+function addRace() {
+  const name = document.getElementById('r-name').value.trim();
+  const date = document.getElementById('r-date').value;
+  const dist = document.getElementById('r-dist').value.trim();
+  const obj = document.getElementById('r-obj').value.trim();
+  const real = document.getElementById('r-real').value.trim();
+  if (!name || !date) { notify('⚠ Nom et date requis'); return; }
+  racesData.push({name, date, dist, obj, real});
+  racesData.sort((a,b) => new Date(a.date) - new Date(b.date));
+  saveState();
+  renderRaces();
+  renderDashboard();
+  ['r-name','r-date','r-dist','r-obj','r-real'].forEach(id => document.getElementById(id).value='');
+  notify('✓ Course ajoutée !');
+}
+
+// ============================================================
+// MODAL HELPERS
+// ============================================================
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+
+// Click outside modal to close
+document.addEventListener('click', e => {
+  ['plan-modal','log-modal','race-modal'].forEach(id => {
+    const el = document.getElementById(id);
+    if (e.target === el) el.classList.remove('open');
+  });
+});
+
+// ============================================================
+// CONFIRM DELETE HELPER
+// ============================================================
+let _pendingDelete = null;
+
+function askConfirm(title, msg, fn) {
+  _pendingDelete = fn;
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent = msg;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+function confirmDelete() {
+  if (_pendingDelete) _pendingDelete();
+  _pendingDelete = null;
+  closeConfirm();
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+}
+
+// ============================================================
+// PLAN EDIT / DELETE
+// ============================================================
+function planDataMap() { return { tempoDone: tempoData, prepDone: prepData, semiDone: semiData }; }
+const planContainerMap = { tempoDone: 'tempo-weeks', prepDone: 'prep-weeks', semiDone: 'semi-weeks' };
+
+function openPlanEdit(stateKey, idx) {
+  const data = planDataMap()[stateKey];
+  const s = data[idx];
+  document.getElementById('pm-statekey').value = stateKey;
+  document.getElementById('pm-idx').value = idx;
+  document.getElementById('pm-format').value = s.format || '';
+  document.getElementById('pm-date').value = s.date || '';
+  document.getElementById('pm-pe').value = s.pe || '';
+  document.getElementById('pm-total').value = s.total || '';
+  document.getElementById('pm-opt').checked = !!s.opt;
+  openModal('plan-modal');
+}
+
+function savePlanEdit() {
+  const stateKey = document.getElementById('pm-statekey').value;
+  const idx = parseInt(document.getElementById('pm-idx').value);
+  // Handle extra plan sessions
+  if (stateKey.startsWith('extra:')) {
+    const planId = stateKey.slice(6);
+    const ep = (state.extraPlans || []).find(p => p.id === planId);
+    if (ep && ep.sessions[idx]) {
+      ep.sessions[idx].format = document.getElementById('pm-format').value;
+      ep.sessions[idx].date   = document.getElementById('pm-date').value || null;
+      ep.sessions[idx].pe     = document.getElementById('pm-pe').value;
+      ep.sessions[idx].total  = parseInt(document.getElementById('pm-total').value) || null;
+      ep.sessions[idx].opt    = document.getElementById('pm-opt').checked;
+      saveState();
+      renderExtraPlan(ep);
+    }
+    closeModal('plan-modal');
+    return;
+  }
+  const data = planDataMap()[stateKey];
+  data[idx].format = document.getElementById('pm-format').value;
+  data[idx].date = document.getElementById('pm-date').value || null;
+  data[idx].pe = document.getElementById('pm-pe').value;
+  data[idx].total = parseInt(document.getElementById('pm-total').value) || null;
+  data[idx].opt = document.getElementById('pm-opt').checked;
+  saveState();
+  renderPlan(planContainerMap[stateKey], data, stateKey);
+  const _pid = {tempoDone:'tempo',prepDone:'prep',semiDone:'semi'}[stateKey];
+  if (currentPlanId === _pid) renderPlan('prepa-detail-weeks', data, stateKey);
+  closeModal('plan-modal');
+  notify('✓ Séance modifiée !');
+}
+
+function deletePlanSession(stateKey, idx) {
+  const data = planDataMap()[stateKey];
+  askConfirm('Supprimer la séance ?', `"${data[idx].format}"`, () => {
+    data.splice(idx, 1);
+    // Shift done state keys above idx
+    const newDone = {};
+    Object.entries(state[stateKey]).forEach(([k, v]) => {
+      const ki = parseInt(k);
+      if (ki < idx) newDone[ki] = v;
+      else if (ki > idx) newDone[ki - 1] = v;
+    });
+    state[stateKey] = newDone;
+    saveState();
+    renderPlan(planContainerMap[stateKey], data, stateKey);
+    if (stateKey === 'tempoDone') renderDashboard();
+    // If we're in the detail view, re-open the plan to refresh
+    const planId = {tempoDone:'tempo', prepDone:'prep', semiDone:'semi'}[stateKey];
+    if (currentPlanId === planId) renderPlan('prepa-detail-weeks', data, stateKey);
+    renderPrepaList();
+    notify('🗑 Séance supprimée');
+  });
+}
+
+// ============================================================
+// LOG EDIT / DELETE
+// ============================================================
+function openLogEdit(realIdx) {
+  const r = logData[realIdx];
+  document.getElementById('lm-idx').value = realIdx;
+  document.getElementById('lm-date').value = r.date || '';
+  document.getElementById('lm-km').value = r.km || '';
+  document.getElementById('lm-dur').value = r.dur || '';
+  document.getElementById('lm-bpm').value = r.bpm || '';
+  document.getElementById('lm-type').value = r.type || '';
+  document.getElementById('lm-dplus').value = r.dplus || '';
+  document.getElementById('lm-notes').value = r.notes || '';
+  openModal('log-modal');
+}
+
+function saveLogEdit() {
+  const idx = parseInt(document.getElementById('lm-idx').value);
+  const dur = document.getElementById('lm-dur').value;
+  const km = parseFloat(document.getElementById('lm-km').value);
+  const secs = durToSec(dur);
+  const allureSec = (secs && km) ? Math.round(secs / km) : null;
+  const allure = allureSec ? secToDur(allureSec).slice(3) : logData[idx].allure;
+  const dplus = parseInt(document.getElementById('lm-dplus').value) || null;
+  const gap = allureSec ? computeGAP(allureSec, km, dplus) : logData[idx].gap;
+  logData[idx] = {
+    date: document.getElementById('lm-date').value,
+    km,
+    dur,
+    bpm: parseInt(document.getElementById('lm-bpm').value) || null,
+    type: document.getElementById('lm-type').value,
+    dplus,
+    gap,
+    notes: document.getElementById('lm-notes').value,
+    allure,
+  };
+  saveState();
+  renderLog();
+  renderDashboard();
+  closeModal('log-modal');
+  notify('✓ Sortie modifiée !');
+}
+
+function deleteLog(realIdx) {
+  askConfirm('Supprimer la sortie ?', `${formatDate(logData[realIdx].date)} — ${logData[realIdx].km} km`, () => {
+    logData.splice(realIdx, 1);
+    saveState();
+    renderLog();
+    renderDashboard();
+    notify('🗑 Sortie supprimée');
+  });
+}
+
+// ============================================================
+// RACE EDIT / DELETE
+// ============================================================
+function openRaceEdit(idx) {
+  const r = racesData[idx];
+  document.getElementById('rm-idx').value = idx;
+  document.getElementById('rm-name').value = r.name || '';
+  document.getElementById('rm-date').value = r.date || '';
+  document.getElementById('rm-dist').value = r.dist || '';
+  document.getElementById('rm-obj').value = r.obj || '';
+  document.getElementById('rm-real').value = r.real || '';
+  openModal('race-modal');
+}
+
+function saveRaceEdit() {
+  const idx = parseInt(document.getElementById('rm-idx').value);
+  racesData[idx] = {
+    name: document.getElementById('rm-name').value,
+    date: document.getElementById('rm-date').value,
+    dist: document.getElementById('rm-dist').value,
+    obj: document.getElementById('rm-obj').value,
+    real: document.getElementById('rm-real').value,
+  };
+  racesData.sort((a,b) => new Date(a.date) - new Date(b.date));
+  saveState();
+  renderRaces();
+  renderDashboard();
+  closeModal('race-modal');
+  notify('✓ Course modifiée !');
+}
+
+function deleteRace(idx) {
+  askConfirm('Supprimer la course ?', racesData[idx].name, () => {
+    racesData.splice(idx, 1);
+    saveState();
+    renderRaces();
+    renderDashboard();
+    notify('🗑 Course supprimée');
+  });
+}
+
+// ============================================================
+// INIT
+// ============================================================
+loadState();
+renderDashboard();
+renderPlan('tempo-weeks', tempoData, 'tempoDone');
+renderPlan('prep-weeks', prepData, 'prepDone');
+renderPlan('semi-weeks', semiData, 'semiDone');
+renderPrepaList();
+renderLog();
+renderRaces();
+
+// Set today's date in log form
+document.getElementById('log-date').value = '2026-03-25';
+document.getElementById('r-date').value = '2026-03-25';

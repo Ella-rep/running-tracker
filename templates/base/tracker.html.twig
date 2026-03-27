@@ -1,847 +1,21 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Running Tracker</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
-<style>
-  /* ── DARK MODE (default) ──────────────────────── */
-  :root {
-    --bg: #12111a;
-    --surface: #1c1b28;
-    --surface2: #252338;
-    --border: #33304e;
-    --accent: #d966e0;
-    --accent2: #8b9cf4;
-    --accent3: #e05580;
-    --text: #eeeaf8;
-    --text-muted: #a09bb8;
-    --z1: #4ade80;
-    --z2: #8b9cf4;
-    --z3: #f0c040;
-    --z4: #d966e0;
-    --z5: #e05580;
-    --header-bg: rgba(18,17,26,0.97);
-    --overlay-bg: rgba(0,0,0,0.60);
-    --overlay-bg2: rgba(0,0,0,0.65);
-    --row-border: rgba(51,48,78,0.9);
-    --row-border2: rgba(51,48,78,0.7);
-    --badge-future-bg: rgba(51,48,78,0.8);
-    --badge-done-bg: rgba(217,102,224,0.12);
-    --badge-next-bg: rgba(217,102,224,0.15);
-    --alert-bg: rgba(224,85,128,0.08);
-    --alert-border: rgba(224,85,128,0.30);
-    --alert-ok-bg: rgba(74,222,128,0.07);
-    --alert-ok-border: rgba(74,222,128,0.22);
-    --filter-active-bg: rgba(217,102,224,0.12);
-    --confirm-border: rgba(224,85,128,0.40);
-    --shadow: 0 4px 32px rgba(139,156,244,0.20);
-  }
+{% extends 'base/layout.html.twig' %}
 
-  [data-theme="light"] {
-    --bg: #f4f7f0;
-    --surface: #ffffff;
-    --surface2: #eef4eb;
-    --border: #c8dcc0;
-    --accent: #5a9e1a;
-    --accent2: #1a7a3c;
-    --accent3: #d44a1a;
-    --text: #1a2e1a;
-    --text-muted: #5a7a5a;
-    --z1: #3d8b00;
-    --z2: #0077b6;
-    --z3: #b07d00;
-    --z4: #c94a00;
-    --z5: #c62828;
-    --header-bg: rgba(244,247,240,0.95);
-    --overlay-bg: rgba(0,0,0,0.45);
-    --overlay-bg2: rgba(0,0,0,0.50);
-    --row-border: rgba(180,210,170,0.6);
-    --row-border2: rgba(180,210,170,0.5);
-    --badge-future-bg: rgba(180,210,170,0.5);
-    --badge-done-bg: rgba(90,158,26,0.15);
-    --badge-next-bg: rgba(90,158,26,0.15);
-    --alert-bg: rgba(212,74,26,0.08);
-    --alert-border: rgba(212,74,26,0.25);
-    --alert-ok-bg: rgba(90,158,26,0.08);
-    --alert-ok-border: rgba(90,158,26,0.25);
-    --filter-active-bg: rgba(26,122,60,0.08);
-    --confirm-border: rgba(212,74,26,0.35);
-    --shadow: 0 4px 24px rgba(0,0,0,0.10);
-  }
+{% block title %}Running Tracker{% endblock %}
 
+{% block stylesheets %}
+  <link rel="stylesheet" href="{{ asset('css/tracker.css') }}">
+{% endblock %}
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    font-family: 'Syne', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* HEADER */
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px 32px;
-    border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    background: var(--header-bg);
-    backdrop-filter: blur(12px);
-    z-index: 100;
-  }
-
-  .logo {
-    font-family: 'Space Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 4px;
-    color: var(--accent);
-    text-transform: uppercase;
-  }
-
-  .logo span { color: var(--text-muted); }
-  [data-theme="dark"] .logo { color: #e05580; }
-  [data-theme="dark"] .logo span { color: #a070a0; }
-
-  nav { display: flex; gap: 4px; }
-
-  nav button {
-    background: none;
-    border: 1px solid transparent;
-    color: var(--text-muted);
-    padding: 7px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-family: 'Syne', sans-serif;
-    font-size: 13px;
-    font-weight: 600;
-    transition: all 0.2s;
-  }
-
-  nav button:hover { color: var(--text); border-color: var(--border); }
-  nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-  [data-theme="dark"] nav button.active { background: #e05580; color: #fff; border-color: #e05580; }
-  [data-theme="dark"] nav button:hover { color: #e05580; border-color: #e05580; }
-
-  /* MAIN */
-  main { padding: 32px; max-width: 1200px; margin: 0 auto; }
-
-  section { display: none; }
-  section.visible { display: block; }
-
-  /* DASHBOARD */
-  .section-title {
-    font-size: 28px;
-    font-weight: 800;
-    margin-bottom: 8px;
-    color: var(--text);
-  }
-
-  .section-sub {
-    font-size: 13px;
-    color: var(--text-muted);
-    font-family: 'Space Mono', monospace;
-    margin-bottom: 28px;
-  }
-
-  .kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 16px;
-    margin-bottom: 32px;
-  }
-
-  .kpi {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .kpi::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-  }
-
-  .kpi.accent::before { background: var(--accent); }
-  .kpi.blue::before { background: var(--accent2); }
-  .kpi.orange::before { background: #e05580; }
-  .kpi.green::before { background: var(--z1); }
-
-  .kpi-label {
-    font-size: 10px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    font-family: 'Space Mono', monospace;
-    margin-bottom: 10px;
-  }
-
-  .kpi-value {
-    font-size: 26px;
-    font-weight: 800;
-    line-height: 1;
-  }
-
-  .kpi-unit {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-top: 4px;
-    font-family: 'Space Mono', monospace;
-  }
-
-  /* PROGRESS BAR */
-  .progress-section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 24px;
-    margin-bottom: 28px;
-  }
-
-  .progress-label {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-  }
-
-  .progress-label span:first-child { font-weight: 700; font-size: 15px; }
-  .progress-label span:last-child { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--accent); }
-
-  .progress-bar {
-    height: 8px;
-    background: var(--border);
-    border-radius: 4px;
-    overflow: hidden;
-    margin-bottom: 8px;
-  }
-
-  .progress-fill {
-    height: 100%;
-    border-radius: 4px;
-    background: linear-gradient(90deg, var(--accent2), var(--accent));
-    transition: width 0.8s ease;
-  }
-
-  .progress-meta {
-    font-size: 11px;
-    color: var(--text-muted);
-    font-family: 'Space Mono', monospace;
-  }
-
-  /* CHART SIMPLE */
-  .chart-wrap {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 24px;
-    margin-bottom: 28px;
-  }
-
-  .chart-title {
-    font-size: 14px;
-    font-weight: 700;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .chart-title::before {
-    content: '';
-    display: inline-block;
-    width: 8px; height: 8px;
-    border-radius: 2px;
-    background: var(--accent);
-  }
-
-  .bar-chart {
-    display: flex;
-    align-items: flex-end;
-    gap: 6px;
-    height: 120px;
-  }
-
-  .bar-col {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    height: 100%;
-    justify-content: flex-end;
-  }
-
-  .bar {
-    width: 100%;
-    background: var(--accent2);
-    border-radius: 3px 3px 0 0;
-    transition: height 0.6s ease;
-    position: relative;
-    cursor: pointer;
-  }
-
-  .bar:hover { filter: brightness(1.3); }
-
-  .bar-label {
-    font-size: 9px;
-    color: var(--text-muted);
-    font-family: 'Space Mono', monospace;
-    text-align: center;
-    line-height: 1.2;
-  }
-
-  /* COURSES TABLE */
-  .table-wrap {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-    margin-bottom: 28px;
-  }
-
-  .table-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border);
-    font-size: 14px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  table { width: 100%; border-collapse: collapse; }
-
-  th {
-    text-align: left;
-    padding: 10px 16px;
-    font-size: 10px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    font-family: 'Space Mono', monospace;
-    border-bottom: 1px solid var(--border);
-    font-weight: 400;
-  }
-
-  td {
-    padding: 12px 16px;
-    font-size: 13px;
-    border-bottom: 1px solid var(--row-border);
-  }
-
-  tr:last-child td { border-bottom: none; }
-  tr:hover td { background: var(--surface2); }
-
-  .badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 10px;
-    font-family: 'Space Mono', monospace;
-    font-weight: 700;
-  }
-
-  .badge-done { background: var(--badge-done-bg); color: var(--z1); }
-  .badge-next { background: var(--badge-next-bg); color: var(--accent); }
-  .badge-future { background: var(--badge-future-bg); color: var(--text-muted); }
-
-  /* PLAN VIEW */
-  .week-grid {
-    display: grid;
-    gap: 12px;
-    margin-bottom: 28px;
-  }
-
-  .week-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    overflow: hidden;
-  }
-
-  .week-header {
-    background: var(--surface2);
-    padding: 10px 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .week-num {
-    font-family: 'Space Mono', monospace;
-    font-size: 11px;
-    color: var(--accent);
-    letter-spacing: 2px;
-  }
-  [data-theme="dark"] .week-num { color: #4ade80; }
-
-  .week-date {
-    font-size: 12px;
-    color: var(--text-muted);
-    font-family: 'Space Mono', monospace;
-  }
-
-  .session-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 16px;
-    border-bottom: 1px solid var(--row-border2);
-    transition: background 0.15s;
-    cursor: pointer;
-  }
-
-  .session-row:last-child { border-bottom: none; }
-  .session-row:hover { background: var(--surface2); }
-
-  .session-check {
-    width: 18px; height: 18px;
-    border-radius: 4px;
-    border: 2px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    transition: all 0.2s;
-    font-size: 11px;
-  }
-
-  .session-check.done { background: var(--z1); border-color: var(--z1); color: #000; }
-  [data-theme="dark"] .session-check.done { background: #4ade80; border-color: #4ade80; color: #0a1a0a; }
-
-  .session-format {
-    flex: 1;
-    font-size: 13px;
-    font-family: 'Space Mono', monospace;
-    line-height: 1.4;
-  }
-
-  .zone-tag {
-    display: inline-block;
-    width: 20px; height: 16px;
-    border-radius: 3px;
-    font-size: 9px;
-    text-align: center;
-    line-height: 16px;
-    font-weight: 700;
-    margin-right: 1px;
-  }
-
-  .session-meta {
-    display: flex;
-    gap: 8px;
-    flex-shrink: 0;
-    align-items: center;
-  }
-
-  .pe-badge {
-    font-size: 10px;
-    font-family: 'Space Mono', monospace;
-    color: var(--text-muted);
-    background: var(--surface2);
-    padding: 2px 6px;
-    border-radius: 3px;
-  }
-
-  .duration-badge {
-    font-size: 11px;
-    font-family: 'Space Mono', monospace;
-    color: var(--accent2);
-  }
-  [data-theme="dark"] .duration-badge { color: #f0eeff; font-weight: 700; }
-
-  .optional-tag {
-    font-size: 9px;
-    color: var(--text-muted);
-    font-style: italic;
-  }
-
-  /* LOG FORM */
-  .form-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 28px;
-    margin-bottom: 28px;
-  }
-
-  .form-card h3 {
-    font-size: 16px;
-    font-weight: 700;
-    margin-bottom: 20px;
-  }
-
-  .form-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 16px;
-    margin-bottom: 20px;
-  }
-
-  .field label {
-    display: block;
-    font-size: 10px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    font-family: 'Space Mono', monospace;
-    margin-bottom: 6px;
-  }
-
-  .field input, .field select, .field textarea {
-    width: 100%;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 7px;
-    color: var(--text);
-    font-family: 'Space Mono', monospace;
-    font-size: 13px;
-    padding: 10px 12px;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-
-  .field input:focus, .field select:focus { border-color: var(--accent2); }
-
-  .btn {
-    background: var(--accent);
-    color: #000;
-    border: none;
-    padding: 11px 24px;
-    border-radius: 8px;
-    font-family: 'Syne', sans-serif;
-    font-weight: 700;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
-
-  .btn-ghost {
-    background: none;
-    border: 1px solid var(--border);
-    color: var(--text);
-  }
-
-  .btn-ghost:hover { border-color: var(--text-muted); background: var(--surface2); transform: none; }
-
-  /* Log table */
-  .mono { font-family: 'Space Mono', monospace; }
-
-  .allure-fast { color: var(--z1); }
-  [data-theme="dark"] .allure-fast { color: #4ade80; }
-  .allure-mid { color: var(--accent2); }
-  .allure-slow { color: var(--text-muted); }
-
-  /* Alerts */
-  .alert {
-    background: var(--alert-bg);
-    border: 1px solid var(--alert-border);
-    border-radius: 8px;
-    padding: 14px 18px;
-    margin-bottom: 16px;
-    font-size: 13px;
-    position: relative;
-  }
-
-  .alert-title {
-    font-weight: 700;
-    color: #e05580;
-    margin-bottom: 4px;
-    font-size: 12px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    font-family: 'Space Mono', monospace;
-  }
-  .alert > div:not(.alert-title) {
-    color: var(--text);
-    opacity: 0.9;
-  }
-
-  .alert-ok {
-    background: var(--alert-ok-bg);
-    border-color: var(--alert-ok-border);
-  }
-
-  .alert-ok .alert-title { color: var(--z1); }
-  [data-theme="dark"] .alert-ok .alert-title { color: #4ade80; }
-
-  .filter-bar {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-  }
-
-  .filter-btn {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--text-muted);
-    padding: 6px 14px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 12px;
-    font-family: 'Space Mono', monospace;
-    transition: all 0.2s;
-  }
-
-  .filter-btn:hover, .filter-btn.active {
-    border-color: var(--accent2);
-    color: var(--accent2);
-    background: var(--filter-active-bg);
-  }
-
-  .zone-legend {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-bottom: 20px;
-  }
-
-  .zone-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    font-family: 'Space Mono', monospace;
-    color: var(--text-muted);
-  }
-
-  .zone-dot {
-    width: 10px; height: 10px;
-    border-radius: 2px;
-    flex-shrink: 0;
-  }
-
-  .notif {
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    background: var(--accent);
-    color: #000;
-    padding: 12px 20px;
-    border-radius: 8px;
-    font-weight: 700;
-    font-size: 13px;
-    transform: translateY(80px);
-    opacity: 0;
-    transition: all 0.3s ease;
-    z-index: 999;
-  }
-
-  .notif.show { transform: translateY(0); opacity: 1; }
-
-  /* ACTION ICONS */
-  .action-btns { display: flex; gap: 6px; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
-  tr:hover .action-btns, .session-row:hover .action-btns { opacity: 1; }
-  .action-btn {
-    background: none;
-    border: 1px solid var(--border);
-    border-radius: 5px;
-    color: var(--text-muted);
-    width: 26px; height: 26px;
-    cursor: pointer;
-    font-size: 12px;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.15s;
-    flex-shrink: 0;
-  }
-  .action-btn:hover { border-color: var(--accent2); color: var(--accent2); }
-  .action-btn.del:hover { border-color: #e05580; color: #e05580; }
-
-  /* MODAL */
-  .modal-overlay {
-    display: none;
-    position: fixed; inset: 0;
-    background: var(--overlay-bg);
-    backdrop-filter: blur(4px);
-    z-index: 500;
-    align-items: center;
-    justify-content: center;
-  }
-  .modal-overlay.open { display: flex; }
-  .modal {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 28px;
-    width: 100%;
-    max-width: 520px;
-    max-height: 90vh;
-    overflow-y: auto;
-    position: relative;
-    animation: modalIn 0.2s ease;
-  }
-  @keyframes modalIn {
-    from { transform: translateY(16px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-  }
-  .modal-title {
-    font-size: 17px;
-    font-weight: 800;
-    margin-bottom: 20px;
-    padding-right: 24px;
-  }
-  .modal-close {
-    position: absolute;
-    top: 20px; right: 20px;
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    font-size: 18px;
-    cursor: pointer;
-    line-height: 1;
-  }
-  .modal-close:hover { color: var(--text); }
-  .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
-
-  /* CONFIRM DELETE */
-  .confirm-overlay {
-    display: none;
-    position: fixed; inset: 0;
-    background: var(--overlay-bg2);
-    z-index: 600;
-    align-items: center;
-    justify-content: center;
-  }
-  .confirm-overlay.open { display: flex; }
-  .confirm-box {
-    background: var(--surface);
-    border: 1px solid var(--confirm-border);
-    border-radius: 12px;
-    padding: 24px;
-    max-width: 380px;
-    text-align: center;
-    animation: modalIn 0.15s ease;
-  }
-  .confirm-box p { margin-bottom: 20px; font-size: 14px; color: var(--text-muted); }
-  .confirm-box strong { display: block; font-size: 16px; color: var(--text); margin-bottom: 8px; }
-  .confirm-actions { display: flex; gap: 10px; justify-content: center; }
-  .btn-danger { background: var(--accent3); color: #fff; }
-  .btn-danger:hover { filter: brightness(1.1); }
-
-  @media (max-width: 640px) {
-    header { padding: 14px 16px; }
-    main { padding: 16px; }
-    nav button { padding: 6px 10px; font-size: 12px; }
-    .kpi-grid { grid-template-columns: 1fr 1fr; }
-  }
-
-  /* ── THEME TOGGLE ─────────────────────────────── */
-  .theme-toggle {
-    background: none;
-    border: 1px solid var(--border);
-    color: var(--text-muted);
-    width: 34px; height: 34px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    flex-shrink: 0;
-  }
-  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); background: var(--surface2); }
-
-
-  .theme-toggle {
-    background: none;
-    border: 1px solid var(--border);
-    color: var(--text-muted);
-    width: 34px; height: 34px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    flex-shrink: 0;
-  }
-  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); background: var(--surface2); }
-  [data-theme="light"] header { box-shadow: 0 1px 0 var(--border); }
-  [data-theme="light"] input,
-  [data-theme="light"] select { background: var(--bg); color: var(--text); border-color: var(--border); }
-  [data-theme="light"] input::placeholder { color: var(--text-muted); }
-  [data-theme="light"] nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-  [data-theme="light"] .btn { color: #fff; }
-  [data-theme="light"] tr:hover td { background: var(--surface2); }
-
-  /* Training advice card */
-  #training-advice .advice-card {
-    border-radius: 12px;
-    padding: 16px 20px;
-    display: flex;
-    align-items: flex-start;
-    gap: 14px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    animation: fadeIn .4s ease;
-  }
-  @keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
-  #training-advice .advice-icon { font-size: 28px; flex-shrink: 0; line-height: 1; }
-  #training-advice .advice-body { flex: 1; }
-  #training-advice .advice-title {
-    font-size: 12px; font-weight: 800; letter-spacing: 1px;
-    text-transform: uppercase; margin-bottom: 4px;
-  }
-  #training-advice .advice-text {
-    font-size: 13px; line-height: 1.6; color: var(--text);
-    opacity: 0.85;
-  }
-  #training-advice .advice-badge {
-    font-size: 9px; font-family: 'Space Mono', monospace;
-    letter-spacing: 2px; text-transform: uppercase;
-    padding: 3px 8px; border-radius: 4px; margin-left: 8px;
-    vertical-align: middle; font-weight: 700;
-  }
-
-
-  /* Dark mode — gradient accents */
-  [data-theme="dark"] .kpi-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0; height: 2px;
-    background: linear-gradient(90deg, #8b9cf4, #d966e0, #e05580);
-    border-radius: 12px 12px 0 0;
-  }
-  [data-theme="dark"] .kpi-card { position: relative; overflow: hidden; }
-  [data-theme="dark"] .btn-primary,
-  [data-theme="dark"] .btn {
-    background: linear-gradient(135deg, #8b9cf4, #d966e0) !important;
-    border-color: transparent !important;
-    color: #fff !important;
-  }
-
-</style>
-</head>
-<body>
-
+{% block body %}
 <header>
   <div class="logo">RUN<span>/</span>TRACKER</div>
   <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Thème clair/sombre">🌙</button>
   <nav>
     <button class="active" onclick="showSection('dashboard', this)">Dashboard</button>
-    <button onclick="showSection('tempo', this)">Tempo</button>
-    <button onclick="showSection('prep', this)">Prép. Semi</button>
-    <button onclick="showSection('semi', this)">Plan Semi</button>
+    <button onclick="showSection('prepa', this)">Prépa</button>
     <button onclick="showSection('log', this)">Log</button>
     <button onclick="showSection('courses', this)">Courses</button>
-    <a href="gpx-replay.html" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);padding:7px 16px;border-radius:6px;cursor:pointer;font-family:'Syne',sans-serif;font-size:13px;font-weight:600;text-decoration:none;transition:all 0.2s;display:inline-flex;align-items:center;gap:6px;" onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'" onmouseout="this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'">🗺️ Replay GPX</a>
+    <a href="{{ path('gpx_replay') }}" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);padding:7px 16px;border-radius:6px;cursor:pointer;font-family:'Syne',sans-serif;font-size:13px;font-weight:600;text-decoration:none;transition:all 0.2s;display:inline-flex;align-items:center;gap:6px;" onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'" onmouseout="this.style.color='var(--text-muted)';this.style.borderColor='var(--border)'">🗺️ Replay GPX</a>
   </nav>
 </header>
 
@@ -850,7 +24,7 @@
 <!-- ===== DASHBOARD ===== -->
 <section id="dashboard" class="visible">
   <div class="section-title">Vue d'ensemble 🏃</div>
-  <div class="section-sub">Mise à jour · 25 mars 2026</div>
+  <div class="section-sub">Mise à jour · {{ 'now'|date('d M Y') }}</div>
 
   <div id="training-advice" style="margin-bottom:18px;"></div>
 
@@ -911,64 +85,54 @@
   <div id="coherence-section"></div>
 </section>
 
-<!-- ===== TEMPO ===== -->
-<section id="tempo">
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-    <div class="section-title" id="tempo-title" style="margin-bottom:0">Phase Tempo</div>
-    <button onclick="editPlanMeta('tempo')" style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;padding:3px 8px;cursor:pointer;font-size:11px;" title="Modifier titre">✏️</button>
-  </div>
-  <div class="section-sub" id="tempo-sub">Bloc de préparation actuel · 16 séances</div>
-  <div style="display:flex;gap:8px;margin-bottom:16px;">
-    <button class="btn" style="padding:5px 12px;font-size:11px;" onclick="addPlanSession('tempo')">+ Ajouter séance</button>
-  </div>
-  <div class="zone-legend">
-    <div class="zone-item"><div class="zone-dot" style="background:var(--z1)"></div><span style="color:var(--z1)">Z1 récup</span></div>
-    <div class="zone-item"><div class="zone-dot" style="background:var(--z2)"></div>Z2 endurance</div>
-    <div class="zone-item"><div class="zone-dot" style="background:var(--z3)"></div>Z3 tempo</div>
-    <div class="zone-item"><div class="zone-dot" style="background:var(--z4)"></div>Z4 seuil</div>
-    <div class="zone-item"><div class="zone-dot" style="background:var(--accent3)"></div>Z5 VO2max</div>
-  </div>
-  <div id="tempo-weeks"></div>
-</section>
+<!-- ===== PRÉPA (hub) ===== -->
+<section id="prepa">
+  <div class="section-title">Mes plans de préparation</div>
+  <div class="section-sub">Sélectionne un plan pour le consulter ou le modifier</div>
 
-<!-- ===== PREP SEMI ===== -->
-<section id="prep">
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-    <div class="section-title" id="prep-title" style="margin-bottom:0">Préparation Semi</div>
-    <button onclick="editPlanMeta('prep')" style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;padding:3px 8px;cursor:pointer;font-size:11px;" title="Modifier titre">✏️</button>
-  </div>
-  <div class="section-sub" id="prep-sub">Plan de préparation avant le plan semi · 48 séances</div>
-  <div style="display:flex;gap:8px;margin-bottom:16px;">
-    <button class="btn" style="padding:5px 12px;font-size:11px;" onclick="addPlanSession('prep')">+ Ajouter séance</button>
-  </div>
-  <div class="zone-legend">
-    <div class="zone-item"><div class="zone-dot" style="background:var(--z1)"></div><span style="color:var(--z1)">Z1 récup</span></div>
-    <div class="zone-item"><div class="zone-dot" style="background:var(--z2)"></div>Z2 endurance</div>
-    <div class="zone-item"><div class="zone-dot" style="background:var(--z3)"></div>Z3 tempo</div>
-    <div class="zone-item"><div class="zone-dot" style="background:var(--z4)"></div>Z4 seuil</div>
-    <div class="zone-item"><div class="zone-dot" style="background:var(--accent3)"></div>Z5 VO2max</div>
-  </div>
-  <div id="prep-weeks"></div>
-</section>
+  <!-- Plan cards list -->
+  <div id="prepa-list" style="display:flex;flex-direction:column;gap:12px;margin-bottom:28px;"></div>
 
-<!-- ===== PLAN SEMI ===== -->
-<section id="semi">
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-    <div class="section-title" id="semi-title" style="margin-bottom:0">Plan Semi-Marathon</div>
-    <button onclick="editPlanMeta('semi')" style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;padding:3px 8px;cursor:pointer;font-size:11px;" title="Modifier titre">✏️</button>
-  </div>
-  <div class="section-sub" id="semi-sub">Plan 12 semaines vers la Parisienne (13 sept.) · 48 séances</div>
-  <div style="display:flex;gap:8px;margin-bottom:16px;">
-    <button class="btn" style="padding:5px 12px;font-size:11px;" onclick="addPlanSession('semi')">+ Ajouter séance</button>
-  </div>
-  <div class="zone-legend">
+  <button class="btn" onclick="createNewPlanFromHub()" style="gap:8px;">
+    + Nouveau plan
+  </button>
+
+  <!-- Zone legend (shared) -->
+  <div class="zone-legend" style="margin-top:28px;">
     <div class="zone-item"><div class="zone-dot" style="background:var(--z1)"></div><span style="color:var(--z1)">Z1 récup</span></div>
     <div class="zone-item"><div class="zone-dot" style="background:var(--z2)"></div>Z2 endurance</div>
     <div class="zone-item"><div class="zone-dot" style="background:var(--z3)"></div>Z3 tempo</div>
     <div class="zone-item"><div class="zone-dot" style="background:var(--z4)"></div>Z4 seuil</div>
     <div class="zone-item"><div class="zone-dot" style="background:var(--accent3)"></div>Z5 VO2max</div>
   </div>
-  <div id="semi-weeks"></div>
+
+  <!-- Individual plan detail (shown when a plan is opened) -->
+  <div id="prepa-detail" style="display:none;margin-top:24px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <button onclick="backToPrepaList()" style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px;">← Retour</button>
+      <button id="delete-extra-btn" onclick="deleteExtraPlan(currentPlanId)" style="display:none;background:none;border:1px solid var(--accent3);color:var(--accent3);border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px;margin-left:auto;">🗑 Supprimer</button>
+      <div class="section-title" id="prepa-detail-title" style="margin-bottom:0;font-size:22px;"></div>
+      <button onclick="editPlanMeta(currentPlanId)" style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;padding:3px 8px;cursor:pointer;font-size:11px;" title="Modifier">✏️</button>
+    </div>
+    <div class="section-sub" id="prepa-detail-sub"></div>
+    <div style="display:flex;gap:8px;margin:12px 0 16px;">
+      <button class="btn" style="padding:5px 12px;font-size:11px;" onclick="addPlanSession(currentPlanId)">+ Ajouter séance</button>
+    </div>
+    <div id="prepa-detail-weeks"></div>
+  </div>
+
+  <!-- Hidden containers for plan rendering (keep existing IDs working) -->
+  <div style="display:none">
+    <div id="tempo-weeks"></div>
+    <div id="prep-weeks"></div>
+    <div id="semi-weeks"></div>
+    <div id="tempo-title">Phase Tempo</div>
+    <div id="tempo-sub">Bloc de préparation actuel · 16 séances</div>
+    <div id="prep-title">Préparation Semi</div>
+    <div id="prep-sub">Plan de préparation avant le plan semi · 48 séances</div>
+    <div id="semi-title">Plan Semi-Marathon</div>
+    <div id="semi-sub">Plan 12 semaines vers la Parisienne (13 sept.) · 48 séances</div>
+  </div>
 </section>
 
 <!-- ===== LOG ===== -->
@@ -1150,7 +314,7 @@ applyTheme(localStorage.getItem('rt_theme') || 'light');
 // DATA
 // ============================================================
 
-const tempoData = [
+let tempoData = [
   {sem:1, date:'2026-03-24', format:"40'@Z2", pe:'3/10', total:40, done:true},
   {sem:1, date:'2026-03-25', format:"20'@Z2 >> 8x (45''@Z5 + 30''@Z1) >> 5'@Z1", pe:'6/10', total:35, done:false},
   {sem:null, date:'2026-03-28', format:"10km (course)", pe:'7/10', total:null, done:false},
@@ -1169,7 +333,7 @@ const tempoData = [
   {sem:1, date:null, format:"20'@Z2 >> 4x (5'@Z4 + 2'@Z2) >> 5'@Z1", pe:'6/10', total:53, done:false},
 ];
 
-const prepData = [
+let prepData = [
   {sem:1, date:null, format:"25'@Z2", pe:'3/10', total:25, opt:false},
   {sem:1, date:null, format:"30'@Z2 >> 5x (20\"@Z5 + 40\"@Z1) >> 5'@Z1", pe:'4/10', total:40, opt:false},
   {sem:1, date:null, format:"30'@Z2", pe:'3/10', total:30, opt:true},
@@ -1220,7 +384,7 @@ const prepData = [
   {sem:2, date:'2026-07-20', format:"60'@Z2 (récup)", pe:'3/10', total:60, opt:false},
 ];
 
-const semiData = [
+let semiData = [
   {sem:1, date:null, format:"45'@Z2", pe:'3/10', total:45, opt:false},
   {sem:1, date:null, format:"20'@Z2 >> 10x (30\"@Z5 + 30\"@Z1) >> 5'@Z1", pe:'4/10', total:35, opt:false},
   {sem:1, date:null, format:"30'@Z2", pe:'3/10', total:30, opt:true},
@@ -1312,8 +476,11 @@ let racesData = [
   {name:'20km de Paris', date:'2026-10-11', dist:'20km', obj:'', real:''},
 ];
 
-const INITIAL_LOGS = logData.map(r=>({...r}));
-const INITIAL_RACES = racesData.map(r=>({...r}));
+const INITIAL_LOGS   = logData.map(r=>({...r}));
+const INITIAL_RACES  = racesData.map(r=>({...r}));
+const INITIAL_TEMPO  = tempoData.map(s=>({...s}));
+const INITIAL_PREP   = prepData.map(s=>({...s}));
+const INITIAL_SEMI   = semiData.map(s=>({...s}));
 
 // States (persist to localStorage)
 const STATE_KEY = 'runtracker_v2';
@@ -1335,8 +502,8 @@ function loadState() {
       if (parsed.logs && parsed.logs.length > 0) logData = parsed.logs;
       if (parsed.races && parsed.races.length > 0) racesData = parsed.races;
       if (parsed.tempoData && parsed.tempoData.length > 0) tempoData = parsed.tempoData;
-      if (parsed.prepData && parsed.prepData.length > 0) prepData = parsed.prepData;
-      if (parsed.semiData && parsed.semiData.length > 0) semiData = parsed.semiData;
+      if (parsed.prepData  && parsed.prepData.length  > 0) prepData  = parsed.prepData;
+      if (parsed.semiData  && parsed.semiData.length  > 0) semiData  = parsed.semiData;
       state = {...state, ...parsed, logs: logData, races: racesData};
     }
     // Always reseed if data is empty (first load or cleared storage)
@@ -1360,6 +527,343 @@ function saveState() {
 // ============================================================
 // NAV
 // ============================================================
+
+
+// ── Generic prompt modal (replaces browser prompt()) ──────────
+let _promptCallback = null;
+
+function showPrompt(title, defaultVal, inputType, callback) {
+  _promptCallback = callback;
+  const m = document.getElementById('prompt-modal');
+  document.getElementById('prompt-modal-title').textContent = title;
+
+  // Rebuild input with correct type (changing type on existing input is unreliable)
+  const field = document.getElementById('prompt-modal-field');
+  field.innerHTML = '';
+  const inp = document.createElement('input');
+  inp.id = 'prompt-modal-input';
+  inp.type = inputType || 'text';
+  inp.style.cssText = 'width:100%;box-sizing:border-box;';
+  inp.className = '';
+
+  // Set value — date inputs require yyyy-mm-dd
+  if (inputType === 'date') {
+    let val = defaultVal || '';
+    if (val.includes('/')) {
+      const [dd, mm, yyyy] = val.split('/');
+      val = yyyy + '-' + mm + '-' + dd;
+    }
+    inp.value = val;
+  } else {
+    inp.value = defaultVal || '';
+  }
+
+  field.appendChild(inp);
+  m.style.display = 'flex';
+  setTimeout(() => inp.focus(), 50);
+
+  // OK button
+  const okBtn = document.getElementById('prompt-modal-ok');
+  okBtn.onclick = () => {
+    const val = inp.value.trim();
+    const cb = _promptCallback;   // capture before closing
+    closePromptModal();
+    if (cb) cb(val);
+  };
+
+  // Enter key
+  inp.onkeydown = (e) => {
+    if (e.key === 'Enter') okBtn.click();
+    if (e.key === 'Escape') closePromptModal();
+  };
+
+  // Click outside
+  m.onclick = (e) => { if (e.target === m) closePromptModal(); };
+}
+
+function closePromptModal() {
+  document.getElementById('prompt-modal').style.display = 'none';
+  _promptCallback = null;
+}
+
+// ── Prépa hub ─────────────────────────────────────────────────
+let currentPlanId = null;
+
+const PLAN_DEFS = [
+  { id:'tempo', dataVar:'tempoData', doneKey:'tempoDone', weeksCId:'tempo-weeks' },
+  { id:'prep',  dataVar:'prepData',  doneKey:'prepDone',  weeksCId:'prep-weeks'  },
+  { id:'semi',  dataVar:'semiData',  doneKey:'semiDone',  weeksCId:'semi-weeks'  },
+];
+
+function getDefaultMeta(planId) {
+  return {
+    tempo: {title:'Phase Tempo',          sub:'Bloc de préparation actuel · 16 séances'},
+    prep:  {title:'Préparation Semi',     sub:'Plan de préparation avant le plan semi · 48 séances'},
+    semi:  {title:'Plan Semi-Marathon',   sub:'Plan 12 semaines vers la Parisienne (13 sept.) · 48 séances'},
+  }[planId] || {title: planId, sub:''};
+}
+
+function getPlanData(planId) {
+  // Always use current variable references (may be reassigned by loadState)
+  const map = {tempo:tempoData, prep:prepData, semi:semiData};
+  return map[planId] || [];
+}
+
+function planCard(id, title, sub, sessions, doneObj, archives, isExtra) {
+  const done = Object.values(doneObj || {}).filter(Boolean).length;
+  const pct  = sessions.length ? Math.round(done / sessions.length * 100) : 0;
+  const onclick = isExtra ? `openExtraPlan('${id}')` : `openPlan('${id}')`;
+  return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;
+                      padding:18px 20px;cursor:pointer;transition:border-color .2s;"
+               onmouseover="this.style.borderColor='var(--accent)'"
+               onmouseout="this.style.borderColor='var(--border)'"
+               onclick="${onclick}">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div style="flex:1;">
+        <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:4px;">${title}</div>
+        <div style="font-size:11px;color:var(--text-muted);font-family:'Space Mono',monospace;">${sub}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:22px;font-weight:800;color:var(--z1)">${pct}%</div>
+        <div style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;">${done}/${sessions.length} séances</div>
+        ${archives ? '<div style="font-size:10px;color:var(--accent2);font-family:Space Mono,monospace;margin-top:2px;">📦 '+archives+' archive'+(archives>1?'s':'')+'</div>' : ''}
+      </div>
+      <div style="color:var(--text-muted);font-size:18px;">›</div>
+    </div>
+    <div style="height:3px;background:var(--border);border-radius:2px;margin-top:14px;">
+      <div style="height:100%;width:${pct}%;background:var(--z1);border-radius:2px;transition:width .4s;"></div>
+    </div>
+  </div>`;
+}
+
+
+function openExtraPlan(planId) {
+  currentPlanId = planId;
+  const ep = (state.extraPlans || []).find(p => p.id === planId);
+  if (!ep) return;
+
+  document.getElementById('prepa-list').style.display = 'none';
+  document.querySelector('#prepa > .btn').style.display = 'none';
+  document.querySelector('#prepa > .zone-legend').style.display = 'none';
+  document.getElementById('prepa-detail').style.display = 'block';
+  const delBtn2 = document.getElementById('delete-extra-btn'); if(delBtn2) delBtn2.style.display = '';
+  document.getElementById('prepa-detail-title').textContent = ep.title;
+  document.getElementById('prepa-detail-sub').textContent = ep.sub;
+
+  renderExtraPlan(ep);
+}
+
+function renderExtraPlan(ep) {
+  const weeksEl = document.getElementById('prepa-detail-weeks');
+  // Build HTML manually using renderPlan logic but with ep.sessions
+  let html2 = '';
+  let blockNum = 1, i = 0;
+  while (i < ep.sessions.length) {
+    const blockEnd = Math.min(i + 4, ep.sessions.length);
+    const block = ep.sessions.slice(i, blockEnd);
+    const weekDate = block.find(s => s.date)?.date;
+    const blockIndices = block.map((_,j) => i+j);
+    html2 += `<div class="week-card">
+      <div class="week-header">
+        <span class="week-num">BLOC ${blockNum}</span>
+        <span class="week-date" onclick="editExtraBlockDate('${ep.id}', ${JSON.stringify(blockIndices)})"
+          title="Cliquer pour modifier la date"
+          style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;">
+          ${weekDate ? formatDate(weekDate) : '— définir date'}
+        </span>
+      </div>`;
+    block.forEach((session, j) => {
+      const globalIdx = i + j;
+      const done = ep.done[globalIdx];
+      html2 += `<div class="session-row" onclick="toggleExtraSession('${ep.id}', ${globalIdx}, this)">
+        <div class="session-check ${done ? 'done' : ''}">${done ? '✓' : ''}</div>
+        <div class="session-format">${formatZones(session.format)}${session.opt ? ' <span class="optional-tag">(optionnel)</span>' : ''}</div>
+        <div class="session-meta">
+          ${session.pe ? `<span class="pe-badge">PE ${session.pe}</span>` : ''}
+          ${session.total ? `<span class="duration-badge">${session.total}'</span>` : ''}
+          <div class="action-btns">
+            <button class="action-btn" onclick="event.stopPropagation();openExtraSessionEdit('${ep.id}',${globalIdx})" title="Modifier">✏️</button>
+            <button class="action-btn del" onclick="event.stopPropagation();deleteExtraSession('${ep.id}',${globalIdx})" title="Supprimer">🗑</button>
+          </div>
+        </div>
+      </div>`;
+    });
+    html2 += '</div>';
+    i = blockEnd; blockNum++;
+  }
+  weeksEl.innerHTML = html2;
+}
+
+function toggleExtraSession(planId, idx, row) {
+  const ep = (state.extraPlans || []).find(p => p.id === planId);
+  if (!ep) return;
+  ep.done[idx] = !ep.done[idx];
+  saveState();
+  const check = row.querySelector('.session-check');
+  check.classList.toggle('done', !!ep.done[idx]);
+  check.textContent = ep.done[idx] ? '✓' : '';
+  renderPrepaList();
+}
+
+function editExtraBlockDate(planId, indices) {
+  const ep = (state.extraPlans || []).find(p => p.id === planId);
+  if (!ep) return;
+  const cur = indices.map(i => ep.sessions[i]?.date).find(d => d) || '';
+  showPrompt('Date du bloc', cur, 'date', (d) => {
+    if (ep.sessions[indices[0]]) ep.sessions[indices[0]].date = d || null;
+    saveState();
+    renderExtraPlan(ep);
+  });
+}
+
+function openExtraSessionEdit(planId, idx) {
+  const ep = (state.extraPlans || []).find(p => p.id === planId);
+  if (!ep) return;
+  const s = ep.sessions[idx];
+  // Reuse plan-modal
+  document.getElementById('pm-statekey').value = 'extra:' + planId;
+  document.getElementById('pm-idx').value = idx;
+  document.getElementById('pm-format').value = s.format || '';
+  document.getElementById('pm-date').value = s.date || '';
+  document.getElementById('pm-pe').value = s.pe || '';
+  document.getElementById('pm-total').value = s.total || '';
+  document.getElementById('pm-opt').checked = !!s.opt;
+  openModal('plan-modal');
+}
+
+function deleteExtraSession(planId, idx) {
+  const ep = (state.extraPlans || []).find(p => p.id === planId);
+  if (!ep) return;
+  if (!confirm('Supprimer cette séance ?')) return;
+  ep.sessions.splice(idx, 1);
+  // Reindex done
+  const newDone = {};
+  Object.entries(ep.done).forEach(([k,v]) => {
+    const ki = parseInt(k);
+    if (ki < idx) newDone[ki] = v;
+    else if (ki > idx) newDone[ki-1] = v;
+  });
+  ep.done = newDone;
+  saveState();
+  renderExtraPlan(ep);
+  renderPrepaList();
+}
+
+function deleteExtraPlan(planId) {
+  if (!confirm('Supprimer définitivement ce plan ?')) return;
+  state.extraPlans = (state.extraPlans || []).filter(p => p.id !== planId);
+  saveState();
+  backToPrepaList();
+}
+
+function renderPrepaList() {
+  const container = document.getElementById('prepa-list');
+  if (!container) return;
+
+  // Built-in plans
+  const builtIn = PLAN_DEFS.map(p => {
+    const meta = (state.planMeta || {})[p.id] || getDefaultMeta(p.id);
+    const data = getPlanData(p.id);
+    const archives = ((state.archives || {})[p.id] || []).length;
+    return planCard(p.id, meta.title, meta.sub, data, state[p.doneKey], archives, false);
+  });
+
+  // Extra plans
+  const extras = (state.extraPlans || []).map(ep =>
+    planCard(ep.id, ep.title, ep.sub, ep.sessions, ep.done, 0, true)
+  );
+
+  container.innerHTML = [...builtIn, ...extras].join('');
+}
+
+function openPlan(planId) {
+  currentPlanId = planId;
+  const meta = (state.planMeta || {})[planId] || getDefaultMeta(planId);
+  const data = getPlanData(planId);
+  const doneKey = {tempo:'tempoDone', prep:'prepDone', semi:'semiDone'}[planId];
+
+  document.getElementById('prepa-list').style.display = 'none';
+  document.querySelector('#prepa > .btn').style.display = 'none';
+  document.querySelector('#prepa > .zone-legend').style.display = 'none';
+  document.getElementById('prepa-detail').style.display = 'block';
+  const delBtn = document.getElementById('delete-extra-btn'); if(delBtn) delBtn.style.display = 'none';
+  document.getElementById('prepa-detail-title').textContent = meta.title;
+  document.getElementById('prepa-detail-sub').textContent = meta.sub;
+
+  // Render sessions directly into the detail container
+  renderPlan('prepa-detail-weeks', data, doneKey);
+}
+
+function backToPrepaList() {
+  currentPlanId = null;
+  document.getElementById('prepa-list').style.display = 'flex';
+  document.getElementById('prepa-list').style.flexDirection = 'column';
+  document.querySelector('#prepa > .btn').style.display = '';
+  document.querySelector('#prepa > .zone-legend').style.display = '';
+  document.getElementById('prepa-detail').style.display = 'none';
+  document.getElementById('prepa-detail-weeks').innerHTML = '';
+  renderPrepaList();
+}
+
+function createNewPlanFromHub() {
+  openNewPlanModal();
+}
+
+function openNewPlanModal() {
+  const existing = document.getElementById('newplan-modal');
+  if (existing) existing.remove();
+  const m = document.createElement('div');
+  m.id = 'newplan-modal';
+  m.className = 'modal-overlay';
+  m.style.display = 'flex';
+  m.innerHTML = `
+    <div class="modal">
+      <button class="modal-close" onclick="document.getElementById('newplan-modal').remove()">✕</button>
+      <div class="modal-title">Nouveau plan</div>
+      <div class="form-grid" style="grid-template-columns:1fr;">
+        <div class="field"><label>Nom du plan</label><input type="text" id="np-title" placeholder="Ex: Plan 10km printemps" autofocus></div>
+        <div class="field"><label>Sous-titre</label><input type="text" id="np-sub" placeholder="Ex: 8 semaines · 32 séances"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="confirmCreatePlan()">Créer</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('newplan-modal').remove()">Annuler</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+  document.getElementById('np-title').focus();
+}
+
+function confirmCreatePlan() {
+  const title = document.getElementById('np-title').value.trim();
+  const sub   = document.getElementById('np-sub').value.trim();
+  if (!title) { notify('Saisis un nom de plan'); return; }
+
+  // Store extra plans in state.extraPlans = [{id, title, sub, sessions, done}]
+  if (!state.extraPlans) state.extraPlans = [];
+  const planId = 'extra_' + Date.now();
+  state.extraPlans.push({
+    id: planId,
+    title: title,
+    sub: sub || '',
+    sessions: [
+      {sem:1,date:null,format:"45'@Z2",pe:'3/10',total:45},
+      {sem:1,date:null,format:"45'@Z2",pe:'3/10',total:45},
+      {sem:1,date:null,format:"45'@Z2",pe:'3/10',total:45},
+      {sem:1,date:null,format:"60'@Z2",pe:'4/10',total:60},
+    ],
+    done: {},
+  });
+  saveState();
+  document.getElementById('newplan-modal').remove();
+  renderPrepaList();
+  openExtraPlan(planId);
+  notify('Plan "' + title + '" créé');
+}
+
+// Override editPlanMeta to refresh detail view after save
+const _origSavePlanMeta = typeof savePlanMeta === 'function' ? savePlanMeta : null;
+
 function showSection(id, btn) {
   document.querySelectorAll('section').forEach(s => s.classList.remove('visible'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
@@ -1395,7 +899,8 @@ function allureClass(allure) {
 
 function formatDate(d) {
   if (!d) return '—';
-  return new Date(d).toLocaleDateString('fr-FR', {day:'2-digit', month:'short', year:'numeric'});
+  const dt = new Date(d + (d.includes('T') ? '' : 'T00:00:00'));
+  return dt.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric'});
 }
 
 function getDaysTo(dateStr) {
@@ -1863,26 +1368,40 @@ function renderPlan(containerId, data, stateKey) {
   let blockNum = 1;
   let i = 0;
 
-  while (i < data.length) {
-    // Find end of current week block (look for long run or 4 sessions)
-    let blockEnd = Math.min(i + 4, data.length);
-    const block = data.slice(i, blockEnd);
-    const weekDate = block.find(s => s.date)?.date;
+  // Group sessions by block: a new block starts when sem changes
+  // or when a session has a date that differs from the previous session's date group.
+  // Simplest stable approach: use sem field to detect block boundaries.
+  // A block boundary occurs when sem value changes from previous session.
+  const blocks = [];
+  let curBlock = [];
+  let prevSem = undefined;
+  data.forEach((session, idx) => {
+    const s = session.sem;
+    if (prevSem !== undefined && s !== null && s !== prevSem) {
+      // New block
+      blocks.push(curBlock);
+      curBlock = [];
+    }
+    curBlock.push({session, idx});
+    prevSem = s !== null ? s : prevSem;
+  });
+  if (curBlock.length > 0) blocks.push(curBlock);
 
-    const blockIdx = i; // capture for closures
+  blocks.forEach((block, bi) => {
+    const weekDate = block.map(b => b.session.date).find(d => d);
+    const indices = block.map(b => b.idx);
     html += `<div class="week-card">
       <div class="week-header">
-        <span class="week-num">BLOC ${blockNum}</span>
+        <span class="week-num">BLOC ${bi + 1}</span>
         <span class="week-date" 
-          onclick="editBlockDate('${stateKey}',${blockIdx},${JSON.stringify(block.map((_,j)=>i+j))})"
+          onclick="editBlockDate('${stateKey}',${indices[0]},${JSON.stringify(indices)})"
           title="Cliquer pour modifier la date"
           style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;">
           ${weekDate ? formatDate(weekDate) : '— définir date'}
         </span>
       </div>`;
 
-    block.forEach((session, j) => {
-      const globalIdx = i + j;
+    block.forEach(({session, idx: globalIdx}) => {
       const done = state[stateKey][globalIdx];
       html += `<div class="session-row" onclick="toggleSession('${stateKey}', ${globalIdx}, this)">
         <div class="session-check ${done ? 'done' : ''}">
@@ -1901,9 +1420,7 @@ function renderPlan(containerId, data, stateKey) {
     });
 
     html += `</div>`;
-    i = blockEnd;
-    blockNum++;
-  }
+  });
 
   container.innerHTML = html;
 }
@@ -1933,6 +1450,13 @@ function toggleSort() {
 
 // ── Plan meta editing ─────────────────────────────────────────
 function editPlanMeta(planId) {
+  // Handle extra plans
+  if (planId && planId.startsWith('extra_')) {
+    const ep = (state.extraPlans || []).find(p => p.id === planId);
+    if (!ep) return;
+    openPlanMetaModal(planId, ep.title, ep.sub);
+    return;
+  }
   const defaultTitles = {
     tempo: {title:'Phase Tempo', sub:'Bloc de préparation actuel · 16 séances'},
     prep:  {title:'Préparation Semi', sub:'Plan de préparation avant le plan semi · 48 séances'},
@@ -1988,11 +1512,26 @@ function savePlanMeta(planId) {
   const title = document.getElementById('meta-title').value.trim();
   const sub   = document.getElementById('meta-sub').value.trim();
   if (!title) return;
-  if (!state.planMeta) state.planMeta = {};
-  state.planMeta[planId] = {title, sub};
+  if (planId && planId.startsWith('extra_')) {
+    const ep = (state.extraPlans || []).find(p => p.id === planId);
+    if (ep) { ep.title = title; ep.sub = sub; }
+  } else {
+    if (!state.planMeta) state.planMeta = {};
+    state.planMeta[planId] = {title, sub};
+    const t = document.getElementById(planId+'-title');
+    const s = document.getElementById(planId+'-sub');
+    if (t) t.textContent = title;
+    if (s) s.textContent = sub;
+  }
   saveState();
-  document.getElementById(planId+'-title').textContent = title;
-  document.getElementById(planId+'-sub').textContent = sub;
+  // Update prepa detail header if open
+  if (currentPlanId === planId) {
+    const dt = document.getElementById('prepa-detail-title');
+    const ds = document.getElementById('prepa-detail-sub');
+    if (dt) dt.textContent = title;
+    if (ds) ds.textContent = sub;
+  }
+  renderPrepaList();
   document.getElementById('meta-modal').remove();
 }
 
@@ -2131,24 +1670,31 @@ function applyPlanMeta() {
 
 
 function editBlockDate(stateKey, blockStartIdx, sessionIndices) {
-  const dataMap = {tempoDone: tempoData, prepDone: prepData, semiDone: semiData};
-  const data = dataMap[stateKey];
+  const data = planDataMap()[stateKey];
   if (!data) return;
   // Find first session with a date in this block
   const cur = sessionIndices.map(i => data[i]?.date).find(d => d) || '';
-  const newDate = prompt('Date du bloc (AAAA-MM-JJ) :', cur);
-  if (newDate === null) return;
-  // Set date on first session of block, clear others
-  sessionIndices.forEach((si, j) => {
-    if (data[si]) data[si].date = j === 0 ? (newDate || null) : data[si].date;
+  showPrompt('Date du bloc', cur, 'date', (newDate) => {
+    if (data[sessionIndices[0]]) data[sessionIndices[0]].date = newDate || null;
+    saveState();
+    const containerId = stateKey === 'tempoDone' ? 'tempo-weeks' : stateKey === 'prepDone' ? 'prep-weeks' : 'semi-weeks';
+    renderPlan(containerId, data, stateKey);
+    if (currentPlanId && !currentPlanId.startsWith('extra_')) {
+      renderPlan('prepa-detail-weeks', data, stateKey);
+    }
   });
-  // If first session, set its date
-  if (data[sessionIndices[0]]) data[sessionIndices[0]].date = newDate || null;
-  saveState();
-  const containerId = stateKey === 'tempoDone' ? 'tempo-weeks' : stateKey === 'prepDone' ? 'prep-weeks' : 'semi-weeks';
-  renderPlan(containerId, data, stateKey);
 }
 function addPlanSession(planId) {
+  if (planId && planId.startsWith('extra_')) {
+    const ep = (state.extraPlans || []).find(p => p.id === planId);
+    if (!ep) return;
+    ep.sessions.push({sem:1, date:null, format:"45'@Z2", pe:'3/10', total:45});
+    saveState();
+    renderExtraPlan(ep);
+    renderPrepaList();
+    notify('Séance ajoutée');
+    return;
+  }
   const dataMap = {tempo: tempoData, prep: prepData, semi: semiData};
   const keyMap  = {tempo: 'tempoDone', prep: 'prepDone', semi: 'semiDone'};
   const data = dataMap[planId];
@@ -2158,6 +1704,8 @@ function addPlanSession(planId) {
   const containerId = planId === 'tempo' ? 'tempo-weeks' : planId === 'prep' ? 'prep-weeks' : 'semi-weeks';
   renderPlan(containerId, data, keyMap[planId]);
   notify('Séance ajoutée');
+  if (currentPlanId === planId) renderPlan('prepa-detail-weeks', data, keyMap[planId]);
+  renderPrepaList();
 }
 
 function renderLog() {
@@ -2415,11 +1963,11 @@ function closeConfirm() {
 // ============================================================
 // PLAN EDIT / DELETE
 // ============================================================
-const planDataMap = { tempoDone: tempoData, prepDone: prepData, semiDone: semiData };
+function planDataMap() { return { tempoDone: tempoData, prepDone: prepData, semiDone: semiData }; }
 const planContainerMap = { tempoDone: 'tempo-weeks', prepDone: 'prep-weeks', semiDone: 'semi-weeks' };
 
 function openPlanEdit(stateKey, idx) {
-  const data = planDataMap[stateKey];
+  const data = planDataMap()[stateKey];
   const s = data[idx];
   document.getElementById('pm-statekey').value = stateKey;
   document.getElementById('pm-idx').value = idx;
@@ -2434,7 +1982,23 @@ function openPlanEdit(stateKey, idx) {
 function savePlanEdit() {
   const stateKey = document.getElementById('pm-statekey').value;
   const idx = parseInt(document.getElementById('pm-idx').value);
-  const data = planDataMap[stateKey];
+  // Handle extra plan sessions
+  if (stateKey.startsWith('extra:')) {
+    const planId = stateKey.slice(6);
+    const ep = (state.extraPlans || []).find(p => p.id === planId);
+    if (ep && ep.sessions[idx]) {
+      ep.sessions[idx].format = document.getElementById('pm-format').value;
+      ep.sessions[idx].date   = document.getElementById('pm-date').value || null;
+      ep.sessions[idx].pe     = document.getElementById('pm-pe').value;
+      ep.sessions[idx].total  = parseInt(document.getElementById('pm-total').value) || null;
+      ep.sessions[idx].opt    = document.getElementById('pm-opt').checked;
+      saveState();
+      renderExtraPlan(ep);
+    }
+    closeModal('plan-modal');
+    return;
+  }
+  const data = planDataMap()[stateKey];
   data[idx].format = document.getElementById('pm-format').value;
   data[idx].date = document.getElementById('pm-date').value || null;
   data[idx].pe = document.getElementById('pm-pe').value;
@@ -2442,12 +2006,14 @@ function savePlanEdit() {
   data[idx].opt = document.getElementById('pm-opt').checked;
   saveState();
   renderPlan(planContainerMap[stateKey], data, stateKey);
+  const _pid = {tempoDone:'tempo',prepDone:'prep',semiDone:'semi'}[stateKey];
+  if (currentPlanId === _pid) renderPlan('prepa-detail-weeks', data, stateKey);
   closeModal('plan-modal');
   notify('✓ Séance modifiée !');
 }
 
 function deletePlanSession(stateKey, idx) {
-  const data = planDataMap[stateKey];
+  const data = planDataMap()[stateKey];
   askConfirm('Supprimer la séance ?', `"${data[idx].format}"`, () => {
     data.splice(idx, 1);
     // Shift done state keys above idx
@@ -2461,6 +2027,10 @@ function deletePlanSession(stateKey, idx) {
     saveState();
     renderPlan(planContainerMap[stateKey], data, stateKey);
     if (stateKey === 'tempoDone') renderDashboard();
+    // If we're in the detail view, re-open the plan to refresh
+    const planId = {tempoDone:'tempo', prepDone:'prep', semiDone:'semi'}[stateKey];
+    if (currentPlanId === planId) renderPlan('prepa-detail-weeks', data, stateKey);
+    renderPrepaList();
     notify('🗑 Séance supprimée');
   });
 }
@@ -2567,12 +2137,31 @@ renderDashboard();
 renderPlan('tempo-weeks', tempoData, 'tempoDone');
 renderPlan('prep-weeks', prepData, 'prepDone');
 renderPlan('semi-weeks', semiData, 'semiDone');
+renderPrepaList();
 renderLog();
 renderRaces();
 
 // Set today's date in log form
-document.getElementById('log-date').value = '2026-03-25';
-document.getElementById('r-date').value = '2026-03-25';
+document.getElementById('log-date').value = '{{ 'now'|date('Y-m-d') }}';
+document.getElementById('r-date').value = '{{ 'now'|date('Y-m-d') }}';
 </script>
-</body>
-</html>
+
+<div class="modal-overlay" id="prompt-modal">
+  <div class="modal">
+    <div class="modal-title" id="prompt-modal-title"></div>
+    <div class="form-grid" style="grid-template-columns:1fr;margin-top:12px;">
+      <div class="field" id="prompt-modal-field">
+        <!-- input injected dynamically -->
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="prompt-modal-ok">OK</button>
+      <button class="btn btn-ghost" onclick="closePromptModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+  <script src="{{ asset('js/tracker.js') }}"></script>
+{% endblock %}
