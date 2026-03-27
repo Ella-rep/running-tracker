@@ -31,11 +31,25 @@ else
 fi
 
 # ── 2. Attendre PostgreSQL ────────────────────────────────────
-echo "[DB] Attente de PostgreSQL…"
-until php "${APP_DIR}/bin/console" doctrine:query:sql "SELECT 1" > /dev/null 2>&1; do
+# Extraire host et port depuis DATABASE_URL
+DB_HOST=$(echo "${DATABASE_URL}" | sed -n 's|.*@\([^:/]*\).*|\1|p')
+DB_PORT=$(echo "${DATABASE_URL}" | sed -n 's|.*:\([0-9]*\)/.*|\1|p')
+DB_HOST=${DB_HOST:-db}
+DB_PORT=${DB_PORT:-5432}
+
+echo "[DB] Attente de PostgreSQL sur ${DB_HOST}:${DB_PORT}…"
+RETRIES=30
+until nc -z "${DB_HOST}" "${DB_PORT}" 2>/dev/null; do
+    RETRIES=$((RETRIES - 1))
+    if [ $RETRIES -le 0 ]; then
+        echo "[DB] ERREUR : PostgreSQL inaccessible après 30 tentatives."
+        exit 1
+    fi
+    echo "[DB] Pas encore prêt (${RETRIES} tentatives restantes)…"
     sleep 2
-    echo "[DB] PostgreSQL pas encore prêt, nouvelle tentative…"
 done
+# Attendre que PostgreSQL accepte vraiment les connexions (pas juste le port)
+sleep 1
 echo "[DB] PostgreSQL prêt."
 
 # ── 3. Migrations ─────────────────────────────────────────────

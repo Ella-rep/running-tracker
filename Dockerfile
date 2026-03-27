@@ -8,6 +8,11 @@ RUN apk add --no-cache \
     unzip \
     git \
     supervisor \
+    bash \ 
+    openrc \
+    rsync \
+    mlocate \
+    netcat-openbsd \
     && docker-php-ext-install pdo pdo_pgsql opcache
 
 # Composer
