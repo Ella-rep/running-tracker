@@ -8,35 +8,35 @@
 <style>
   /* ── DARK MODE (default) ──────────────────────── */
   :root {
-    --bg: #0a120b;
-    --surface: #111c12;
-    --surface2: #182619;
-    --border: #243826;
-    --accent: #a8e63d;
-    --accent2: #66bb6a;
-    --accent3: #ff7043;
-    --text: #f2f5ee;
-    --text-muted: #6e8c6f;
-    --z1: #a8e63d;
-    --z2: #4fc3f7;
-    --z3: #ffca28;
-    --z4: #ff7043;
-    --z5: #ef5350;
-    --header-bg: var(--header-bg);
-    --overlay-bg: var(--overlay-bg);
-    --overlay-bg2: var(--overlay-bg2);
-    --row-border: rgba(36,56,38,0.5);
-    --row-border2: rgba(36,56,38,0.4);
-    --badge-future-bg: rgba(36,56,38,0.8);
-    --badge-done-bg: rgba(168,230,61,0.15);
-    --badge-next-bg: rgba(168,230,61,0.15);
-    --alert-bg: rgba(255,112,67,0.10);
-    --alert-border: rgba(255,112,67,0.30);
-    --alert-ok-bg: rgba(168,230,61,0.08);
-    --alert-ok-border: rgba(168,230,61,0.25);
-    --filter-active-bg: rgba(102,187,106,0.07);
-    --confirm-border: rgba(255,112,67,0.40);
-    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    --bg: #12111a;
+    --surface: #1c1b28;
+    --surface2: #252338;
+    --border: #33304e;
+    --accent: #d966e0;
+    --accent2: #8b9cf4;
+    --accent3: #e05580;
+    --text: #eeeaf8;
+    --text-muted: #a09bb8;
+    --z1: #4ade80;
+    --z2: #8b9cf4;
+    --z3: #f0c040;
+    --z4: #d966e0;
+    --z5: #e05580;
+    --header-bg: rgba(18,17,26,0.97);
+    --overlay-bg: rgba(0,0,0,0.60);
+    --overlay-bg2: rgba(0,0,0,0.65);
+    --row-border: rgba(51,48,78,0.9);
+    --row-border2: rgba(51,48,78,0.7);
+    --badge-future-bg: rgba(51,48,78,0.8);
+    --badge-done-bg: rgba(217,102,224,0.12);
+    --badge-next-bg: rgba(217,102,224,0.15);
+    --alert-bg: rgba(224,85,128,0.08);
+    --alert-border: rgba(224,85,128,0.30);
+    --alert-ok-bg: rgba(74,222,128,0.07);
+    --alert-ok-border: rgba(74,222,128,0.22);
+    --filter-active-bg: rgba(217,102,224,0.12);
+    --confirm-border: rgba(224,85,128,0.40);
+    --shadow: 0 4px 32px rgba(139,156,244,0.20);
   }
 
   [data-theme="light"] {
@@ -71,38 +71,6 @@
     --shadow: 0 4px 24px rgba(0,0,0,0.10);
   }
 
-  /* ── LIGHT MODE ────────────────────────────────── */
-  [data-theme="light"] {
-    --bg: #f4f7f0;
-    --surface: #ffffff;
-    --surface2: #eef4eb;
-    --border: #c8dcc0;
-    --accent: #5a9e1a;
-    --accent2: #1a7a3c;
-    --accent3: #d44a1a;
-    --text: #1a2e1a;
-    --text-muted: #5a7a5a;
-    --z1: #3d8b00;
-    --z2: #0077b6;
-    --z3: #b07d00;
-    --z4: #c94a00;
-    --z5: #c62828;
-    --header-bg: rgba(244,247,240,0.95);
-    --overlay-bg: rgba(0,0,0,0.45);
-    --overlay-bg2: rgba(0,0,0,0.50);
-    --row-border: rgba(180,210,170,0.6);
-    --row-border2: rgba(180,210,170,0.5);
-    --badge-future-bg: rgba(180,210,170,0.5);
-    --badge-done-bg: rgba(90,158,26,0.15);
-    --badge-next-bg: rgba(90,158,26,0.15);
-    --alert-bg: rgba(212,74,26,0.08);
-    --alert-border: rgba(212,74,26,0.25);
-    --alert-ok-bg: rgba(90,158,26,0.08);
-    --alert-ok-border: rgba(90,158,26,0.25);
-    --filter-active-bg: rgba(26,122,60,0.08);
-    --confirm-border: rgba(212,74,26,0.35);
-    --shadow: 0 4px 24px rgba(0,0,0,0.10);
-  }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -137,6 +105,8 @@
   }
 
   .logo span { color: var(--text-muted); }
+  [data-theme="dark"] .logo { color: #e05580; }
+  [data-theme="dark"] .logo span { color: #a070a0; }
 
   nav { display: flex; gap: 4px; }
 
@@ -154,7 +124,9 @@
   }
 
   nav button:hover { color: var(--text); border-color: var(--border); }
-  nav button.active { background: var(--accent); color: #000; border-color: var(--accent); }
+  nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  [data-theme="dark"] nav button.active { background: #e05580; color: #fff; border-color: #e05580; }
+  [data-theme="dark"] nav button:hover { color: #e05580; border-color: #e05580; }
 
   /* MAIN */
   main { padding: 32px; max-width: 1200px; margin: 0 auto; }
@@ -167,6 +139,7 @@
     font-size: 28px;
     font-weight: 800;
     margin-bottom: 8px;
+    color: var(--text);
   }
 
   .section-sub {
@@ -201,7 +174,7 @@
 
   .kpi.accent::before { background: var(--accent); }
   .kpi.blue::before { background: var(--accent2); }
-  .kpi.orange::before { background: var(--accent3); }
+  .kpi.orange::before { background: #e05580; }
   .kpi.green::before { background: var(--z1); }
 
   .kpi-label {
@@ -412,6 +385,7 @@
     color: var(--accent);
     letter-spacing: 2px;
   }
+  [data-theme="dark"] .week-num { color: #4ade80; }
 
   .week-date {
     font-size: 12px;
@@ -445,6 +419,7 @@
   }
 
   .session-check.done { background: var(--z1); border-color: var(--z1); color: #000; }
+  [data-theme="dark"] .session-check.done { background: #4ade80; border-color: #4ade80; color: #0a1a0a; }
 
   .session-format {
     flex: 1;
@@ -485,6 +460,7 @@
     font-family: 'Space Mono', monospace;
     color: var(--accent2);
   }
+  [data-theme="dark"] .duration-badge { color: #f0eeff; font-weight: 700; }
 
   .optional-tag {
     font-size: 9px;
@@ -566,6 +542,7 @@
   .mono { font-family: 'Space Mono', monospace; }
 
   .allure-fast { color: var(--z1); }
+  [data-theme="dark"] .allure-fast { color: #4ade80; }
   .allure-mid { color: var(--accent2); }
   .allure-slow { color: var(--text-muted); }
 
@@ -577,16 +554,21 @@
     padding: 14px 18px;
     margin-bottom: 16px;
     font-size: 13px;
+    position: relative;
   }
 
   .alert-title {
     font-weight: 700;
-    color: var(--accent3);
+    color: #e05580;
     margin-bottom: 4px;
     font-size: 12px;
     letter-spacing: 1px;
     text-transform: uppercase;
     font-family: 'Space Mono', monospace;
+  }
+  .alert > div:not(.alert-title) {
+    color: var(--text);
+    opacity: 0.9;
   }
 
   .alert-ok {
@@ -595,6 +577,7 @@
   }
 
   .alert-ok .alert-title { color: var(--z1); }
+  [data-theme="dark"] .alert-ok .alert-title { color: #4ade80; }
 
   .filter-bar {
     display: flex;
@@ -677,7 +660,7 @@
     flex-shrink: 0;
   }
   .action-btn:hover { border-color: var(--accent2); color: var(--accent2); }
-  .action-btn.del:hover { border-color: var(--accent3); color: var(--accent3); }
+  .action-btn.del:hover { border-color: #e05580; color: #e05580; }
 
   /* MODAL */
   .modal-overlay {
@@ -773,13 +756,6 @@
     flex-shrink: 0;
   }
   .theme-toggle:hover { border-color: var(--accent); color: var(--accent); background: var(--surface2); }
-  [data-theme="light"] header { box-shadow: 0 1px 0 var(--border); }
-  [data-theme="light"] input,
-  [data-theme="light"] select { background: var(--bg); color: var(--text); border-color: var(--border); }
-  [data-theme="light"] input::placeholder { color: var(--text-muted); }
-  [data-theme="light"] nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-  [data-theme="light"] .btn { color: #fff; }
-  [data-theme="light"] tr:hover td { background: var(--surface2); }
 
 
   .theme-toggle {
@@ -824,13 +800,31 @@
     text-transform: uppercase; margin-bottom: 4px;
   }
   #training-advice .advice-text {
-    font-size: 13px; line-height: 1.6; color: var(--text-muted);
+    font-size: 13px; line-height: 1.6; color: var(--text);
+    opacity: 0.85;
   }
   #training-advice .advice-badge {
     font-size: 9px; font-family: 'Space Mono', monospace;
     letter-spacing: 2px; text-transform: uppercase;
     padding: 3px 8px; border-radius: 4px; margin-left: 8px;
     vertical-align: middle; font-weight: 700;
+  }
+
+
+  /* Dark mode — gradient accents */
+  [data-theme="dark"] .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, #8b9cf4, #d966e0, #e05580);
+    border-radius: 12px 12px 0 0;
+  }
+  [data-theme="dark"] .kpi-card { position: relative; overflow: hidden; }
+  [data-theme="dark"] .btn-primary,
+  [data-theme="dark"] .btn {
+    background: linear-gradient(135deg, #8b9cf4, #d966e0) !important;
+    border-color: transparent !important;
+    color: #fff !important;
   }
 
 </style>
@@ -919,42 +913,60 @@
 
 <!-- ===== TEMPO ===== -->
 <section id="tempo">
-  <div class="section-title">Phase Tempo</div>
-  <div class="section-sub">Bloc de préparation actuel · 16 séances</div>
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+    <div class="section-title" id="tempo-title" style="margin-bottom:0">Phase Tempo</div>
+    <button onclick="editPlanMeta('tempo')" style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;padding:3px 8px;cursor:pointer;font-size:11px;" title="Modifier titre">✏️</button>
+  </div>
+  <div class="section-sub" id="tempo-sub">Bloc de préparation actuel · 16 séances</div>
+  <div style="display:flex;gap:8px;margin-bottom:16px;">
+    <button class="btn" style="padding:5px 12px;font-size:11px;" onclick="addPlanSession('tempo')">+ Ajouter séance</button>
+  </div>
   <div class="zone-legend">
-    <div class="zone-item"><div class="zone-dot" style="background:var(--z1)"></div>Z1 récup</div>
+    <div class="zone-item"><div class="zone-dot" style="background:var(--z1)"></div><span style="color:var(--z1)">Z1 récup</span></div>
     <div class="zone-item"><div class="zone-dot" style="background:var(--z2)"></div>Z2 endurance</div>
     <div class="zone-item"><div class="zone-dot" style="background:var(--z3)"></div>Z3 tempo</div>
     <div class="zone-item"><div class="zone-dot" style="background:var(--z4)"></div>Z4 seuil</div>
-    <div class="zone-item"><div class="zone-dot" style="background:var(--z5)"></div>Z5 VO2max</div>
+    <div class="zone-item"><div class="zone-dot" style="background:var(--accent3)"></div>Z5 VO2max</div>
   </div>
   <div id="tempo-weeks"></div>
 </section>
 
 <!-- ===== PREP SEMI ===== -->
 <section id="prep">
-  <div class="section-title">Préparation Semi</div>
-  <div class="section-sub">Plan de préparation avant le plan semi · 48 séances</div>
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+    <div class="section-title" id="prep-title" style="margin-bottom:0">Préparation Semi</div>
+    <button onclick="editPlanMeta('prep')" style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;padding:3px 8px;cursor:pointer;font-size:11px;" title="Modifier titre">✏️</button>
+  </div>
+  <div class="section-sub" id="prep-sub">Plan de préparation avant le plan semi · 48 séances</div>
+  <div style="display:flex;gap:8px;margin-bottom:16px;">
+    <button class="btn" style="padding:5px 12px;font-size:11px;" onclick="addPlanSession('prep')">+ Ajouter séance</button>
+  </div>
   <div class="zone-legend">
-    <div class="zone-item"><div class="zone-dot" style="background:var(--z1)"></div>Z1 récup</div>
+    <div class="zone-item"><div class="zone-dot" style="background:var(--z1)"></div><span style="color:var(--z1)">Z1 récup</span></div>
     <div class="zone-item"><div class="zone-dot" style="background:var(--z2)"></div>Z2 endurance</div>
     <div class="zone-item"><div class="zone-dot" style="background:var(--z3)"></div>Z3 tempo</div>
     <div class="zone-item"><div class="zone-dot" style="background:var(--z4)"></div>Z4 seuil</div>
-    <div class="zone-item"><div class="zone-dot" style="background:var(--z5)"></div>Z5 VO2max</div>
+    <div class="zone-item"><div class="zone-dot" style="background:var(--accent3)"></div>Z5 VO2max</div>
   </div>
   <div id="prep-weeks"></div>
 </section>
 
 <!-- ===== PLAN SEMI ===== -->
 <section id="semi">
-  <div class="section-title">Plan Semi-Marathon</div>
-  <div class="section-sub">Plan 12 semaines vers la Parisienne (13 sept.) · 48 séances</div>
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+    <div class="section-title" id="semi-title" style="margin-bottom:0">Plan Semi-Marathon</div>
+    <button onclick="editPlanMeta('semi')" style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;padding:3px 8px;cursor:pointer;font-size:11px;" title="Modifier titre">✏️</button>
+  </div>
+  <div class="section-sub" id="semi-sub">Plan 12 semaines vers la Parisienne (13 sept.) · 48 séances</div>
+  <div style="display:flex;gap:8px;margin-bottom:16px;">
+    <button class="btn" style="padding:5px 12px;font-size:11px;" onclick="addPlanSession('semi')">+ Ajouter séance</button>
+  </div>
   <div class="zone-legend">
-    <div class="zone-item"><div class="zone-dot" style="background:var(--z1)"></div>Z1 récup</div>
+    <div class="zone-item"><div class="zone-dot" style="background:var(--z1)"></div><span style="color:var(--z1)">Z1 récup</span></div>
     <div class="zone-item"><div class="zone-dot" style="background:var(--z2)"></div>Z2 endurance</div>
     <div class="zone-item"><div class="zone-dot" style="background:var(--z3)"></div>Z3 tempo</div>
     <div class="zone-item"><div class="zone-dot" style="background:var(--z4)"></div>Z4 seuil</div>
-    <div class="zone-item"><div class="zone-dot" style="background:var(--z5)"></div>Z5 VO2max</div>
+    <div class="zone-item"><div class="zone-dot" style="background:var(--accent3)"></div>Z5 VO2max</div>
   </div>
   <div id="semi-weeks"></div>
 </section>
@@ -1132,7 +1144,7 @@ function toggleTheme() {
   localStorage.setItem('rt_theme', n);
   applyTheme(n);
 }
-applyTheme(localStorage.getItem('rt_theme') || 'dark');
+applyTheme(localStorage.getItem('rt_theme') || 'light');
 
 // ============================================================
 // DATA
@@ -1260,6 +1272,7 @@ const semiData = [
   {sem:2, date:'2026-09-13', format:"🏁 LA PARISIENNE (RACE DAY)", pe:'—', total:null, opt:false},
 ];
 
+// Initial data snapshots (used to seed empty localStorage)
 let logData = [
   {date:'2026-01-06', km:3.00, dur:'00:26:47', bpm:null, type:'', notes:'', allure:'08:55'},
   {date:'2026-01-12', km:3.06, dur:'00:29:14', bpm:null, type:'', notes:'', allure:'09:33'},
@@ -1299,12 +1312,16 @@ let racesData = [
   {name:'20km de Paris', date:'2026-10-11', dist:'20km', obj:'', real:''},
 ];
 
+const INITIAL_LOGS = logData.map(r=>({...r}));
+const INITIAL_RACES = racesData.map(r=>({...r}));
+
 // States (persist to localStorage)
 const STATE_KEY = 'runtracker_v2';
 let state = {
   tempoDone: {},
   prepDone: {},
   semiDone: {},
+  planMeta: {},  // {tempo:{title,sub}, prep:{title,sub}, semi:{title,sub}}
   logs: logData,
   races: racesData,
 };
@@ -1314,16 +1331,29 @@ function loadState() {
     const s = localStorage.getItem(STATE_KEY);
     if (s) {
       const parsed = JSON.parse(s);
-      state = {...state, ...parsed};
-      logData = state.logs;
-      racesData = state.races;
+      // Only override if saved data has content (prevents empty-array overwrite)
+      if (parsed.logs && parsed.logs.length > 0) logData = parsed.logs;
+      if (parsed.races && parsed.races.length > 0) racesData = parsed.races;
+      if (parsed.tempoData && parsed.tempoData.length > 0) tempoData = parsed.tempoData;
+      if (parsed.prepData && parsed.prepData.length > 0) prepData = parsed.prepData;
+      if (parsed.semiData && parsed.semiData.length > 0) semiData = parsed.semiData;
+      state = {...state, ...parsed, logs: logData, races: racesData};
     }
-  } catch(e) {}
+    // Always reseed if data is empty (first load or cleared storage)
+    if (!logData || logData.length === 0) logData = INITIAL_LOGS;
+    if (!racesData || racesData.length === 0) racesData = INITIAL_RACES;
+  } catch(e) {
+    logData = INITIAL_LOGS;
+    racesData = INITIAL_RACES;
+  }
 }
 
 function saveState() {
   state.logs = logData;
   state.races = racesData;
+  state.tempoData = tempoData;
+  state.prepData = prepData;
+  state.semiData = semiData;
   localStorage.setItem(STATE_KEY, JSON.stringify(state));
 }
 
@@ -1376,7 +1406,10 @@ function getDaysTo(dateStr) {
 
 function formatZones(format) {
   return format.replace(/@Z(\d)/g, (_, z) => {
-    const colors = {1:'var(--z1)',2:'var(--z2)',3:'var(--z3)',4:'var(--z4)',5:'var(--z5)'};
+    const isDarkZone = document.documentElement.getAttribute('data-theme') !== 'light';
+    const colors = isDarkZone
+      ? {1:'#4ade80',2:'#8b9cf4',3:'#f0c040',4:'#d966e0',5:'#e05580'}
+      : {1:'var(--z1)',2:'var(--z2)',3:'var(--z3)',4:'var(--z4)',5:'var(--accent3)'};
     return `<span style="color:${colors[z]||'#fff'}">@Z${z}</span>`;
   });
 }
@@ -1396,110 +1429,111 @@ function renderAdvice() {
   const el = document.getElementById('training-advice');
   if (!el) return;
 
-  const today = new Date();
-  today.setHours(0,0,0,0);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1);
+  const d2 = new Date(today); d2.setDate(today.getDate()+2);
+  const d7ago = new Date(today); d7ago.setDate(today.getDate()-7);
 
-  // Sort runs by date desc
-  const sorted = [...logData].sort((a,b) => new Date(b.date) - new Date(a.date));
+  const sorted = [...logData].sort((a,b) => new Date(b.date)-new Date(a.date));
+  const lastRun = sorted[0];
+  const lastDate = lastRun ? new Date(lastRun.date) : null;
+  const daysSince = lastDate ? Math.round((today-lastDate)/86400000) : 99;
 
-  // Compute load metrics
-  const yesterday = new Date(today); yesterday.setDate(today.getDate()-1);
-  const d2ago     = new Date(today); d2ago.setDate(today.getDate()-2);
-  const d7ago     = new Date(today); d7ago.setDate(today.getDate()-7);
-
-  const lastRun   = sorted[0];
-  const lastDate  = lastRun ? new Date(lastRun.date) : null;
-  const daysSince = lastDate ? Math.round((today - lastDate) / 86400000) : 99;
-
-  // Weekly volume (last 7 days)
-  const weekRuns  = sorted.filter(r => new Date(r.date) >= d7ago);
-  const weekKm    = weekRuns.reduce((s,r) => s + (r.km||0), 0);
+  // Weekly load
+  const weekRuns = sorted.filter(r => new Date(r.date) >= d7ago);
+  const weekKm = weekRuns.reduce((s,r)=>s+(r.km||0),0);
   const weekCount = weekRuns.length;
 
-  // Was yesterday intense? (Race, FC, FL, or allure < 8:00)
-  const yesterdayRun = sorted.find(r => {
-    const d = new Date(r.date); d.setHours(0,0,0,0);
-    return d.getTime() === yesterday.getTime();
-  });
-  const todayRun = sorted.find(r => {
-    const d = new Date(r.date); d.setHours(0,0,0,0);
-    return d.getTime() === today.getTime();
-  });
+  function paceToSec(p){if(!p)return 999;const[m,s]=p.split(':').map(Number);return m*60+(s||0);}
+  const isIntense = r => r && (['Race','FC','FL','Tempo'].includes(r.type)||paceToSec(r.allure)<480);
 
-  function paceToSec(p) {
-    if(!p) return 999;
-    const [m,s] = p.split(':').map(Number); return m*60+(s||0);
-  }
-  const lastPaceSec = paceToSec(lastRun?.allure);
-  const isIntense   = r => ['Race','FC','FL','Tempo'].includes(r?.type) || paceToSec(r?.allure) < 480;
+  const todayRun = sorted.find(r=>{const d=new Date(r.date);d.setHours(0,0,0,0);return d.getTime()===today.getTime();});
+  const yestRun  = sorted.find(r=>{const d=new Date(r.date);d.setHours(0,0,0,0);return d.getTime()===today.getTime()-86400000;});
 
-  // Decision logic
-  let icon, title, text, color, badge;
+  // ── Upcoming races ─────────────────────────────────────────
+  const upcomingRaces = (racesData||[])
+    .filter(r=>r.date && !r.real)  // not yet run
+    .map(r=>({...r, d:new Date(r.date), daysTo:Math.round((new Date(r.date).setHours(0,0,0,0)-today)/86400000)}))
+    .filter(r=>r.daysTo>=0)
+    .sort((a,b)=>a.daysTo-b.daysTo);
 
-  if (todayRun) {
-    // Already ran today
-    icon = '✅'; color = 'var(--accent2)';
-    title = 'Séance effectuée';
-    badge = 'Aujourd'hui';
-    text = `${todayRun.km} km à ${todayRun.allure}/km — objectif atteint ! Bien t'hydrater et récupérer.`;
-  } else if (yesterdayRun && isIntense(yesterdayRun)) {
-    // Hard session yesterday → rest or easy
-    icon = '🛌'; color = '#ff9800';
-    title = 'Récupération conseillée';
-    badge = 'J-1 intense';
-    text = `Tu as couru ${yesterdayRun.km} km hier${yesterdayRun.type ? ' (' + yesterdayRun.type + ')' : ''} à ${yesterdayRun.allure}/km. Privilégie le repos actif, l'étirement ou une sortie très légère < 8 km/h.`;
-  } else if (daysSince === 0) {
-    // Ran today already handled above
-    icon = '✅'; color = 'var(--accent2)';
-    title = 'C'est fait !'; badge = '';
-    text = 'Tu as déjà couru aujourd'hui.';
-  } else if (daysSince >= 3) {
-    // Haven't run in 3+ days → go!
-    icon = '🚀'; color = 'var(--accent)';
-    title = 'Il est temps de chausser les baskets !';
-    badge = daysSince + ' jours sans sortie';
-    text = `Dernière sortie il y a ${daysSince} jours (${lastRun?.km} km le ${lastRun?.date}). Le corps est reposé — une sortie EF de 45–60 min serait idéale.`;
-  } else if (daysSince === 2 && weekKm > 35) {
-    // High weekly load + 2 days rest → easy run OK
-    icon = '🏃'; color = 'var(--accent2)';
-    title = 'Sortie légère bienvenue';
-    badge = weekKm.toFixed(0) + ' km cette semaine';
-    text = `${weekKm.toFixed(1)} km en ${weekCount} sorties cette semaine — charge élevée. Une sortie EF courte (30–40 min, < 8:30/km) pour maintenir le rythme sans surcharger.`;
-  } else if (daysSince === 1 && !isIntense(lastRun)) {
-    // Easy run yesterday → can run today
-    icon = '👟'; color = 'var(--accent)';
-    title = 'Bonne journée pour courir';
-    badge = 'J-1 facile';
-    text = `Hier : ${lastRun?.km} km à ${lastRun?.allure}/km (facile). Tu peux enchaîner — une sortie EF ou tempo selon ton plan.`;
-  } else if (daysSince === 1 && isIntense(lastRun)) {
-    icon = '🛌'; color = '#ff9800';
-    title = 'Récupération conseillée';
-    badge = 'J-1 intense';
-    text = `Hier : ${lastRun?.km} km à ${lastRun?.allure}/km — effort soutenu. Laisse ton corps récupérer aujourd'hui.`;
+  const nextRace = upcomingRaces[0];
+  const raceToday = nextRace?.daysTo===0;
+  const raceTomorrow = nextRace?.daysTo===1;
+  const raceIn2 = nextRace?.daysTo===2;
+  const raceThisWeek = nextRace && nextRace.daysTo<=6;
+
+  // ── Decision logic ──────────────────────────────────────────
+  let icon,title,text,color,badge='';
+
+  if(raceToday){
+    icon='🏁'; color='#e05580';
+    title='Jour de course !';
+    badge=nextRace.name;
+    text=`C'est le jour de la ${nextRace.name} (${nextRace.dist}). Échauffement léger 15 min, reste bien hydraté·e, et bonne course !`;
+  } else if(raceTomorrow){
+    icon='😴'; color='#8b9cf4';
+    title='Course demain — repos absolu';
+    badge=nextRace.name+' J-1';
+    text=`La ${nextRace.name} (${nextRace.dist}) est demain. Aucune sortie aujourd'hui — jambes au repos, bonne hydratation, dormez tôt.`;
+  } else if(raceIn2){
+    icon='🧘'; color='#8b9cf4';
+    title='Course dans 2 jours — sortie très légère max';
+    badge=nextRace.name+' J-2';
+    text=`J-2 avant la ${nextRace.name} (${nextRace.dist}). Si tu sors, max 20–30 min très facile (< 9:00/km) juste pour activer les jambes.`;
+  } else if(raceThisWeek){
+    icon='⚡'; color='#f0c040';
+    title=`Course dans ${nextRace.daysTo} jours — charge réduite`;
+    badge=nextRace.name;
+    text=`La ${nextRace.name} (${nextRace.dist}) arrive ${nextRace.daysTo===3?'après-demain':'dans '+nextRace.daysTo+' jours'}. Réduis le volume, conserve quelques accélérations courtes. Pas de séance longue.`;
+  } else if(todayRun){
+    icon='✅'; color='#4ade80';
+    title='Séance effectuée';
+    text=`${todayRun.km} km à ${todayRun.allure}/km. Bien récupérer — hydratation et étirements.`;
+  } else if(yestRun && isIntense(yestRun)){
+    icon='🛌'; color='#8b9cf4';
+    title='Récupération conseillée';
+    badge='J-1 intense';
+    text=`Hier : ${yestRun.km} km à ${yestRun.allure}/km${yestRun.type?' ('+yestRun.type+')':''}. Laisse tes muscles récupérer aujourd'hui.`;
+  } else if(daysSince>=3){
+    icon='🚀'; color='#4ade80';
+    title='Il est temps de sortir !';
+    badge=daysSince+' jours sans sortie';
+    text=`Dernière sortie il y a ${daysSince} jours (${lastRun?.km} km le ${lastRun?.date}). Le corps est reposé — une sortie EF de 45–60 min serait idéale.`;
+  } else if(daysSince===1 && !isIntense(yestRun) && weekKm<35){
+    icon='👟'; color='#4ade80';
+    title='Bonne journée pour courir';
+    badge='J-1 facile';
+    text=`Hier : ${yestRun?.km} km à ${yestRun?.allure}/km (récupération OK). Tu peux enchaîner — EF ou tempo selon ton plan.`;
+  } else if(weekKm>40){
+    icon='⚠️'; color='#f0c040';
+    title='Charge élevée cette semaine';
+    badge=weekKm.toFixed(0)+' km / 7j';
+    text=`${weekKm.toFixed(1)} km en ${weekCount} sorties cette semaine — bonne charge ! Écoute ton corps et n'hésite pas à prendre un jour de repos.`;
   } else {
-    // Default: encourage
-    icon = '📅'; color = 'var(--text-muted)';
-    title = 'Plan du jour';
-    badge = '';
-    text = weekKm > 0
-      ? `${weekKm.toFixed(1)} km en ${weekCount} sortie${weekCount>1?'s':''} cette semaine. Continue sur ta lancée !`
-      : 'Aucune sortie cette semaine encore — c'est le bon moment pour démarrer !';
+    icon='📅'; color='#8b9cf4';
+    title='Plan du jour';
+    text=weekKm>0
+      ?`${weekKm.toFixed(1)} km en ${weekCount} sortie${weekCount>1?'s':''} cette semaine. Continue sur ta lancée !`
+      :`Aucune sortie cette semaine — c'est le bon moment pour démarrer !`;
   }
 
-  el.innerHTML = `
-    <div class="advice-card" style="border-color:${color}22;background:${color}08;">
-      <div class="advice-icon">${icon}</div>
-      <div class="advice-body">
-        <div class="advice-title" style="color:${color}">
-          ${title}
-          ${badge ? '<span class="advice-badge" style="background:'+color+'22;color:'+color+'">'+badge+'</span>' : ''}
-        </div>
-        <div class="advice-text">${text}</div>
+  const isDarkMode = document.documentElement.getAttribute('data-theme') !== 'light';
+  el.innerHTML=`<div class="advice-card" style="border-color:${color}44;background:${isDarkMode?color+'18':color+'10'};">
+    <div class="advice-icon">${icon}</div>
+    <div class="advice-body">
+      <div class="advice-title" style="color:${color}">
+        ${title}
+        ${badge?`<span class="advice-badge" style="background:${color}22;color:${color}">${badge}</span>`:''}
       </div>
-    </div>`;
+      <div class="advice-text">${text}</div>
+    </div>
+  </div>`;
 }
 
 function renderDashboard() {
+  const advEl=document.getElementById('training-advice');
+  if(advEl)advEl.style.display='';
   renderAdvice();
   // KPIs
   const totalKm = logData.reduce((a, r) => a + (r.km || 0), 0);
@@ -1516,22 +1550,22 @@ function renderDashboard() {
   const avgBpm = lastBpms.length ? Math.round(lastBpms.reduce((a,b)=>a+b,0)/lastBpms.length) : '—';
 
   document.getElementById('kpi-grid').innerHTML = `
-    <div class="kpi green">
+    <div class="kpi accent">
       <div class="kpi-label">Allure moy.</div>
       <div class="kpi-value">${avgAllure}</div>
       <div class="kpi-unit">min/km</div>
     </div>
-    <div class="kpi orange">
+    <div class="kpi blue">
       <div class="kpi-label">Durée la plus longue</div>
       <div class="kpi-value">${longestDurStr}</div>
       <div class="kpi-unit">hh:mm:ss</div>
     </div>
-    <div class="kpi accent">
+    <div class="kpi orange">
       <div class="kpi-label">Plus grande distance</div>
       <div class="kpi-value">${longestRun.toFixed(1)}</div>
       <div class="kpi-unit">km</div>
     </div>
-    <div class="kpi blue">
+    <div class="kpi green">
       <div class="kpi-label">BPM moy. EF</div>
       <div class="kpi-value">${avgBpm}</div>
       <div class="kpi-unit">bpm</div>
@@ -1575,7 +1609,7 @@ function renderDashboard() {
     else { badge = 'badge-future'; status = days < 0 ? 'Passée' : `S-${Math.round(days/7)}`; }
     const diff = r.real && r.obj ? (() => {
       const diff = durToSec(r.real) - durToSec(r.obj);
-      return diff < 0 ? `<span style="color:var(--z1)">-${secToDur(-diff).slice(3)}</span>` : `+${secToDur(diff).slice(3)}`;
+      return diff < 0 ? `<span style="color:#4ade80;font-weight:700">-${secToDur(-diff).slice(3)}</span>` : `<span style="color:#e05580;font-weight:700">+${secToDur(diff).slice(3)}</span>`;
     })() : '—';
     return `<tr>
       <td><span class="badge ${badge}">${status}</span></td>
@@ -1746,8 +1780,8 @@ function renderEF() {
   document.getElementById('ef-tbody').innerHTML = efRuns.map((r, i) => {
     const idx = efIndex(r);
     const trend = prevIdx === null ? '—'
-      : idx < prevIdx - 0.05 ? '<span style="color:var(--z1)">↗ mieux</span>'
-      : idx > prevIdx + 0.05 ? '<span style="color:var(--accent3)">↘ moins bien</span>'
+      : idx < prevIdx - 0.05 ? '<span style="color:#4ade80;font-weight:700">↗ mieux</span>'
+      : idx > prevIdx + 0.05 ? '<span style="color:#e05580;font-weight:700">↘ moins bien</span>'
       : '<span style="color:var(--text-muted)">→ stable</span>';
     prevIdx = idx;
     const idxColor = i === 0 ? 'var(--text-muted)'
@@ -1796,8 +1830,13 @@ function renderCoherence() {
 
   document.getElementById('coherence-section').innerHTML = `
     <div class="section-title" style="font-size:18px;margin-bottom:16px">Analyse de cohérence</div>
-    ${alerts.map(a => `
-      <div class="alert ${a.ok ? 'alert-ok' : ''}">
+    ${alerts.map((a,i) => `
+      <div class="alert ${a.ok ? 'alert-ok' : ''}" id="alert-${i}" style="position:relative;padding-right:40px;">
+        <button onclick="document.getElementById('alert-${i}').style.display='none'"
+          style="position:absolute;top:10px;right:12px;background:none;border:none;cursor:pointer;
+                 font-size:16px;color:var(--text-muted);opacity:0.6;padding:0;line-height:1;transition:opacity .15s;"
+          onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'"
+          title="Fermer">✕</button>
         <div class="alert-title">${a.ok ? '✓' : '⚠'} ${a.title}</div>
         <div>${a.msg}</div>
       </div>
@@ -1830,10 +1869,16 @@ function renderPlan(containerId, data, stateKey) {
     const block = data.slice(i, blockEnd);
     const weekDate = block.find(s => s.date)?.date;
 
+    const blockIdx = i; // capture for closures
     html += `<div class="week-card">
       <div class="week-header">
         <span class="week-num">BLOC ${blockNum}</span>
-        <span class="week-date">${weekDate ? formatDate(weekDate) : '—'}</span>
+        <span class="week-date" 
+          onclick="editBlockDate('${stateKey}',${blockIdx},${JSON.stringify(block.map((_,j)=>i+j))})"
+          title="Cliquer pour modifier la date"
+          style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;">
+          ${weekDate ? formatDate(weekDate) : '— définir date'}
+        </span>
       </div>`;
 
     block.forEach((session, j) => {
@@ -1885,6 +1930,236 @@ function toggleSort() {
   renderLog();
 }
 
+
+// ── Plan meta editing ─────────────────────────────────────────
+function editPlanMeta(planId) {
+  const defaultTitles = {
+    tempo: {title:'Phase Tempo', sub:'Bloc de préparation actuel · 16 séances'},
+    prep:  {title:'Préparation Semi', sub:'Plan de préparation avant le plan semi · 48 séances'},
+    semi:  {title:'Plan Semi-Marathon', sub:'Plan 12 semaines vers la Parisienne (13 sept.) · 48 séances'},
+  };
+  const cur = (state.planMeta || {})[planId] || defaultTitles[planId];
+  openPlanMetaModal(planId, cur.title, cur.sub);
+}
+
+function openPlanMetaModal(planId, curTitle, curSub) {
+  // Remove existing modal if any
+  const existing = document.getElementById('meta-modal');
+  if (existing) existing.remove();
+
+  const m = document.createElement('div');
+  m.id = 'meta-modal';
+  m.className = 'modal-overlay';
+  m.style.display = 'flex';
+  m.innerHTML = `
+    <div class="modal">
+      <button class="modal-close" onclick="document.getElementById('meta-modal').remove()">✕</button>
+      <div class="modal-title">Modifier le plan</div>
+      <div class="form-grid" style="grid-template-columns:1fr;">
+        <div class="field">
+          <label>Titre</label>
+          <input type="text" id="meta-title" value="${curTitle.replace(/"/g,'&quot;')}">
+        </div>
+        <div class="field">
+          <label>Sous-titre</label>
+          <input type="text" id="meta-sub" value="${curSub.replace(/"/g,'&quot;')}">
+        </div>
+      </div>
+      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
+        <div style="font-size:11px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:10px;letter-spacing:1px;text-transform:uppercase;">Gestion du plan</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-ghost" onclick="resetPlan('${planId}')" style="font-size:11px;padding:6px 12px;">↺ Réinitialiser les coches</button>
+          <button class="btn btn-ghost" onclick="archivePlan('${planId}')" style="font-size:11px;padding:6px 12px;border-color:var(--accent2);color:var(--accent2);">📦 Archiver ce plan</button>
+          <button class="btn btn-ghost" onclick="createNewPlan('${planId}')" style="font-size:11px;padding:6px 12px;border-color:var(--z1);color:var(--z1);">+ Nouveau plan vide</button>
+        </div>
+        ${renderArchiveHistory(planId)}
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="savePlanMeta('${planId}')">Enregistrer</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('meta-modal').remove()">Annuler</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+  document.getElementById('meta-title').focus();
+}
+
+function savePlanMeta(planId) {
+  const title = document.getElementById('meta-title').value.trim();
+  const sub   = document.getElementById('meta-sub').value.trim();
+  if (!title) return;
+  if (!state.planMeta) state.planMeta = {};
+  state.planMeta[planId] = {title, sub};
+  saveState();
+  document.getElementById(planId+'-title').textContent = title;
+  document.getElementById(planId+'-sub').textContent = sub;
+  document.getElementById('meta-modal').remove();
+}
+
+function resetPlan(planId) {
+  const keyMap = {tempo:'tempoDone', prep:'prepDone', semi:'semiDone'};
+  if (!confirm('Remettre toutes les coches à zéro ?')) return;
+  state[keyMap[planId]] = {};
+  saveState();
+  const dataMap = {tempo:tempoData, prep:prepData, semi:semiData};
+  const cIdMap  = {tempo:'tempo-weeks', prep:'prep-weeks', semi:'semi-weeks'};
+  renderPlan(cIdMap[planId], dataMap[planId], keyMap[planId]);
+  document.getElementById('meta-modal').remove();
+  notify('Plan réinitialisé');
+}
+
+function archivePlan(planId) {
+  const keyMap = {tempo:'tempoDone', prep:'prepDone', semi:'semiDone'};
+  archivePlanSilent(planId);
+  state[keyMap[planId]] = {};
+  saveState();
+  document.getElementById('meta-modal').remove();
+  notify('Plan archivé — tu peux maintenant le modifier pour le prochain cycle');
+}
+
+function createNewPlan(planId) {
+  const dataMap = {tempo:tempoData, prep:prepData, semi:semiData};
+  const keyMap  = {tempo:'tempoDone', prep:'prepDone', semi:'semiDone'};
+  if (!confirm('Créer un plan vide ? Les séances actuelles seront effacées (archive recommandée d\'abord).')) return;
+  dataMap[planId].length = 0;
+  dataMap[planId].push(
+    {sem:1, date:null, format:"45'@Z2", pe:'3/10', total:45},
+    {sem:1, date:null, format:"45'@Z2", pe:'3/10', total:45},
+    {sem:1, date:null, format:"45'@Z2", pe:'3/10', total:45},
+    {sem:1, date:null, format:"60'@Z2", pe:'4/10', total:60},
+  );
+  state[keyMap[planId]] = {};
+  saveState();
+  const cIdMap = {tempo:'tempo-weeks', prep:'prep-weeks', semi:'semi-weeks'};
+  renderPlan(cIdMap[planId], dataMap[planId], keyMap[planId]);
+  document.getElementById('meta-modal').remove();
+  notify('Nouveau plan créé — modifie les séances avec ✏️');
+}
+
+
+function renderArchiveHistory(planId) {
+  const archives = (state.archives || {})[planId];
+  if (!archives || archives.length === 0) return '';
+  const rows = [...archives].reverse().map((a, ri) => {
+    const origIdx = archives.length - 1 - ri;
+    const pct = a.sessions ? Math.round(a.done / a.sessions * 100) : 0;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+      <div style="flex:1;">
+        <div style="font-size:12px;font-weight:700;color:var(--text)">${a.title}</div>
+        <div style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-top:2px;">
+          ${a.date} · ${a.done}/${a.sessions} séances (${pct}%)
+        </div>
+      </div>
+      <button onclick="restoreArchive('${planId}', ${origIdx})"
+        style="font-size:10px;padding:4px 10px;background:none;border:1px solid var(--accent2);color:var(--accent2);border-radius:5px;cursor:pointer;white-space:nowrap;">
+        ↩ Restaurer
+      </button>
+      <button onclick="deleteArchive('${planId}', ${origIdx})"
+        style="font-size:10px;padding:4px 8px;background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;cursor:pointer;">
+        🗑
+      </button>
+    </div>`;
+  }).join('');
+
+  return `<div style="margin-top:14px;">
+    <div style="font-size:11px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:8px;letter-spacing:1px;text-transform:uppercase;">
+      📦 Archives (${archives.length})
+    </div>
+    ${rows}
+  </div>`;
+}
+
+function restoreArchive(planId, archiveIdx) {
+  const archive = (state.archives || {})[planId]?.[archiveIdx];
+  if (!archive) return;
+  if (!confirm('Restaurer l\'archive "' + archive.title + '" du ' + archive.date + ' ?\nLe plan actuel sera archivé automatiquement.')) return;
+
+  // Archive current plan first
+  archivePlanSilent(planId);
+
+  // Restore from archive — we only have summary, not full sessions
+  // So we reset coches and update title
+  const keyMap = {tempo:'tempoDone', prep:'prepDone', semi:'semiDone'};
+  state[keyMap[planId]] = {};
+  if (!state.planMeta) state.planMeta = {};
+  state.planMeta[planId] = {
+    title: archive.title,
+    sub: 'Plan archivé du ' + archive.date + ' · ' + archive.sessions + ' séances'
+  };
+  saveState();
+  applyPlanMeta();
+  document.getElementById('meta-modal').remove();
+  notify('Archive "' + archive.title + '" restaurée');
+}
+
+function archivePlanSilent(planId) {
+  const dataMap = {tempo:tempoData, prep:prepData, semi:semiData};
+  const keyMap  = {tempo:'tempoDone', prep:'prepDone', semi:'semiDone'};
+  if (!state.archives) state.archives = {};
+  state.archives[planId] = state.archives[planId] || [];
+  const data = dataMap[planId];
+  state.archives[planId].push({
+    date: new Date().toISOString().slice(0,10),
+    title: (state.planMeta?.[planId]?.title) || planId,
+    sessions: data.length,
+    done: Object.values(state[keyMap[planId]]||{}).filter(Boolean).length,
+  });
+}
+
+function deleteArchive(planId, archiveIdx) {
+  if (!confirm('Supprimer cette archive définitivement ?')) return;
+  state.archives[planId].splice(archiveIdx, 1);
+  saveState();
+  // Refresh the modal
+  const m = document.getElementById('meta-modal');
+  if (m) {
+    const cur = (state.planMeta || {})[planId] || {};
+    m.remove();
+    openPlanMetaModal(planId, cur.title || planId, cur.sub || '');
+  }
+}
+
+function applyPlanMeta() {
+  if (!state.planMeta) return;
+  Object.entries(state.planMeta).forEach(([planId, meta]) => {
+    const t = document.getElementById(planId+'-title');
+    const s = document.getElementById(planId+'-sub');
+    if (t && meta.title) t.textContent = meta.title;
+    if (s && meta.sub)   s.textContent = meta.sub;
+  });
+}
+
+
+function editBlockDate(stateKey, blockStartIdx, sessionIndices) {
+  const dataMap = {tempoDone: tempoData, prepDone: prepData, semiDone: semiData};
+  const data = dataMap[stateKey];
+  if (!data) return;
+  // Find first session with a date in this block
+  const cur = sessionIndices.map(i => data[i]?.date).find(d => d) || '';
+  const newDate = prompt('Date du bloc (AAAA-MM-JJ) :', cur);
+  if (newDate === null) return;
+  // Set date on first session of block, clear others
+  sessionIndices.forEach((si, j) => {
+    if (data[si]) data[si].date = j === 0 ? (newDate || null) : data[si].date;
+  });
+  // If first session, set its date
+  if (data[sessionIndices[0]]) data[sessionIndices[0]].date = newDate || null;
+  saveState();
+  const containerId = stateKey === 'tempoDone' ? 'tempo-weeks' : stateKey === 'prepDone' ? 'prep-weeks' : 'semi-weeks';
+  renderPlan(containerId, data, stateKey);
+}
+function addPlanSession(planId) {
+  const dataMap = {tempo: tempoData, prep: prepData, semi: semiData};
+  const keyMap  = {tempo: 'tempoDone', prep: 'prepDone', semi: 'semiDone'};
+  const data = dataMap[planId];
+  if (!data) return;
+  data.push({sem:1, date:null, format:"45'@Z2", pe:'3/10', total:45, done:false});
+  saveState();
+  const containerId = planId === 'tempo' ? 'tempo-weeks' : planId === 'prep' ? 'prep-weeks' : 'semi-weeks';
+  renderPlan(containerId, data, keyMap[planId]);
+  notify('Séance ajoutée');
+}
+
 function renderLog() {
   let allIndices = logData.map((r, i) => ({r, i}));
   // Sort by date
@@ -1905,7 +2180,12 @@ function renderLog() {
       <td class="mono">${gapStr}</td>
       <td class="mono">${dplusStr}</td>
       <td class="mono">${r.bpm || '—'}</td>
-      <td>${r.type ? `<span class="badge badge-done">${r.type}</span>` : '—'}</td>
+      <td>${r.type ? (() => {
+        const typeColors = {EF:'#4ade80',FC:'#8b9cf4',FL:'#8b9cf4',Tempo:'#d966e0',Race:'#e05580'};
+        const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+        const col = isDark ? (typeColors[r.type]||'var(--accent)') : 'var(--accent)';
+        return `<span class="badge" style="background:${col}22;color:${col};border:1px solid ${col}44">${r.type}</span>`;
+      })() : '—'}</td>
       <td style="font-size:12px;color:var(--text-muted)">${r.notes || '—'}</td>
       <td><div class="action-btns" style="opacity:0">
         <button class="action-btn" onclick="openLogEdit(${i})" title="Modifier">✏️</button>
@@ -1957,7 +2237,8 @@ function renderProjections() {
   // Riegel: t2 = t1 * (d2/d1)^1.06, using 5km base
   const base5km = avgSecPerKm * 5;
 
-  document.getElementById('projections-grid').innerHTML = distances.map(d => {
+  const projColors = ['#d966e0', '#8b9cf4', '#e05580', '#4ade80']; // violet/bleu/rose/vert
+  document.getElementById('projections-grid').innerHTML = distances.map((d, ci) => {
     const projected = d.dist === 5
       ? base5km
       : base5km * Math.pow(d.dist / 5, 1.06);
@@ -1965,10 +2246,12 @@ function renderProjections() {
     const paceForDist = Math.round(projected / d.dist);
     const paceStr = secToDur(paceForDist).slice(3);
     const displayTime = time.startsWith('00:') ? time.slice(3) : time;
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    const col = isDark ? projColors[ci % projColors.length] : 'var(--accent)';
 
-    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
+    return `<div style="background:var(--surface2);border:1px solid var(--border);border-top:3px solid ${col};border-radius:10px;padding:16px;text-align:center;">
       <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:8px;">${d.label}</div>
-      <div style="font-size:22px;font-weight:800;line-height:1;color:var(--accent)">${displayTime}</div>
+      <div style="font-size:22px;font-weight:800;line-height:1;color:var(--text)">${displayTime}</div>
       <div style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-top:6px;">${paceStr}/km</div>
     </div>`;
   }).join('');
@@ -2056,8 +2339,8 @@ function renderRaces() {
     if (r.real && r.obj) {
       const d = durToSec(r.real) - durToSec(r.obj);
       diff = d < 0
-        ? `<span style="color:var(--z1)">-${secToDur(-d).slice(3)}</span>`
-        : `<span style="color:var(--accent3)">+${secToDur(d).slice(3)}</span>`;
+        ? `<span style="color:#4ade80;font-weight:700">-${secToDur(-d).slice(3)}</span>`
+        : `<span style="color:#e05580;font-weight:700">+${secToDur(d).slice(3)}</span>`;
     }
 
     return `<tr>
