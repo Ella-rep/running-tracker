@@ -22,6 +22,7 @@ WORKDIR /var/www/app
 # ── Étape 1 : dépendances PHP (layer cache si composer.json inchangé) ──
 COPY composer.json composer.lock* ./
 
+RUN git config --global --add safe.directory /var/www/app
 # Étape 1 : installer les vendors (sans scripts — code pas encore copié)
 RUN APP_ENV=prod composer install \
     --no-dev \
