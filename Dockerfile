@@ -22,28 +22,31 @@ WORKDIR /var/www/app
 # ── Étape 1 : dépendances PHP (layer cache si composer.json inchangé) ──
 COPY composer.json composer.lock* ./
 
-RUN git config --global --add safe.directory /var/www/app
-# Étape 1 : installer les vendors (sans scripts — code pas encore copié)
-RUN APP_ENV=prod composer install \
-    --no-dev \
-    --no-scripts \
-    --no-autoloader \
-    --prefer-dist \
-    --no-interaction \
-    --no-progress
+WORKDIR /var/www/app
 
-# ── Étape 2 : copier le code applicatif ───────────────────────
+# ── Étape 1 : dépendances PHP (layer cache si composer.json inchangé) ──
+COPY composer.json composer.lock* ./
+
+# Fix git "dubious ownership"
+RUN git config --global --add safe.directory /app \
+    && git config --global --add safe.directory /var/www/app
+
+# ── Étape 2 : copier le code applicatif complet ───────────────
+# (nécessaire avant composer install pour que Flex écrive les configs)
 COPY . .
 
-# Étape 3 : autoloader optimisé + scripts Flex (code disponible maintenant)
-RUN APP_ENV=prod composer dump-autoload \
-    --optimize \
+# Étape 3 : installation complète avec autoloader optimisé
+# SYMFONY_DEPRECATIONS_HELPER désactive les warnings qui font échouer le build
+RUN COMPOSER_ALLOW_SUPERUSER=1 \
+    APP_ENV=prod \
+    SYMFONY_DEPRECATIONS_HELPER=disabled \
+    composer install \
     --no-dev \
+    --optimize-autoloader \
+    --prefer-dist \
     --no-interaction \
-    && APP_ENV=prod composer run-script post-install-cmd \
-    --no-dev \
-    --no-interaction \
-    2>/dev/null || true
+    --no-progress \
+    --no-audit
 
 # ── Configuration serveurs ────────────────────────────────────
 COPY docker/nginx.conf /etc/nginx/nginx.conf
@@ -61,5 +64,7 @@ EXPOSE 80
 
 ENTRYPOINT ["/entrypoint.sh"]
 #ENTRYPOINT ["/sbin/init"]
+
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
 #Répertoire par defaut
-WORKDIR /appli/apache_2.4/htdocs/symfony
+#WORKDIR /appli/apache_2.4/htdocs/symfony

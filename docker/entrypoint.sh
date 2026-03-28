@@ -31,16 +31,15 @@ else
 fi
 
 
-
-
 # ── 3. Migrations ─────────────────────────────────────────────
 echo "[DB] Application des migrations…"
 php "${APP_DIR}/bin/console" doctrine:migrations:migrate --no-interaction --allow-no-migration
 echo "[DB] Migrations OK."
 
 # ── 4. Cache Symfony ──────────────────────────────────────────
-echo "[Cache] Préchauffage du cache…"
-php "${APP_DIR}/bin/console" cache:warmup --env=prod 2>/dev/null || true
+echo "[Cache] Nettoyage et préchauffage du cache…"
+php "${APP_DIR}/bin/console" cache:clear --env=prod --no-warmup 2>&1 || true
+php "${APP_DIR}/bin/console" cache:warmup --env=prod 2>&1
 echo "[Cache] OK."
 
 echo "=== Démarrage des services (php-fpm + nginx) ==="
