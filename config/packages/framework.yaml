@@ -10,7 +10,7 @@ framework:
         log: true
     serializer:
         enabled: true
-        enable_annotations: true
+        #enable_annotations: true
     property_access: true
     validation:
         enabled: true
