@@ -14,37 +14,51 @@ RUN apk add --no-cache \
     mlocate \
     netcat-openbsd \
     && docker-php-ext-install pdo pdo_pgsql opcache
-
-# Composer
+# Composer ──────────────────────────────────────────────────
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/app
 
-# Install PHP deps first (layer cache)
+# ── Étape 1 : dépendances PHP (layer cache si composer.json inchangé) ──
 COPY composer.json composer.lock* ./
-RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
 
-# Copy full app
+# Étape 1 : installer les vendors (sans scripts — code pas encore copié)
+RUN APP_ENV=prod composer install \
+    --no-dev \
+    --no-scripts \
+    --no-autoloader \
+    --prefer-dist \
+    --no-interaction \
+    --no-progress
+
+# ── Étape 2 : copier le code applicatif ───────────────────────
 COPY . .
 
-# Finish composer
-RUN composer dump-autoload --optimize --no-dev
+# Étape 3 : autoloader optimisé + scripts Flex (code disponible maintenant)
+RUN APP_ENV=prod composer dump-autoload \
+    --optimize \
+    --no-dev \
+    --no-interaction \
+    && APP_ENV=prod composer run-script post-install-cmd \
+    --no-dev \
+    --no-interaction \
+    2>/dev/null || true
 
-# Nginx config
+# ── Configuration serveurs ────────────────────────────────────
 COPY docker/nginx.conf /etc/nginx/nginx.conf
-
-# Supervisor config (runs php-fpm + nginx)
 COPY docker/supervisord.conf /etc/supervisord.conf
 
-# Entrypoint (migrations + JWT keys + cache warmup)
+# ── Entrypoint ────────────────────────────────────────────────
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Permissions
+# ── Permissions ───────────────────────────────────────────────
 RUN mkdir -p var/cache var/log config/jwt \
     && chown -R www-data:www-data var config/jwt
 
 EXPOSE 80
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
+#ENTRYPOINT ["/sbin/init"]
+#Répertoire par defaut
+WORKDIR /appli/apache_2.4/htdocs/symfony
