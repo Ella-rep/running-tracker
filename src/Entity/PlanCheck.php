@@ -8,7 +8,7 @@ use ApiPlatform\Metadata\Post;
 use App\Repository\PlanCheckRepository;
 use App\State\PlanCheckProcessor;
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: PlanCheckRepository::class)]

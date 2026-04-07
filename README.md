@@ -5,7 +5,7 @@ Application de suivi running avec :
 - **Auth** : JWT via LexikJWTAuthenticationBundle
 - **BDD** : PostgreSQL 16 + Doctrine ORM + migrations automatiques
 - **Frontend** : Twig (pages) + JS vanilla (interactions via API)
-- **Déploiement** : Docker Compose (PHP-FPM 8.2 + Nginx + PostgreSQL)
+- **Déploiement** : Docker Compose (Alpine + PHP 8.4 + Apache + PostgreSQL)
 
 ---
 
@@ -18,10 +18,6 @@ running-symfony/
 │   ├── packages/          # framework, doctrine, security, api_platform, jwt, cors, twig
 │   ├── routes.yaml
 │   └── services.yaml
-├── docker/
-│   ├── entrypoint.sh      # JWT keygen + migrations + cache warmup au démarrage
-│   ├── nginx.conf
-│   └── supervisord.conf
 ├── migrations/
 │   └── Version20260325000001.php   # schéma initial
 ├── public/
@@ -54,26 +50,17 @@ running-symfony/
 
 ---
 
-## 🚀 Déploiement sur NAS (3 commandes)
+## 🚀 Déploiement web (Docker)
 
-### 1. Copier le projet
-
-```bash
-# Via SSH ou gestionnaire de fichiers du NAS
-scp -r running-symfony/ user@ip-nas:/volume1/docker/running-symfony
-# ou rsync
-rsync -avz running-symfony/ user@ip-nas:/volume1/docker/running-symfony/
-```
-
-### 2. Configurer les variables d'environnement
+### 1. Préparer le serveur
 
 ```bash
-cd /volume1/docker/running-symfony
+git clone https://github.com/Ella-rep/running-tracker.git
+cd running-tracker
 cp .env.local.dist .env.local
-nano .env.local
 ```
 
-Remplir **obligatoirement** :
+Remplir **obligatoirement** dans `.env.local` :
 
 ```bash
 # Générer APP_SECRET
@@ -86,36 +73,64 @@ openssl rand -hex 16
 Ajouter le token **Mapbox** pour la carte du GPX Replay :
 
 ```bash
-# Dans .env.local, ajouter :
 MAPBOX_TOKEN=pk.eyJ1IjoiZWxob2RlZSIs...ton_vrai_token
 ```
 
-> Le token Mapbox est disponible sur [account.mapbox.com/access-tokens](https://account.mapbox.com/access-tokens).
-> Sans ce token, le GPX Replay fonctionnera mais sans fond de carte (tuiles OSM à la place).
-> Le token n'est **jamais** stocké dans le code — il est injecté côté serveur via Twig.
+### 2. Build args disponibles (Dockerfile)
 
-### 3. Lancer
+Le Dockerfile supporte ces arguments de build :
+
+- `INSTALL_REMOTE_PROJECT` (default: `false`)
+- `branch_project_name` (default: `main`)
+- `git_project_account` (optionnel)
+- `git_project_account_secret` (optionnel)
+- `project_env` (optionnel)
+- `git_project_repo_url` (default: `https://github.com/Ella-rep/running-tracker.git`)
+
+### 3. Lancer en mode standard (recommandé)
 
 ```bash
 docker compose up -d --build
 ```
 
-**Premier démarrage** : l'entrypoint génère automatiquement les clés JWT RSA,
-attend que PostgreSQL soit prêt, applique les migrations, puis chauffe le cache.
+### 4. Lancer avec récupération Git au build (optionnel)
 
-→ L'application est disponible sur **http://ip-de-ton-nas:8080**
-→ La doc API Swagger est sur **http://ip-de-ton-nas:8080/api/docs**
+```bash
+docker compose build app \
+  --build-arg INSTALL_REMOTE_PROJECT=true \
+  --build-arg branch_project_name=main \
+  --build-arg git_project_repo_url=https://github.com/Ella-rep/running-tracker.git \
+  --build-arg project_env=prod
+docker compose up -d
+```
+
+Exemple si le repo nécessite une authentification :
+
+```bash
+docker compose build app \
+  --build-arg INSTALL_REMOTE_PROJECT=true \
+  --build-arg branch_project_name=main \
+  --build-arg git_project_account=<user> \
+  --build-arg git_project_account_secret=<token>
+docker compose up -d
+```
+
+**Au premier démarrage**, le conteneur génère les clés JWT RSA,
+applique les migrations, chauffe le cache, puis démarre Apache.
+
+→ L'application est disponible sur **http://ton-domaine-ou-ip:8080**
+→ La doc API Swagger est sur **http://ton-domaine-ou-ip:8080/api/docs**
 
 ---
 
 ## 🔑 Premier compte
 
-Va sur `http://ip-nas:8080` → "Créer un compte".
+Va sur `http://ton-domaine-ou-ip:8080` → "Créer un compte".
 
 Ou via curl :
 
 ```bash
-curl -X POST http://ip-nas:8080/api/users \
+curl -X POST http://ton-domaine-ou-ip:8080/api/users \
   -H "Content-Type: application/json" \
   -d '{"username":"toi","plainPassword":"monmotdepasse"}'
 ```
