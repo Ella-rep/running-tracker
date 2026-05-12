@@ -1,0 +1,159 @@
+{% extends 'base/layout.html.twig' %}
+{% block title %}Plans - Running Tracker{% endblock %}
+
+{% block body %}
+{% include 'components/_app_header.html.twig' with { current_page: 'plans', username: username } %}
+
+<main>
+  <section id="plans" class="visible">
+    <div id="plans-list-header">
+      <div class="section-title">Mes plans</div>
+      <div class="section-sub">Le plan Semi est fourni en exemple. Ajoute ensuite tes plans personnels.</div>
+    </div>
+
+    <div id="plans-list" class="plans-list"></div>
+    <template id="plan-card-template">
+      <article class="plan-card">
+        <div class="plan-card-head">
+          <div class="plan-card-main">
+            <div class="plan-card-title"></div>
+            <div class="plan-card-sub"></div>
+          </div>
+          <div class="plan-card-stats">
+            <div class="plan-card-pct"></div>
+            <div class="plan-card-count"></div>
+          </div>
+          <button class="plan-card-delete" title="Supprimer ce plan">🗑</button>
+          <div class="plan-card-arrow">›</div>
+        </div>
+        <div class="plan-card-bar-bg">
+          <div class="plan-card-bar"></div>
+        </div>
+      </article>
+    </template>
+
+    <button class="btn plans-create-btn" id="plans-create-btn" onclick="createNewPlanFromHub()">+ Nouveau plan</button>
+    <div class="zone-legend plans-zone-legend" id="plans-zone-legend">
+      <div class="zone-item"><div class="zone-dot zone-dot-z1"></div><span class="zone-z1-text">Z1 récup</span></div>
+      <div class="zone-item"><div class="zone-dot zone-dot-z2"></div>Z2 endurance</div>
+      <div class="zone-item"><div class="zone-dot zone-dot-z3"></div>Z3 tempo</div>
+      <div class="zone-item"><div class="zone-dot zone-dot-z4"></div>Z4 seuil</div>
+    </div>
+
+    <div id="plans-detail" class="plans-detail" style="display:none">
+      <div class="plans-detail-header">
+        <div class="plans-detail-meta">
+          <nav class="plans-breadcrumb" aria-label="Fil d'ariane">
+            <button class="plans-breadcrumb-link" onclick="backToPlansList()">Plans</button>
+            <span class="plans-breadcrumb-sep">/</span>
+            <span class="plans-breadcrumb-current" id="plans-crumb-current"></span>
+          </nav>
+          <div class="section-title plans-detail-title" id="plans-detail-title"></div>
+          <div class="section-sub" id="plans-detail-sub"></div>
+        </div>
+        <button id="plans-edit-meta-btn" class="btn-inline-icon" style="display:none" onclick="editPlanMeta(currentPlanId)" title="Modifier">✏️</button>
+        <button id="delete-extra-btn" class="btn-inline btn-inline-danger" style="display:none" onclick="deleteExtraPlan(currentPlanId)">🗑 Supprimer</button>
+      </div>
+
+      <div class="plans-detail-actions">
+        <button class="btn btn-small plans-add-session-btn" id="plans-add-session-btn" onclick="addPlanSession(currentPlanId)">+ Ajouter séance</button>
+      </div>
+
+      <div id="plans-detail-weeks"></div>
+      <template id="plan-week-card-template">
+        <div class="week-card">
+          <div class="week-header">
+            <span class="week-num"></span>
+            <span class="week-date"></span>
+          </div>
+          <div class="week-sessions"></div>
+        </div>
+      </template>
+      <template id="plan-session-row-template">
+        <div class="session-row">
+          <div class="session-check"></div>
+          <div class="session-format"></div>
+          <div class="session-meta">
+            <span class="session-date-badge" hidden></span>
+            <span class="pe-badge" hidden></span>
+            <span class="duration-badge" hidden></span>
+            <span class="optional-tag" hidden>(optionnel)</span>
+            <div class="action-btns">
+              <button class="action-btn session-edit" title="Modifier">✏️</button>
+              <button class="action-btn del session-delete" title="Supprimer">🗑</button>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </section>
+</main>
+
+<div class="notif" id="notif"></div>
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="modal">
+    <div class="modal-title" id="confirm-title">Confirmation</div>
+    <div id="confirm-msg"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="confirmDelete()">Confirmer</button>
+      <button class="btn btn-ghost" onclick="closeConfirm()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="plan-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('plan-modal')">✕</button>
+    <div class="modal-title">Modifier la séance</div>
+    <input type="hidden" id="pm-statekey"><input type="hidden" id="pm-idx">
+    <div class="form-grid form-grid-single">
+      <div class="field"><label for="pm-format">Format</label><input type="text" id="pm-format"></div>
+      <div class="field"><label for="pm-date">Date</label><input type="date" id="pm-date" placeholder="jj/mm/yyyy" onclick="if(this.showPicker){this.showPicker();}"></div>
+      <div class="field"><label for="pm-pe">PE</label><input type="text" id="pm-pe" placeholder="ex: 6/10"></div>
+      <div class="field"><label for="pm-total">Durée totale (min)</label><input type="number" id="pm-total"></div>
+      <div class="field field-inline">
+        <label for="pm-opt" class="pm-opt-wrap">
+          <input type="checkbox" id="pm-opt" class="pm-opt">
+          <span class="pm-opt-label">Optionnelle</span>
+        </label>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="savePlanEdit()">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeModal('plan-modal')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="newplan-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('newplan-modal')">✕</button>
+    <div class="modal-title">Nouveau plan</div>
+    <div class="form-grid form-grid-single">
+      <div class="field"><label for="np-title">Nom du plan</label><input type="text" id="np-title" placeholder="Ex: 10 km automne"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="confirmCreatePlan()">Créer</button>
+      <button class="btn btn-ghost" onclick="closeModal('newplan-modal')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="meta-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('meta-modal')">✕</button>
+    <div class="modal-title">Modifier le plan</div>
+    <div class="form-grid form-grid-single">
+      <div class="field"><label for="meta-title">Titre</label><input type="text" id="meta-title"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="meta-save-btn">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeModal('meta-modal')">Annuler</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script src="{{ asset('js/app.js') }}?v=20260512-theme5"></script>
+{% endblock %}

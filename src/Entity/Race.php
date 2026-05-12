@@ -18,7 +18,6 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Entity(repositoryClass: RaceRepository::class)]
 #[ORM\Table(name: 'races')]
 #[ApiResource(
-    routePrefix: '/api',
     normalizationContext: ['groups' => ['race:read']],
     denormalizationContext: ['groups' => ['race:write']],
     security: 'is_granted("ROLE_USER")',

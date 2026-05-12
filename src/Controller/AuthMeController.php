@@ -1,0 +1,20 @@
+<?php
+
+namespace App\Controller;
+
+use App\Entity\User;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+
+final class AuthMeController extends AbstractController
+{
+    public function __invoke(): User
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            throw new AccessDeniedHttpException('Utilisateur non authentifie.');
+        }
+
+        return $user;
+    }
+}

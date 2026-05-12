@@ -4,28 +4,27 @@ namespace App\State;
 
 use ApiPlatform\Metadata\Operation;
 use ApiPlatform\State\ProcessorInterface;
-use App\Entity\PlanCheck;
-use App\Repository\PlanCheckRepository;
+use App\Entity\PlanProgress;
+use App\Repository\PlanProgressRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 
-final class PlanCheckProcessor implements ProcessorInterface
+final class PlanProgressProcessor implements ProcessorInterface
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private PlanCheckRepository $repo,
+        private PlanProgressRepository $repo,
         private Security $security,
     ) {}
 
-    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): PlanCheck
+    public function process(mixed $data, Operation $operation, array $uriVariables = [], array $context = []): PlanProgress
     {
-        /** @var PlanCheck $data */
+        /** @var PlanProgress $data */
         $user = $this->security->getUser();
 
-        // Upsert: find existing or use the new one
         $existing = $this->repo->findOneBy([
-            'user'         => $user,
-            'planKey'      => $data->getPlanKey(),
+            'user' => $user,
+            'planKey' => $data->getPlanKey(),
             'sessionIndex' => $data->getSessionIndex(),
         ]);
 
@@ -38,6 +37,7 @@ final class PlanCheckProcessor implements ProcessorInterface
         $data->setUser($user);
         $this->em->persist($data);
         $this->em->flush();
+
         return $data;
     }
 }

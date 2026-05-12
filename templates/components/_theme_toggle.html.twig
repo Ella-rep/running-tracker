@@ -1,0 +1,12 @@
+<button
+  class="theme-toggle slider{{ extra_classes is defined and extra_classes ? ' ' ~ extra_classes : '' }}"
+  id="theme-toggle"
+  type="button"
+  role="switch"
+  aria-checked="false"
+  title="Passer en mode sombre"
+  aria-label="Basculer le thème"
+  {% if with_onclick is defined and with_onclick %}onclick="toggleTheme()"{% endif %}
+>
+  <span class="theme-toggle-icon" id="theme-toggle-icon" aria-hidden="true">☀</span>
+</button>

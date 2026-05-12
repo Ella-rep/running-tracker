@@ -5,15 +5,13 @@ namespace App\Controller;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-class TrackerController extends AbstractController
+class LogController extends AbstractController
 {
-    #[Route('/tracker', name: 'app_tracker')]
-    #[IsGranted('ROLE_USER')]
+    #[Route('/log', name: 'app_log')]
     public function index(): Response
     {
-        return $this->render('base/tracker.html.twig', [
+        return $this->render('log/index.html.twig', [
             'username' => $this->getUser()?->getUserIdentifier(),
         ]);
     }

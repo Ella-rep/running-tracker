@@ -1,6 +1,11 @@
 api_platform:
     title: 'Running Tracker API'
     version: '1.0.0'
+    swagger:
+        api_keys:
+            JWT:
+                name: Authorization
+                type: header
     formats:
         json: ['application/json']
         jsonld: ['application/ld+json']

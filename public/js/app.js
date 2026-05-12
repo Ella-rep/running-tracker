@@ -2,10 +2,11 @@
 // API CLIENT — API Platform returns JSON-LD (hydra:member)
 // ============================================================
 const API = '/api';
-let authToken = localStorage.getItem('rt_token') || null;
+let authToken = globalThis.rtAuth?.getToken?.() || localStorage.getItem('rt_token') || null;
 
 async function apiFetch(path, options = {}) {
-  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+  const headers = { 'Content-Type': 'application/json' };
+  if (options.headers) Object.assign(headers, options.headers);
   if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
   const res = await fetch(API + path, { ...options, headers });
@@ -13,10 +14,17 @@ async function apiFetch(path, options = {}) {
   if (res.status === 401) { logout(); return null; }
   if (res.status === 204) return null;
 
-  const data = await res.json();
+  const raw = await res.text();
+  let data = null;
+  try {
+    data = raw ? JSON.parse(raw) : null;
+  } catch {
+    data = null;
+  }
+
   if (!res.ok) {
     // API Platform error format
-    const msg = data['hydra:description'] || data.detail || data.message || 'Erreur API';
+    const msg = data?.['hydra:description'] || data?.detail || data?.message || `Erreur API (${res.status})`;
     throw new Error(msg);
   }
   return data;
@@ -28,60 +36,378 @@ function members(data) {
 }
 
 function logout() {
-  localStorage.removeItem('rt_token');
-  window.location.href = '/';
+  if (globalThis.rtAuth?.clearToken) {
+    globalThis.rtAuth.clearToken();
+  } else {
+    localStorage.removeItem('rt_token');
+  }
+  authToken = null;
+  globalThis.location.href = '/login';
 }
 
+// Ensure inline onclick handlers can always resolve these functions
+globalThis.logout = logout;
 
-// ============================================================
-// THEME — light / dark
-// ============================================================
-function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  const btn = document.getElementById('theme-toggle');
-  if (btn) btn.textContent = theme === 'light' ? '🌙' : '☀️';
-}
-
-function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme') || 'dark';
-  const next = current === 'dark' ? 'light' : 'dark';
-  localStorage.setItem('rt_theme', next);
-  applyTheme(next);
-}
-
-// Apply immediately to avoid flash
-applyTheme(localStorage.getItem('rt_theme') || 'dark');
 
 // ============================================================
 // DATA
 // ============================================================
 let logData   = [];
 let racesData = [];
-let state     = { tempoDone: {}, prepDone: {}, semiDone: {} };
+let plansData = [];
+let dashboardAdvice = [];
+let dashboardMetrics = null;
+let state     = { semiDone: {}, planMeta: {}, extraPlans: [] };
+
+
+// Plans data always loaded from API—no localStorage caching
+function normalizeDateForStorage(value) {
+  if (!value) return '';
+  const s = String(value).trim();
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const fr = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
+  if (fr) return `${fr[3]}-${fr[2]}-${fr[1]}`;
+  const isoPrefix = /^(\d{4}-\d{2}-\d{2})T/.exec(s);
+  if (isoPrefix) return isoPrefix[1];
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function formatDateForInput(value) {
+  const iso = normalizeDateForStorage(value);
+  if (!iso) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return '';
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+function buildUniquePlanName(baseName) {
+  const base = String(baseName || '').trim();
+  if (!base) return '';
+  const existing = new Set((state.extraPlans || []).map(p => p.key || p.title || p.id));
+  if (!existing.has(base)) return base;
+  let i = 2;
+  while (existing.has(`${base} (${i})`)) i += 1;
+  return `${base} (${i})`;
+}
+
+function formatDisplayName(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return 'Inconnu';
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
+function normalizePlan(r) {
+  return {
+    id: iriToId(r['@id']) ?? r.id,
+    name: r.name,
+  };
+}
+
+async function createPlanInDb(name) {
+  const data = await apiFetch('/plans', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+  return normalizePlan(data);
+}
+
+async function renamePlanInDb(planId, name) {
+  const data = await apiFetch(`/plans/${planId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ name }),
+  });
+  return normalizePlan(data);
+}
+
+async function deletePlanInDb(planId) {
+  await apiFetch(`/plans/${planId}`, { method: 'DELETE' });
+}
+
+function planDetailApiPath(row) {
+  if (!row || typeof row !== 'object') return null;
+  if (typeof row['@id'] === 'string' && row['@id'].startsWith('/api/')) return row['@id'];
+  const id = Number.parseInt(row.id, 10);
+  if (Number.isFinite(id)) return `/plan_details/${id}`;
+  return null;
+}
+
+async function fetchPlanSessionsByPlanId(planId) {
+  const planIri = encodeURIComponent(`/api/plans/${Number(planId)}`);
+  const data = await apiFetch(`/plan_details?plan=${planIri}&order[position]=asc&pagination=false`);
+  return members(data).sort((a, b) => (a.position || 0) - (b.position || 0));
+}
+
+async function replacePlanSessionsInDb(planId, sessions, doneMap = {}) {
+  const existing = await fetchPlanSessionsByPlanId(planId);
+  const sharedCount = Math.min(existing.length, sessions.length);
+
+  const buildPayload = (session, idx) => ({
+    plan: `/api/plans/${planId}`,
+    position: idx + 1,
+    sem: session.sem ?? null,
+    sessionDate: normalizeDateForStorage(session.date) || null,
+    format: session.format || "45'@Z2",
+    pe: session.pe || null,
+    totalMin: session.total ?? null,
+    isOptional: !!session.opt,
+    isDone: !!doneMap[idx],
+  });
+
+  for (let i = 0; i < sharedCount; i += 1) {
+    const path = planDetailApiPath(existing[i]);
+    if (!path) continue;
+    await apiFetch(path, {
+      method: 'PUT',
+      body: JSON.stringify(buildPayload(sessions[i], i)),
+    });
+  }
+
+  for (let i = sessions.length; i < existing.length; i += 1) {
+    const path = planDetailApiPath(existing[i]);
+    if (!path) continue;
+    await apiFetch(path, { method: 'DELETE' });
+  }
+
+  for (let i = sharedCount; i < sessions.length; i += 1) {
+    const payload = {
+      plan: `/api/plans/${planId}`,
+      position: i + 1,
+      sem: sessions[i].sem ?? null,
+      sessionDate: normalizeDateForStorage(sessions[i].date) || null,
+      format: sessions[i].format || "45'@Z2",
+      pe: sessions[i].pe || null,
+      totalMin: sessions[i].total ?? null,
+      isOptional: !!sessions[i].opt,
+      isDone: !!doneMap[i],
+    };
+
+    let retries = 2;
+    while (retries > 0) {
+      try {
+        await apiFetch('/plan_details', { method: 'POST', body: JSON.stringify(payload) });
+        break;
+      } catch (e) {
+        if (!String(e.message || '').includes('uniq_plan_details_user_plan_pos')) throw e;
+        retries--;
+        if (retries === 0) throw e;
+        const refreshed = await fetchPlanSessionsByPlanId(planId);
+        const rowAtPos = refreshed.find(r => Number(r.position) === i + 1);
+        if (rowAtPos) {
+          const path = planDetailApiPath(rowAtPos);
+          if (!path) throw e;
+          await apiFetch(path, {
+            method: 'PUT',
+            body: JSON.stringify(payload),
+          });
+          break;
+        }
+      }
+    }
+  }
+}
+
+function mapDbRowsToPlans(rows, plans) {
+  const grouped = {};
+  const plansById = new Map((plans || []).map(p => [Number(p.id), p]));
+
+  const getPlanIdFromRef = (ref) => {
+    if (typeof ref === 'number') return ref;
+    if (typeof ref === 'string') return iriToId(ref);
+    if (ref && typeof ref === 'object') return iriToId(ref['@id'] || ref.id);
+    return null;
+  };
+
+  rows.forEach(row => {
+    const planId = getPlanIdFromRef(row.plan);
+    if (!planId) return;
+    const planObj = plansById.get(Number(planId));
+    const planKey = planObj?.name || row.planName || String(planId);
+    if (!grouped[planId]) {
+      grouped[planId] = {
+        id: planId,
+        key: planKey,
+        title: planKey === 'semi' ? 'Plan Semi (exemple)' : planKey,
+        sub: planKey === 'semi' ? 'Plan fourni avec l\'application · blocs hebdomadaires' : '',
+        sessions: [],
+        done: {},
+      };
+    }
+
+    const idx = Math.max(0, (row.position || 1) - 1);
+    grouped[planId].sessions[idx] = {
+      sem: row.sem,
+      date: normalizeDateForStorage(row.sessionDate),
+      format: row.format,
+      pe: row.pe,
+      total: row.totalMin,
+      opt: !!row.isOptional,
+    };
+
+    if (row.isDone) grouped[planId].done[idx] = true;
+  });
+
+  return Object.values(grouped).map(plan => ({
+    ...plan,
+    sessions: plan.sessions.filter(Boolean),
+  }));
+}
+
+async function loadPlansFromDb() {
+  const [plansRes, sessionsRes] = await Promise.all([
+    apiFetch('/plans?order[name]=asc&pagination=false'),
+    apiFetch('/plan_details?order[position]=asc&pagination=false'),
+  ]);
+  plansData = members(plansRes).map(normalizePlan);
+  const mapped = mapDbRowsToPlans(members(sessionsRes), plansData);
+  const byId = new Set(mapped.map((p) => Number(p.id)));
+
+  plansData.forEach((plan) => {
+    const planId = Number(plan.id);
+    if (byId.has(planId)) return;
+    mapped.push({
+      id: plan.id,
+      key: plan.name,
+      title: plan.name === 'semi' ? 'Plan Semi (exemple)' : plan.name,
+      sub: plan.name === 'semi' ? 'Plan fourni avec l\'application · blocs hebdomadaires' : '',
+      sessions: [],
+      done: {},
+    });
+  });
+
+  state.extraPlans = mapped;
+}
+
+async function initializeSemiPlan() {
+  const semiPlanRef = (plansData || []).find(p => p.name === 'semi');
+  if (!semiPlanRef) {
+    await createPlanInDb('semi');
+    await loadPlansFromDb();
+  }
+}
 
 async function loadAllData() {
   const [logs, races, checks] = await Promise.all([
     apiFetch('/run_logs?order[date]=desc&pagination=false'),
     apiFetch('/races?order[date]=asc&pagination=false'),
-    apiFetch('/plan_checks?pagination=false'),
+    apiFetch('/plan_progresses?pagination=false'),
   ]);
+  const checksList = members(checks);
 
   // Normalize API Platform IRI ids to plain int ids
   logData   = members(logs).map(normalizeLog);
   racesData = members(races).map(normalizeRace);
 
-  state = { tempoDone: {}, prepDone: {}, semiDone: {} };
-  members(checks).forEach(c => {
+  state = { semiDone: {}, planMeta: {}, extraPlans: [] };
+  checksList.forEach(c => {
     if (state[c.planKey] !== undefined) {
       state[c.planKey][c.sessionIndex] = c.done;
     }
   });
+
+  try {
+    await loadPlansFromDb();
+
+    // Apply saved progress to extra plans (supports both new numeric keys and legacy extra:<id> keys)
+    checksList.forEach((c) => {
+      const extra = (state.extraPlans || []).find((p) => (
+        String(p.id) === String(c.planKey) || `extra:${p.id}` === String(c.planKey)
+      ));
+      if (!extra) return;
+      extra.done[c.sessionIndex] = !!c.done;
+    });
+
+    await initializeSemiPlan();
+    await loadDashboardMetrics();
+  } catch {
+    // Keep app usable even if plans endpoints are temporarily unavailable.
+    dashboardMetrics = null;
+  }
+}
+
+async function loadDashboardAdvice() {
+  try {
+    const data = await apiFetch('/dashboard/advice');
+    dashboardAdvice = members(data?.items || []);
+  } catch {
+    dashboardAdvice = [];
+  }
+}
+
+async function loadDashboardMetrics() {
+  try {
+    dashboardMetrics = await apiFetch('/dashboard/metrics');
+  } catch {
+    dashboardMetrics = null;
+  }
+}
+
+function requestDashboardRefresh() {
+  void loadDashboardMetrics().finally(() => {
+    renderDashboard();
+  });
+}
+
+async function savePlanProgress(planKey, sessionIndex, done) {
+  await apiFetch('/plan_progresses', {
+    method: 'POST',
+    body: JSON.stringify({ planKey, sessionIndex, done: !!done }),
+  });
+}
+
+function renderDashboardAdvice() {
+  const box = document.getElementById('dashboard-advice');
+  if (!box) return;
+  const items = Array.isArray(dashboardAdvice) ? dashboardAdvice : [];
+
+  if (!items.length) {
+    box.replaceChildren();
+    return;
+  }
+
+  const clsForTone = (tone) => {
+    if (tone === 'success') return 'advice-success';
+    if (tone === 'warning') return 'advice-warning';
+    if (tone === 'encourage') return 'advice-encourage';
+    return 'advice-info';
+  };
+
+  const stackTpl = document.getElementById('dashboard-advice-stack-template');
+  const itemTpl = document.getElementById('dashboard-advice-item-template');
+  if (!(stackTpl instanceof HTMLTemplateElement) || !(itemTpl instanceof HTMLTemplateElement)) {
+    box.replaceChildren();
+    return;
+  }
+
+  const stack = stackTpl.content.firstElementChild.cloneNode(true);
+  const nodes = items.map((item) => {
+    const card = itemTpl.content.firstElementChild.cloneNode(true);
+    card.classList.add(clsForTone(item?.tone));
+
+    const iconEl = card.querySelector('.advice-icon');
+    const titleEl = card.querySelector('.advice-title');
+    const textEl = card.querySelector('.advice-text');
+
+    if (iconEl) iconEl.textContent = item?.icon || '💡';
+    if (titleEl) titleEl.textContent = item?.title || 'Conseil du jour';
+    if (textEl) textEl.textContent = item?.text || '';
+
+    return card;
+  });
+
+  stack.replaceChildren(...nodes);
+  box.replaceChildren(stack);
 }
 
 function iriToId(iri) {
   if (!iri) return null;
   const parts = String(iri).split('/');
-  return parseInt(parts[parts.length - 1]);
+  return Number.parseInt(parts.at(-1), 10);
 }
 
 function normalizeLog(r) {
@@ -111,114 +437,6 @@ function normalizeRace(r) {
 }
 
 // ============================================================
-// STATIC PLAN DATA
-// ============================================================
-const tempoData = [
-  {sem:1, date:'2026-03-24', format:"40'@Z2", pe:'3/10', total:40},
-  {sem:1, date:'2026-03-25', format:"20'@Z2 >> 8x (45''@Z5 + 30''@Z1) >> 5'@Z1", pe:'6/10', total:35},
-  {sem:null, date:'2026-03-28', format:"10km (course)", pe:'7/10', total:null},
-  {sem:1, date:'2026-03-29', format:"20'@Z2 >> 4x (5'@Z4 + 2'@Z1) >> 5'@Z1", pe:'6/10', total:53},
-  {sem:2, date:'2026-03-30', format:"45'@Z2", pe:'3/10', total:45},
-  {sem:2, date:'2026-03-31', format:"20'@Z2 >> 2x (5'@Z4 +2'@Z1) + 4x (1'@Z5 +1'@Z1) >> 5'@Z1", pe:'6/10', total:47},
-  {sem:2, date:'2026-04-05', format:"20'@Z2 >> 20'@Z3 >> 10'@Z2", pe:'6/10', total:50},
-  {sem:1, date:'2026-04-06', format:"45'@Z2", pe:'3/10', total:45},
-  {sem:1, date:'2026-04-07', format:"20'@Z2 >> 3x (7'@Z4 + 2'@Z1) >> 5'@Z1", pe:'6/10', total:52},
-  {sem:1, date:'2026-04-12', format:"15'@Z2 >> 30'@Z3 >> 15'@Z2", pe:'6/10', total:60},
-  {sem:2, date:null, format:"45'@Z2", pe:'3/10', total:45},
-  {sem:2, date:null, format:"20'@Z2 >> 8x (1'@Z5 + 1'@Z1) >> 10'@Z2", pe:'5/10', total:46},
-  {sem:2, date:null, format:"20'@Z2 >> 4x (8'@Z4 + 2'@Z1) >> 5'@Z1", pe:'6/10', total:65},
-  {sem:1, date:null, format:"40'@Z2", pe:'3/10', total:40},
-  {sem:1, date:null, format:"20'@Z2 >> 10x (20''@Z5 + 40''@Z1) >> 5'@Z1", pe:'6/10', total:35},
-  {sem:1, date:null, format:"20'@Z2 >> 4x (5'@Z4 + 2'@Z2) >> 5'@Z1", pe:'6/10', total:53},
-];
-
-const prepData = [
-  {sem:1,date:null,format:"25'@Z2",pe:'3/10',total:25,opt:false},
-  {sem:1,date:null,format:"30'@Z2 >> 5x (20\"@Z5 + 40\"@Z1) >> 5'@Z1",pe:'4/10',total:40,opt:false},
-  {sem:1,date:null,format:"30'@Z2",pe:'3/10',total:30,opt:true},
-  {sem:1,date:'2026-05-04',format:"60'@Z2",pe:'4/10',total:60,opt:false},
-  {sem:2,date:null,format:"45'@Z2",pe:'3/10',total:45,opt:false},
-  {sem:2,date:null,format:"25'@Z2 >> 2x (6'@Z3 + 2'@Z1) >> 5'@Z1",pe:'6/10',total:46,opt:false},
-  {sem:2,date:null,format:"35'@Z2",pe:'3/10',total:35,opt:true},
-  {sem:2,date:'2026-05-11',format:"65'@Z2",pe:'4/10',total:65,opt:false},
-  {sem:1,date:null,format:"40'@Z2",pe:'3/10',total:40,opt:false},
-  {sem:1,date:null,format:"25'@Z2 >> 5x (2'@Z4 + 1'@Z1) >> 10'@Z2",pe:'5/10',total:50,opt:false},
-  {sem:1,date:null,format:"40'@Z2",pe:'3/10',total:40,opt:true},
-  {sem:1,date:'2026-05-18',format:"60'@Z2",pe:'4/10',total:60,opt:false},
-  {sem:2,date:null,format:"40'@Z2",pe:'3/10',total:40,opt:false},
-  {sem:2,date:null,format:"25'@Z2 >> 4x (3'@Z4 + 1'30\"@Z1) >> 10'@Z1",pe:'5/10',total:50,opt:false},
-  {sem:2,date:null,format:"40'@Z2",pe:'6/10',total:40,opt:true},
-  {sem:2,date:'2026-05-25',format:"65'@Z2",pe:'4/10',total:65,opt:false},
-  {sem:1,date:null,format:"40'@Z2",pe:'3/10',total:40,opt:false},
-  {sem:1,date:null,format:"25'@Z2 >> 10x (1'@Z4 + 1'@Z1) >> 10'@Z1",pe:'3/10',total:55,opt:false},
-  {sem:1,date:null,format:"40'@Z2",pe:'3/10',total:40,opt:true},
-  {sem:1,date:'2026-06-01',format:"65'@Z2",pe:'4/10',total:65,opt:false},
-  {sem:2,date:null,format:"40'@Z2",pe:'3/10',total:40,opt:false},
-  {sem:2,date:null,format:"35'@Z2 >> 6x (1'@Z5 + 1'@Z1) >> 5'@Z1",pe:'6/10',total:57,opt:false},
-  {sem:2,date:null,format:"40'@Z2",pe:'3/10',total:40,opt:true},
-  {sem:2,date:'2026-06-08',format:"70'@Z2",pe:'4/10',total:70,opt:false},
-  {sem:1,date:null,format:"40'@Z2",pe:'3/10',total:40,opt:false},
-  {sem:1,date:null,format:"40'@Z2",pe:'3/10',total:40,opt:true},
-  {sem:1,date:null,format:"25'@Z2 >> 4x (5'@Z4 + 2'@Z1) >> 5'@Z1",pe:'6/10',total:58,opt:false},
-  {sem:1,date:'2026-06-15',format:"75'@Z2",pe:'4/10',total:75,opt:false},
-  {sem:2,date:null,format:"40'@Z2",pe:'3/10',total:40,opt:false},
-  {sem:2,date:null,format:"40'@Z2",pe:'3/10',total:40,opt:true},
-  {sem:2,date:null,format:"25'@Z2 >> 4x (7'@Z4 + 2'@Z1) >> 5'@Z1",pe:'6/10',total:65,opt:false},
-  {sem:2,date:'2026-06-22',format:"75'@Z2",pe:'4/10',total:75,opt:false},
-  {sem:1,date:null,format:"40'@Z2",pe:'3/10',total:40,opt:false},
-  {sem:1,date:null,format:"40'@Z2",pe:'3/10',total:40,opt:true},
-  {sem:1,date:null,format:"30'@Z2 >> 25'@Z3 >> 5'@Z1",pe:'5/10',total:60,opt:false},
-  {sem:1,date:'2026-06-29',format:"80'@Z2",pe:'4/10',total:80,opt:false},
-  {sem:2,date:null,format:"45'@Z2",pe:'3/10',total:45,opt:false},
-  {sem:2,date:null,format:"45'@Z2",pe:'3/10',total:45,opt:true},
-  {sem:2,date:null,format:"25'@Z2 >> 5x (7'@Z4 + 2'@Z1) >> 5'@Z1",pe:'6/10',total:70,opt:false},
-  {sem:2,date:'2026-07-06',format:"85'@Z2",pe:'4/10',total:85,opt:false},
-  {sem:1,date:null,format:"40'@Z2",pe:'3/10',total:40,opt:false},
-  {sem:1,date:null,format:"40'@Z2",pe:'3/10',total:40,opt:true},
-  {sem:1,date:null,format:"30'@Z2 >> 2x (15'@Z3 + 5'@Z1) >> 5'@Z1",pe:'5/10',total:70,opt:false},
-  {sem:1,date:'2026-07-13',format:"75'@Z2",pe:'4/10',total:75,opt:false},
-  {sem:2,date:null,format:"40'@Z2",pe:'3/10',total:40,opt:false},
-  {sem:2,date:null,format:"40'@Z2",pe:'3/10',total:40,opt:true},
-  {sem:2,date:null,format:"25'@Z2 >> 3x (10'@Z4 + 3'@Z1) >> 5'@Z1",pe:'6/10',total:71,opt:false},
-  {sem:2,date:'2026-07-20',format:"60'@Z2 (récup)",pe:'3/10',total:60,opt:false},
-];
-
-const semiData = [
-  {sem:1,date:null,format:"45'@Z2",pe:'3/10',total:45,opt:false},
-  {sem:1,date:null,format:"20'@Z2 >> 10x (30\"@Z5 + 30\"@Z1) >> 5'@Z1",pe:'4/10',total:35,opt:false},
-  {sem:1,date:null,format:"30'@Z2",pe:'3/10',total:30,opt:true},
-  {sem:1,date:'2026-07-26',format:"15'@Z2 >> 15'@Z3 + 15'@Z4 >> 15'@Z2",pe:'5/10',total:60,opt:false},
-  {sem:2,date:null,format:"45'@Z2",pe:'3/10',total:45,opt:false},
-  {sem:2,date:null,format:"20'@Z2 >> 8x (1'@Z5 + 1'@Z1) >> 5'@Z1",pe:'5/10',total:41,opt:false},
-  {sem:2,date:null,format:"35'@Z2",pe:'3/10',total:35,opt:true},
-  {sem:2,date:'2026-08-02',format:"25'@Z2 >> 15'@Z4 >> 25'@Z2",pe:'5/10',total:65,opt:false},
-  {sem:1,date:null,format:"45'@Z2 >> 8x (20\"@Z5 + 40\"@Z1) >> 5'@Z1",pe:'4/10',total:58,opt:false},
-  {sem:1,date:null,format:"20'@Z2 >> 8x (1'@Z5 + 1'@Z1) >> 15'@Z2",pe:'5/10',total:51,opt:false},
-  {sem:1,date:null,format:"40'@Z2",pe:'3/10',total:40,opt:true},
-  {sem:1,date:'2026-08-09',format:"70'@Z2",pe:'4/10',total:70,opt:false},
-  {sem:2,date:null,format:"25'@Z2 >> 5x (2'@Z5 + 2'@Z1) >> 5'@Z1",pe:'5/10',total:50,opt:false},
-  {sem:2,date:null,format:"40'@Z2",pe:'3/10',total:40,opt:true},
-  {sem:2,date:null,format:"20'@Z2 >> 3x (8'@Z4 + 3'@Z1) >> 5'@Z1",pe:'6/10',total:58,opt:false},
-  {sem:2,date:'2026-08-16',format:"75'@Z2",pe:'4/10',total:75,opt:false},
-  {sem:1,date:null,format:"20'@Z2 >> 10x (3'@Z4 + 1'30\"@Z1) >> 5'@Z1",pe:'6/10',total:60,opt:false},
-  {sem:1,date:null,format:"45'@Z2",pe:'3/10',total:45,opt:true},
-  {sem:1,date:null,format:"20'@Z2 >> 2x (10'@Z3 + 3'@Z1) >> 5'@Z1",pe:'4/10',total:51,opt:false},
-  {sem:1,date:'2026-08-23',format:"80'@Z2",pe:'4/10',total:80,opt:false},
-  {sem:2,date:null,format:"25'@Z2 >> 10x (2'@Z5 + 1'@Z1) >> 5'@Z1",pe:'6/10',total:60,opt:false},
-  {sem:2,date:null,format:"45'@Z2",pe:'3/10',total:45,opt:true},
-  {sem:2,date:null,format:"20'@Z2 >> 4x (7'@Z4 + 3'@Z1) >> 5'@Z1",pe:'6/10',total:65,opt:false},
-  {sem:2,date:'2026-08-30',format:"85'@Z2",pe:'4/10',total:85,opt:false},
-  {sem:1,date:null,format:"25'@Z2 >> 8x (2'30\"@Z5 + 2'@Z1) >> 5'@Z1",pe:'6/10',total:66,opt:false},
-  {sem:1,date:null,format:"50'@Z2",pe:'3/10',total:50,opt:true},
-  {sem:1,date:null,format:"25'@Z2 >> 20'@Z3 >> 5'@Z1",pe:'4/10',total:50,opt:false},
-  {sem:1,date:'2026-09-06',format:"90'@Z2",pe:'4/10',total:90,opt:false},
-  {sem:2,date:null,format:"25'@Z2 >> 6x (2'@Z5 + 1'@Z1) >> 15'@Z2",pe:'5/10',total:58,opt:false},
-  {sem:2,date:null,format:"45'@Z2",pe:'3/10',total:45,opt:true},
-  {sem:2,date:null,format:"20'@Z2 >> 3x (10'@Z4 + 3'@Z1) >> 5'@Z1",pe:'6/10',total:66,opt:false},
-  {sem:2,date:'2026-09-13',format:"🏁 LA PARISIENNE — SEMI-MARATHON",pe:'—',total:null,opt:false},
-];
-
-// ============================================================
 // UTILS
 // ============================================================
 function durToSec(dur) {
@@ -232,8 +450,10 @@ function secToDur(s) {
 }
 function allureClass(a) {
   if (!a) return '';
-  const m=parseInt(a);
-  return m<=8?'allure-fast':m<=9?'allure-mid':'allure-slow';
+  const m = Number.parseInt(a, 10);
+  if (m <= 8) return 'allure-fast';
+  if (m <= 9) return 'allure-mid';
+  return 'allure-slow';
 }
 function formatDate(d) {
   if (!d) return '—';
@@ -243,9 +463,42 @@ function getDaysTo(ds) {
   const n=new Date(); n.setHours(0,0,0,0);
   return Math.round((new Date(ds)-n)/86400000);
 }
-function formatZones(f) {
-  const col={1:'var(--z1)',2:'var(--z2)',3:'var(--z3)',4:'var(--z4)',5:'var(--z5)'};
-  return f.replace(/@Z(\d)/g,(_,z)=>`<span style="color:${col[z]||'#fff'}">@Z${z}</span>`);
+function cloneTemplate(id) {
+  const tpl = document.getElementById(id);
+  if (!(tpl instanceof HTMLTemplateElement)) return null;
+  const node = tpl.content.firstElementChild;
+  return node ? node.cloneNode(true) : null;
+}
+function appendFormattedZones(target, format) {
+  if (!target) return;
+  const source = String(format || '');
+  const frag = document.createDocumentFragment();
+  const re = /@Z(\d)/g;
+  let last = 0;
+  let m = re.exec(source);
+  while (m) {
+    if (m.index > last) {
+      frag.appendChild(document.createTextNode(source.slice(last, m.index)));
+    }
+    const span = document.createElement('span');
+    span.className = `zone-inline zone-z${m[1]}`;
+    span.textContent = `@Z${m[1]}`;
+    frag.appendChild(span);
+    last = re.lastIndex;
+    m = re.exec(source);
+  }
+  if (last < source.length) {
+    frag.appendChild(document.createTextNode(source.slice(last)));
+  }
+  target.replaceChildren(frag);
+}
+function createSvgEl(tag, attrs = {}, text = null) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.entries(attrs).forEach(([k, v]) => {
+    if (v !== null && v !== undefined) el.setAttribute(k, String(v));
+  });
+  if (text !== null) el.textContent = text;
+  return el;
 }
 function notify(msg) {
   const n=document.getElementById('notif');
@@ -259,6 +512,9 @@ function computeGAP(allureSec, km, dplus) {
   return gapSec>0?secToDur(gapSec).slice(3):null;
 }
 function showSection(id, btn) {
+  if (id === 'plans' && currentPlanId) {
+    backToPlansList();
+  }
   document.querySelectorAll('section').forEach(s=>s.classList.remove('visible'));
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
   document.getElementById(id).classList.add('visible');
@@ -277,50 +533,90 @@ function addHoverListeners(tbodyId) {
 // DASHBOARD
 // ============================================================
 function renderDashboard() {
-  document.getElementById('dash-date').textContent =
+  const dashDateEl = document.getElementById('dash-date');
+  if (!dashDateEl) return;
+  dashDateEl.textContent =
     'Mise à jour · ' + new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  renderDashboardAdvice();
 
-  const avgAllure=(()=>{
-    const secs=logData.map(r=>durToSec(r.allure?'00:'+r.allure:null)).filter(Boolean);
-    if(!secs.length)return'—';
-    return secToDur(secs.reduce((a,b)=>a+b,0)/secs.length).slice(3);
-  })();
-  const longestKm = logData.length ? Math.max(...logData.map(r=>r.km||0)) : 0;
-  const longestDurSec = logData.length ? Math.max(...logData.map(r=>durToSec(r.duration)||0)) : 0;
-  const longestDurStr = longestDurSec>0 ? secToDur(longestDurSec).replace(/^00:/,'') : '—';
-  const bpms=logData.filter(r=>r.bpm).map(r=>r.bpm);
-  const avgBpm=bpms.length?Math.round(bpms.reduce((a,b)=>a+b,0)/bpms.length):'—';
+  const metrics = dashboardMetrics || {};
+  const kpisData = metrics.kpis || {};
 
-  document.getElementById('kpi-grid').innerHTML=`
-    <div class="kpi green"><div class="kpi-label">Allure moy.</div><div class="kpi-value">${avgAllure}</div><div class="kpi-unit">min/km</div></div>
-    <div class="kpi orange"><div class="kpi-label">Durée la plus longue</div><div class="kpi-value">${longestDurStr}</div><div class="kpi-unit">hh:mm:ss</div></div>
-    <div class="kpi accent"><div class="kpi-label">Plus grande distance</div><div class="kpi-value">${longestKm.toFixed(1)}</div><div class="kpi-unit">km</div></div>
-    <div class="kpi blue"><div class="kpi-label">BPM moy. EF</div><div class="kpi-value">${avgBpm}</div><div class="kpi-unit">bpm</div></div>`;
+  const kpiGrid = document.getElementById('kpi-grid');
+  if (kpiGrid) {
+    const kpis = [
+      { tone: 'green', label: 'Allure moy.', value: kpisData.avgAllure || '—', unit: 'min/km' },
+      { tone: 'orange', label: 'Durée la plus longue', value: kpisData.longestDuration || '—', unit: 'hh:mm:ss' },
+      { tone: 'accent', label: 'Plus grande distance', value: Number(kpisData.longestDistance || 0).toFixed(1), unit: 'km' },
+      { tone: 'blue', label: 'BPM moy. EF', value: String(kpisData.avgBpm ?? '—'), unit: 'bpm' },
+    ];
+    const kpiNodes = kpis.map((kpi) => {
+      const node = cloneTemplate('dashboard-kpi-template') || document.createElement('article');
+      node.classList.add(kpi.tone);
+      const labelEl = node.querySelector('.kpi-label');
+      const valueEl = node.querySelector('.kpi-value');
+      const unitEl = node.querySelector('.kpi-unit');
+      if (labelEl) labelEl.textContent = kpi.label;
+      if (valueEl) valueEl.textContent = kpi.value;
+      if (unitEl) unitEl.textContent = kpi.unit;
+      return node;
+    });
+    kpiGrid.replaceChildren(...kpiNodes);
+  }
 
-  const done=Object.values(state.tempoDone).filter(Boolean).length;
-  const pct=Math.round(done/tempoData.length*100);
-  document.getElementById('tempo-pct').textContent=pct+'%';
-  document.getElementById('tempo-bar').style.width=pct+'%';
-  document.getElementById('tempo-meta').textContent=`${done} / ${tempoData.length} séances complétées`;
+  const progress = metrics.planProgress || { title: '', done: 0, total: 0, pct: 0 };
+  const labelEl = document.getElementById('progress-plan-label');
+  if (labelEl) labelEl.textContent = progress.title;
+  document.getElementById('tempo-pct').textContent=progress.pct+'%';
+  document.getElementById('tempo-bar').style.width=progress.pct+'%';
+  document.getElementById('tempo-meta').textContent=`${progress.done} / ${progress.total} séances complétées`;
 
-  const months=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-  const monthly={}; months.forEach(m=>monthly[m]=0);
-  logData.forEach(r=>{ if(r.date){ const m=months[new Date(r.date).getMonth()]; monthly[m]+=r.km||0; }});
-  const active=months.filter(m=>monthly[m]>0);
-  const maxKm=Math.max(...active.map(m=>monthly[m]),1);
-  document.getElementById('monthly-chart').innerHTML=active.map(m=>{
-    const km=monthly[m], h=Math.round((km/maxKm)*100);
-    return `<div class="bar-col"><div class="bar" style="height:${h}px" title="${km.toFixed(1)} km"></div><div class="bar-label">${m}<br>${km.toFixed(0)}km</div></div>`;
-  }).join('');
+  const barsSource = Array.isArray(metrics.monthlyBars) ? metrics.monthlyBars : [];
+  const monthlyChart = document.getElementById('monthly-chart');
+  if (monthlyChart) {
+    const barNodes = barsSource.map((bar) => {
+      const km = Number(bar.km || 0);
+      const h = Number(bar.height || 0);
+      const node = cloneTemplate('monthly-bar-template') || document.createElement('article');
+      const barEl = node.querySelector('.bar');
+      const labelEl = node.querySelector('.bar-label');
+      if (barEl) {
+        barEl.style.height = `${h}px`;
+        barEl.title = `${km.toFixed(1)} km`;
+      }
+      if (labelEl) {
+        labelEl.replaceChildren(
+          document.createTextNode(String(bar.label || '—')),
+          document.createElement('br'),
+          document.createTextNode(`${km.toFixed(0)}km`)
+        );
+      }
+      return node;
+    });
+    monthlyChart.replaceChildren(...barNodes);
+  }
 
-  document.getElementById('race-tbody').innerHTML=racesData.map(r=>{
-    const days=getDaysTo(r.date);
-    let badge,status;
-    if(r.result){badge='badge-done';status='✓ Terminée';}
-    else if(days<=7){badge='badge-next';status=`J-${days}`;}
-    else{badge='badge-future';status=days<0?'Passée':`S-${Math.round(days/7)}`;}
-    return `<tr><td><span class="badge ${badge}">${status}</span></td><td><strong>${r.name}</strong></td><td class="mono">${formatDate(r.date)}</td><td>${r.distance||'—'}</td><td class="mono">${r.objective||'—'}</td></tr>`;
-  }).join('');
+  const raceTbody = document.getElementById('race-tbody');
+  if (raceTbody) {
+    const rows = (Array.isArray(metrics.racesTable) ? metrics.racesTable : []).map((r) => {
+      const row = cloneTemplate('dashboard-race-row-template') || document.createElement('tr');
+      const nameEl = row.querySelector('.dashboard-race-name');
+      const dateEl = row.querySelector('.dashboard-race-date');
+      const distEl = row.querySelector('.dashboard-race-dist');
+      const objEl = row.querySelector('.dashboard-race-obj');
+      const statusEl = row.querySelector('.dashboard-race-status');
+      if (nameEl) nameEl.textContent = r.name || '—';
+      if (dateEl) dateEl.textContent = formatDate(r.date);
+      if (distEl) distEl.textContent = r.dist || '—';
+      if (objEl) objEl.textContent = r.obj || '—';
+      if (statusEl) {
+        statusEl.classList.add(r.statusClass || 'badge-future');
+        statusEl.textContent = r.statusLabel || '—';
+      }
+      return row;
+    });
+    raceTbody.replaceChildren(...rows);
+  }
 
   renderCoherence();
   renderProjections();
@@ -332,275 +628,686 @@ function renderDashboard() {
 // EF TRACKER
 // ============================================================
 function renderEF() {
-  const efRuns = logData
-    .filter(r => r.run_type === 'EF' && r.bpm && r.allure && r.date)
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-  const efAll = logData
-    .filter(r => r.allure && r.date && r.run_type !== 'Race')
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-  function efIndex(r) {
-    const [m, s] = r.allure.split(':').map(Number);
-    return Math.round(((m * 60 + s) / r.bpm) * 100) / 100;
-  }
+  const metrics = dashboardMetrics || {};
+  const efKpis = metrics.efKpis || { items: [], emptyMessage: '' };
+  const ef = metrics.ef || { hasData: false, emptyMessage: '', chart: { paceTicks: [], bpmTicks: [], pacePoints: [], bpmPoints: [], efDots: [] }, tableRows: [], meta: '' };
 
   const kpiEl = document.getElementById('ef-kpis');
   if (!kpiEl) return;
+  const efTbody = document.getElementById('ef-tbody');
+  const chartEl = document.getElementById('ef-chart-container');
+  if (!efTbody || !chartEl) return;
 
-  if (efRuns.length < 2) {
-    kpiEl.innerHTML = `<div style="grid-column:1/-1;color:var(--text-muted);font-size:13px;font-family:'Space Mono',monospace;">
-      Pas encore assez de sorties EF avec BPM enregistré (minimum 2).
-    </div>`;
-    document.getElementById('ef-tbody').innerHTML = '';
-    document.getElementById('ef-chart-container').style.display = 'none';
+  if (!ef.hasData) {
+    const emptyNode = cloneTemplate('ef-empty-template') || document.createElement('div');
+    if (emptyNode) emptyNode.textContent = ef.emptyMessage || efKpis.emptyMessage || 'Pas encore assez de sorties EF avec BPM enregistre (minimum 2).';
+    kpiEl.replaceChildren(emptyNode);
+    efTbody.replaceChildren();
+    chartEl.style.display = 'none';
     return;
   }
-  document.getElementById('ef-chart-container').style.display = 'block';
+  chartEl.style.display = 'block';
 
-  const first = efRuns[0], last = efRuns[efRuns.length - 1];
-  const firstPace = durToSec('00:' + first.allure);
-  const lastPace  = durToSec('00:' + last.allure);
-  const paceDelta = firstPace - lastPace;
-  const firstIdx  = efIndex(first), lastIdx = efIndex(last);
-  const idxDelta  = firstIdx - lastIdx;
-  const avgBpm    = Math.round(efRuns.reduce((s, r) => s + r.bpm, 0) / efRuns.length);
-  const paceSign  = paceDelta >= 0 ? '↗' : '↘';
-  const paceColor = paceDelta >= 0 ? 'var(--z1)' : 'var(--accent3)';
-  const idxSign   = idxDelta  >= 0 ? '↗' : '↘';
-  const idxColor  = idxDelta  >= 0 ? 'var(--z1)' : 'var(--accent3)';
-  const paceStr   = secToDur(Math.abs(paceDelta)).slice(3);
-
-  kpiEl.innerHTML = `
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;">
-      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:8px;">Gain d'allure EF</div>
-      <div style="font-size:22px;font-weight:800;color:${paceColor}">${paceSign} ${paceStr}/km</div>
-      <div style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-top:4px;">${first.allure} → ${last.allure} /km</div>
-    </div>
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;">
-      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:8px;">BPM moyen EF</div>
-      <div style="font-size:22px;font-weight:800;color:var(--accent2)">${avgBpm} <span style="font-size:14px">bpm</span></div>
-      <div style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-top:4px;">sur ${efRuns.length} sorties EF</div>
-    </div>
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;">
-      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:8px;">Indice aérobie</div>
-      <div style="font-size:22px;font-weight:800;color:${idxColor}">${idxSign} ${Math.abs(idxDelta).toFixed(2)}</div>
-      <div style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-top:4px;">${first.allure}/km @ ${first.bpm}bpm → ${last.allure}/km @ ${last.bpm}bpm</div>
-    </div>`;
+  const kpiCards = (Array.isArray(efKpis.items) ? efKpis.items : []).map((item) => {
+    const card = cloneTemplate('ef-kpi-card-template') || document.createElement('div');
+    const labelEl = card.querySelector('.ef-kpi-label');
+    const valueEl = card.querySelector('.ef-kpi-value');
+    const subEl = card.querySelector('.ef-kpi-sub');
+    if (labelEl) labelEl.textContent = item.label;
+    if (valueEl) {
+      valueEl.style.color = item.valueColor || '';
+      valueEl.textContent = item.value;
+    }
+    if (subEl) subEl.textContent = item.meta;
+    return card;
+  });
+  kpiEl.replaceChildren(...kpiCards);
 
   // ── SVG Chart ──────────────────────────────────────────────
-  const chartEl = document.getElementById('ef-chart-container');
   const W = chartEl.clientWidth || 600, H = 180;
   const PAD = { top: 16, right: 52, bottom: 32, left: 52 };
   const cW = W - PAD.left - PAD.right, cH = H - PAD.top - PAD.bottom;
 
-  const pts = efAll.map((r, i) => ({
-    i, pace: durToSec('00:' + r.allure),
-    bpm: r.bpm || null, isEF: r.run_type === 'EF' && r.bpm,
-    date: r.date, allure: r.allure,
+  const chart = ef.chart || { paceTicks: [], bpmTicks: [], pacePoints: [], bpmPoints: [], efDots: [] };
+  const xSc  = x => PAD.left + x * cW;
+  const ySc = y => PAD.top + y * cH;
+
+  const allPts = (chart.pacePoints || []).map(p => `${xSc(Number(p.x || 0)).toFixed(1)},${ySc(Number(p.y || 0)).toFixed(1)}`).join(' ');
+  const bPts = (chart.bpmPoints || []).map(p => `${xSc(Number(p.x || 0)).toFixed(1)},${ySc(Number(p.y || 0)).toFixed(1)}`).join(' ');
+  const svg = createSvgEl('svg', { width: W, height: H, xmlns: 'http://www.w3.org/2000/svg' });
+
+  (chart.paceTicks || []).forEach((tick) => {
+    const t = Number(tick.t || 0);
+    const y = PAD.top + (1 - t) * cH;
+    svg.appendChild(createSvgEl('line', {
+      x1: PAD.left,
+      y1: y.toFixed(1),
+      x2: W - PAD.right,
+      y2: y.toFixed(1),
+      stroke: 'var(--border)',
+      'stroke-width': 1,
+    }));
+    svg.appendChild(createSvgEl('text', {
+      x: PAD.left - 6,
+      y: (y + 4).toFixed(1),
+      'text-anchor': 'end',
+      fill: 'var(--text-muted)',
+      'font-size': 9,
+      'font-family': 'monospace',
+    }, String(tick.label || '')));
+  });
+
+  (chart.bpmTicks || []).forEach((tick) => {
+    const t = Number(tick.t || 0);
+    const y = PAD.top + (1 - t) * cH;
+    svg.appendChild(createSvgEl('text', {
+      x: W - PAD.right + 6,
+      y: (y + 4).toFixed(1),
+      fill: 'var(--accent2)',
+      'font-size': 9,
+      'font-family': 'monospace',
+    }, String(tick.label || '')));
+  });
+
+  svg.appendChild(createSvgEl('polyline', {
+    points: allPts,
+    fill: 'none',
+    stroke: 'var(--accent)',
+    'stroke-width': 1.5,
+    'stroke-opacity': 0.4,
+    'stroke-dasharray': '3,3',
   }));
+  if ((chart.bpmPoints || []).length > 1) {
+    svg.appendChild(createSvgEl('polyline', {
+      points: bPts,
+      fill: 'none',
+      stroke: 'var(--accent2)',
+      'stroke-width': 2,
+      'stroke-opacity': 0.8,
+    }));
+  }
+  (chart.efDots || []).forEach((p) => {
+    svg.appendChild(createSvgEl('circle', {
+      cx: xSc(Number(p.x || 0)).toFixed(1),
+      cy: ySc(Number(p.paceY || 0)).toFixed(1),
+      r: 4,
+      fill: 'var(--accent)',
+      stroke: 'var(--surface)',
+      'stroke-width': 1.5,
+    }));
+    svg.appendChild(createSvgEl('circle', {
+      cx: xSc(Number(p.x || 0)).toFixed(1),
+      cy: ySc(Number(p.bpmY || 0)).toFixed(1),
+      r: 4,
+      fill: 'var(--accent2)',
+      stroke: 'var(--surface)',
+      'stroke-width': 1.5,
+    }));
+  });
 
-  const paces = pts.map(p => p.pace);
-  const minP = Math.min(...paces) - 15, maxP = Math.max(...paces) + 15;
-  const bpms = pts.filter(p => p.bpm).map(p => p.bpm);
-  const minB = bpms.length ? Math.min(...bpms) - 5 : 130;
-  const maxB = bpms.length ? Math.max(...bpms) + 5 : 160;
-
-  const xSc  = i => PAD.left + (i / Math.max(pts.length - 1, 1)) * cW;
-  const paceY = p => PAD.top + (1 - (p - minP) / (maxP - minP)) * cH;
-  const bpmY  = b => PAD.top + (1 - (b - minB) / (maxB - minB)) * cH;
-
-  const allPts = pts.map(p => `${xSc(p.i).toFixed(1)},${paceY(p.pace).toFixed(1)}`).join(' ');
-  const bPts   = pts.filter(p => p.bpm).map(p => `${xSc(p.i).toFixed(1)},${bpmY(p.bpm).toFixed(1)}`).join(' ');
-
-  const grid = [0, 0.25, 0.5, 0.75, 1].map(t => {
-    const y = PAD.top + (1 - t) * cH;
-    const pv = Math.round(minP + t * (maxP - minP));
-    return `<line x1="${PAD.left}" y1="${y.toFixed(1)}" x2="${W - PAD.right}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1"/>
-      <text x="${PAD.left - 6}" y="${(y + 4).toFixed(1)}" text-anchor="end" fill="var(--text-muted)" font-size="9" font-family="monospace">${Math.floor(pv/60)}:${String(pv%60).padStart(2,'0')}</text>`;
-  }).join('');
-
-  const bLabels = bpms.length ? [0, 0.5, 1].map(t => {
-    const y = PAD.top + (1 - t) * cH;
-    return `<text x="${W - PAD.right + 6}" y="${(y + 4).toFixed(1)}" fill="var(--accent2)" font-size="9" font-family="monospace">${Math.round(minB + t * (maxB - minB))}</text>`;
-  }).join('') : '';
-
-  const efDots = pts.filter(p => p.isEF).map(p =>
-    `<circle cx="${xSc(p.i).toFixed(1)}" cy="${paceY(p.pace).toFixed(1)}" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"/>
-     <circle cx="${xSc(p.i).toFixed(1)}" cy="${bpmY(p.bpm).toFixed(1)}" r="4" fill="var(--accent2)" stroke="var(--surface)" stroke-width="1.5"/>`
-  ).join('');
-
-  chartEl.innerHTML = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
-    ${grid}${bLabels}
-    <polyline points="${allPts}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-opacity="0.4" stroke-dasharray="3,3"/>
-    ${bpms.length > 1 ? `<polyline points="${bPts}" fill="none" stroke="var(--accent2)" stroke-width="2" stroke-opacity="0.8"/>` : ''}
-    ${efDots}
-    <circle cx="${PAD.left + 8}" cy="${H - 8}" r="4" fill="var(--accent)"/>
-    <text x="${PAD.left + 16}" y="${H - 4}" fill="var(--text-muted)" font-size="9" font-family="monospace">Allure (toutes sorties)</text>
-    <circle cx="${PAD.left + 160}" cy="${H - 8}" r="4" fill="var(--accent2)"/>
-    <text x="${PAD.left + 168}" y="${H - 4}" fill="var(--text-muted)" font-size="9" font-family="monospace">BPM EF (axe droit)</text>
-  </svg>`;
+  svg.appendChild(createSvgEl('circle', { cx: PAD.left + 8, cy: H - 8, r: 4, fill: 'var(--accent)' }));
+  svg.appendChild(createSvgEl('text', {
+    x: PAD.left + 16,
+    y: H - 4,
+    fill: 'var(--text-muted)',
+    'font-size': 9,
+    'font-family': 'monospace',
+  }, 'Allure (toutes sorties)'));
+  svg.appendChild(createSvgEl('circle', { cx: PAD.left + 160, cy: H - 8, r: 4, fill: 'var(--accent2)' }));
+  svg.appendChild(createSvgEl('text', {
+    x: PAD.left + 168,
+    y: H - 4,
+    fill: 'var(--text-muted)',
+    'font-size': 9,
+    'font-family': 'monospace',
+  }, 'BPM EF (axe droit)'));
+  chartEl.replaceChildren(svg);
 
   // ── Tableau ─────────────────────────────────────────────────
-  let prevIdx2 = null;
-  document.getElementById('ef-tbody').innerHTML = efRuns.map((r, i) => {
-    const idx = efIndex(r);
-    const trend = prevIdx2 === null ? '—'
-      : idx < prevIdx2 - 0.05 ? '<span style="color:var(--z1)">↗ mieux</span>'
-      : idx > prevIdx2 + 0.05 ? '<span style="color:var(--accent3)">↘ moins bien</span>'
-      : '<span style="color:var(--text-muted)">→ stable</span>';
-    prevIdx2 = idx;
-    const ic = i === 0 ? 'var(--text-muted)'
-      : idx < efIndex(efRuns[i-1]) - 0.05 ? 'var(--z1)' : idx > efIndex(efRuns[i-1]) + 0.05 ? 'var(--accent3)' : 'var(--text-muted)';
-    return `<tr>
-      <td style="padding:8px 10px;border-bottom:1px solid var(--row-border);font-family:'Space Mono',monospace;">${formatDate(r.date)}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid var(--row-border);font-family:'Space Mono',monospace;">${r.km?.toFixed(1)||'—'}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid var(--row-border);font-family:'Space Mono',monospace;color:var(--accent2);">${r.bpm} bpm</td>
-      <td style="padding:8px 10px;border-bottom:1px solid var(--row-border);font-family:'Space Mono',monospace;">${r.allure}/km</td>
-      <td style="padding:8px 10px;border-bottom:1px solid var(--row-border);font-family:'Space Mono',monospace;font-weight:700;color:${ic};">${idx.toFixed(2)}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid var(--row-border);">${trend}</td>
-    </tr>`;
-  }).join('');
+  const rows = (ef.tableRows || []).map((r) => {
+    const row = cloneTemplate('ef-row-template') || document.createElement('tr');
+    const dateEl = row.querySelector('.ef-date');
+    const kmEl = row.querySelector('.ef-km');
+    const bpmEl = row.querySelector('.ef-bpm');
+    const allureEl = row.querySelector('.ef-allure');
+    const idxEl = row.querySelector('.ef-index');
+    const trendEl = row.querySelector('.ef-trend');
+    if (dateEl) dateEl.textContent = formatDate(r.date);
+    if (kmEl) kmEl.textContent = r.km || '—';
+    if (bpmEl) bpmEl.textContent = r.bpm || '—';
+    if (allureEl) allureEl.textContent = r.allure || '—';
+    if (idxEl) {
+      idxEl.style.color = r.idxColor || '';
+      idxEl.textContent = r.idx || '—';
+    }
+    if (trendEl) {
+      const span = document.createElement('span');
+      span.style.color = r.trendColor || '';
+      span.textContent = r.trendLabel || '—';
+      trendEl.replaceChildren(span);
+    }
+    return row;
+  });
+  efTbody.replaceChildren(...rows);
 
-  document.getElementById('ef-meta').textContent =
-    'Indice aérobie = allure (sec/km) ÷ BPM · Plus il est bas, meilleure est l'efficacité aérobie à effort constant';
+  document.getElementById('ef-meta').textContent = ef.meta || '';
 }
 
 function renderCoherence() {
-  const alerts=[];
-  const missing=tempoData.filter(s=>s.sem!==null&&!s.date).length;
-  if(missing>0) alerts.push({ok:false,title:'Dates manquantes (Tempo)',msg:`${missing} séances du plan Tempo sans date.`});
-  else alerts.push({ok:true,title:'Dates Tempo complètes',msg:'Toutes les séances planifiées sont datées.'});
-  alerts.push({ok:true,title:'Progression cohérente',msg:'Les allures progressent régulièrement depuis janvier. ✓'});
-  const bpms=logData.filter(r=>r.bpm);
-  if(bpms.length) alerts.push({ok:true,title:'BPM EF cohérents',msg:`BPM entre ${Math.min(...bpms.map(r=>r.bpm))} et ${Math.max(...bpms.map(r=>r.bpm))} — Zone 2 OK.`});
-  const nullSem=tempoData.filter(s=>s.sem===null).length;
-  if(nullSem>0) alerts.push({ok:true,title:'Séances hors semaine',msg:`${nullSem} course(s) ponctuelle(s) hors plan — non comptabilisées.`});
-  document.getElementById('coherence-section').innerHTML=`
-    <div class="section-title" style="font-size:18px;margin-bottom:16px">Analyse de cohérence</div>
-    ${alerts.map(a=>`<div class="alert ${a.ok?'alert-ok':''}"><div class="alert-title">${a.ok?'✓':'⚠'} ${a.title}</div><div>${a.msg}</div></div>`).join('')}`;
+  const metrics = dashboardMetrics || {};
+  const alerts = Array.isArray(metrics.coherenceAlerts)
+    ? metrics.coherenceAlerts
+    : [{ok:true,title:'Analyse indisponible',msg:'Pas assez de données pour établir des indicateurs de cohérence.'}];
+  const section = document.getElementById('coherence-section');
+  if (!section) return;
+  const title = document.createElement('div');
+  title.className = 'section-title coherence-title';
+  title.textContent = 'Analyse de cohérence';
+  const nodes = alerts.map((a) => {
+    const node = cloneTemplate('coherence-alert-template') || document.createElement('div');
+    if (a.ok) node.classList.add('alert-ok');
+    const t = node.querySelector('.alert-title');
+    const m = node.querySelector('.alert-msg');
+    if (t) t.textContent = `${a.ok ? '✓' : '⚠'} ${a.title}`;
+    if (m) m.textContent = a.msg;
+    return node;
+  });
+  section.replaceChildren(title, ...nodes);
 }
 
 function renderProjections() {
-  const recent=logData.filter(r=>r.allure&&r.run_type!=='Race'&&r.date)
-    .sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
-  if(!recent.length){
-    document.getElementById('projections-grid').innerHTML='<div style="color:var(--text-muted);font-size:13px;grid-column:1/-1">Pas encore assez de données.</div>';
+  const metrics = dashboardMetrics || {};
+  const projections = Array.isArray(metrics.projections) ? metrics.projections : [];
+  const gridEl = document.getElementById('projections-grid');
+  if (!gridEl) return;
+  if(!projections.length){
+    const emptyNode = cloneTemplate('projection-empty-template') || document.createElement('div');
+    gridEl.replaceChildren(emptyNode);
     return;
   }
-  const paceList=recent.map(r=>{
-    const src=(r.gap&&r.dplus)?r.gap:r.allure;
-    const [m,s]=src.split(':').map(Number); return m*60+s;
+  const cards = projections.map((d)=>{
+    const card = cloneTemplate('projection-card-template') || document.createElement('article');
+    const labelEl = card.querySelector('.proj-label');
+    const timeEl = card.querySelector('.proj-time');
+    const paceEl = card.querySelector('.proj-pace');
+    if (labelEl) labelEl.textContent = d.label;
+    if (timeEl) timeEl.textContent = d.time || '—';
+    if (paceEl) paceEl.textContent = `${d.pace || '—'}/km`;
+    return card;
   });
-  const avg=paceList.reduce((a,b)=>a+b,0)/paceList.length;
-  const withGAP=recent.filter(r=>r.gap&&r.dplus).length;
-  const base5=avg*5;
-  document.getElementById('projections-grid').innerHTML=[
-    {label:'5 km',dist:5},{label:'10 km',dist:10},{label:'21 km',dist:21.1},{label:'42 km',dist:42.2}
-  ].map(d=>{
-    const proj=d.dist===5?base5:base5*Math.pow(d.dist/5,1.06);
-    const time=secToDur(Math.round(proj));
-    const pace=secToDur(Math.round(proj/d.dist)).slice(3);
-    const disp=time.startsWith('00:')?time.slice(3):time;
-    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;">
-      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;margin-bottom:8px;">${d.label}</div>
-      <div style="font-size:22px;font-weight:800;line-height:1;color:var(--accent)">${disp}</div>
-      <div style="font-size:10px;color:var(--text-muted);font-family:'Space Mono',monospace;margin-top:6px;">${pace}/km</div>
-    </div>`;
-  }).join('');
-  document.getElementById('projections-meta').textContent=
-    `${withGAP?'GAP':'Allure'} moy. des ${recent.length} dernières sorties : ${secToDur(Math.round(avg)).slice(3)}/km · Riegel (1.06)${withGAP?` · ${withGAP}/${recent.length} avec GAP`:''}`;
+  gridEl.replaceChildren(...cards);
+  document.getElementById('projections-meta').textContent = metrics.projectionsMeta || '';
 }
 
 // ============================================================
 // PLAN RENDERER
 // ============================================================
-const planDataMap={tempoDone:tempoData,prepDone:prepData,semiDone:semiData};
-const planContainerMap={tempoDone:'tempo-weeks',prepDone:'prep-weeks',semiDone:'semi-weeks'};
+let currentPlanId = null;
+
+function getExtraPlan(planId) {
+  return (state.extraPlans || []).find(p => String(p.id) === String(planId)) || null;
+}
+
+function planCard(id, title, sub, totalSessions, doneCount, isExtra) {
+  const pct = totalSessions > 0 ? Math.round((doneCount / totalSessions) * 100) : 0;
+  const card = cloneTemplate('plan-card-template') || document.createElement('article');
+  const titleEl = card.querySelector('.plan-card-title');
+  const subEl = card.querySelector('.plan-card-sub');
+  const pctEl = card.querySelector('.plan-card-pct');
+  const countEl = card.querySelector('.plan-card-count');
+  const barEl = card.querySelector('.plan-card-bar');
+  const deleteBtn = card.querySelector('.plan-card-delete');
+  if (titleEl) titleEl.textContent = title;
+  if (subEl) subEl.textContent = sub || '';
+  if (pctEl) pctEl.textContent = `${pct}%`;
+  if (countEl) countEl.textContent = `${doneCount}/${totalSessions} séances`;
+  if (barEl) barEl.style.width = `${pct}%`;
+  const open = () => openPlan(id);
+  card.addEventListener('click', open);
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deletePlan(id);
+    });
+  }
+  return card;
+}
+
+function renderPlansList() {
+  const list = document.getElementById('plans-list');
+  if (!list) return;
+
+  const nodes = (state.extraPlans || []).map(ep => {
+    const sessions = Array.isArray(ep.sessions) ? ep.sessions : [];
+    const done = Object.values(ep.done || {}).filter(Boolean).length;
+    return planCard(ep.id, ep.title, ep.sub, sessions.length, done, true);
+  });
+  list.replaceChildren(...nodes);
+}
+
+function openPlan(planId) {
+  currentPlanId = planId;
+  const extra = getExtraPlan(planId);
+  if (!extra) return;
+
+  document.getElementById('plans-list').style.display = 'none';
+  document.getElementById('plans-list-header').style.display = 'none';
+  document.getElementById('plans-create-btn').style.display = 'none';
+  document.getElementById('plans-zone-legend').style.display = 'none';
+  document.getElementById('plans-detail').style.display = 'block';
+
+  const deleteBtn = document.getElementById('delete-extra-btn');
+  const editMetaBtn = document.getElementById('plans-edit-meta-btn');
+  deleteBtn.style.display = '';
+  editMetaBtn.style.display = '';
+
+  const meta = { title: extra.title, sub: extra.sub || '' };
+  const detailTitle = document.getElementById('plans-detail-title');
+  if (detailTitle) detailTitle.textContent = meta.title;
+  const detailSub = document.getElementById('plans-detail-sub');
+  if (detailSub) detailSub.textContent = meta.sub;
+  const crumbCurrent = document.getElementById('plans-crumb-current');
+  if (crumbCurrent) crumbCurrent.textContent = meta.title;
+
+  renderPlan('plans-detail-weeks', extra.sessions, `extra:${planId}`);
+}
+
+function backToPlansList() {
+  currentPlanId = null;
+  document.getElementById('plans-list').style.display = 'flex';
+  document.getElementById('plans-list-header').style.display = '';
+  document.getElementById('plans-create-btn').style.display = '';
+  document.getElementById('plans-zone-legend').style.display = '';
+  document.getElementById('plans-detail').style.display = 'none';
+  document.getElementById('plans-detail-weeks').replaceChildren();
+  const crumbCurrent = document.getElementById('plans-crumb-current');
+  if (crumbCurrent) crumbCurrent.textContent = '';
+  renderPlansList();
+}
+
+function createNewPlanFromHub() {
+  openModal('newplan-modal');
+  const input = document.getElementById('np-title');
+  if (!input) return;
+  input.value = '';
+  input.focus();
+}
+
+async function createPlanFromTitle(rawTitle) {
+  const title = String(rawTitle || '').trim();
+  if (!title) {
+    notify('⚠ Saisis un nom de plan');
+    return;
+  }
+
+  const planName = buildUniquePlanName(title);
+  if (!planName) {
+    notify('⚠ Saisis un nom de plan valide');
+    return;
+  }
+
+  let createdPlanRef;
+  try {
+    createdPlanRef = await createPlanInDb(planName);
+  } catch (e) {
+    notify(`⚠ ${e.message}`);
+    return;
+  }
+
+  try {
+    await loadPlansFromDb();
+  } catch (e) {
+    notify(`⚠ ${e.message}`);
+    return;
+  }
+
+  const planId = createdPlanRef.id;
+  closeModal('newplan-modal');
+  renderPlansList();
+  requestDashboardRefresh();
+  openPlan(planId);
+  notify('✓ Plan créé');
+}
+
+async function confirmCreatePlan() {
+  const titleInput = document.getElementById('np-title');
+  await createPlanFromTitle(titleInput?.value || '');
+}
+
+function editPlanMeta(planId) {
+  const ep = getExtraPlan(planId);
+  if (!ep) return;
+  const input = document.getElementById('meta-title');
+  const saveBtn = document.getElementById('meta-save-btn');
+  if (input) {
+    input.value = ep.title || '';
+  }
+  if (saveBtn) {
+    saveBtn.onclick = () => savePlanMeta(planId);
+  }
+  openModal('meta-modal');
+}
+
+async function savePlanMeta(planId) {
+  const ep = getExtraPlan(planId);
+  if (!ep) return;
+  const title = String(document.getElementById('meta-title').value || '').trim();
+  if (!title) {
+    notify('⚠ Le nom du plan est obligatoire');
+    return;
+  }
+
+  if (title !== ep.key && (state.extraPlans || []).some(p => p.key === title)) {
+    notify('⚠ Un plan avec ce nom existe déjà');
+    return;
+  }
+
+  if (title !== ep.key) {
+    try {
+      const renamed = await renamePlanInDb(ep.id, title);
+      ep.id = renamed.id;
+      plansData = (plansData || []).map(p => (String(p.id) === String(renamed.id) ? renamed : p));
+    } catch (e) {
+      notify(`⚠ ${e.message}`);
+      return;
+    }
+    if (currentPlanId === planId) currentPlanId = ep.id;
+  }
+
+  ep.key = title;
+  ep.title = title;
+  ep.sub = '';
+  renderPlansList();
+  if (String(currentPlanId) === String(ep.id)) {
+    const detailTitle = document.getElementById('plans-detail-title');
+    if (detailTitle) detailTitle.textContent = title;
+    const detailSub = document.getElementById('plans-detail-sub');
+    if (detailSub) detailSub.textContent = '';
+    const crumbCurrent = document.getElementById('plans-crumb-current');
+    if (crumbCurrent) crumbCurrent.textContent = title;
+    renderPlan('plans-detail-weeks', ep.sessions, `extra:${ep.id}`);
+  }
+  closeModal('meta-modal');
+}
+
+function addPlanSession(planId) {
+  const ep = getExtraPlan(planId);
+  if (!ep) {
+    notify('⚠ Plan non trouvé');
+    return;
+  }
+  ep.sessions.push({ sem: 1, date: null, format: "45'@Z2", pe: '3/10', total: 45, opt: false });
+  replacePlanSessionsInDb(planId, ep.sessions, ep.done)
+    .then(async () => {
+      // Reload plans from DB to ensure sync
+      await loadPlansFromDb();
+      const reloadedPlan = getExtraPlan(planId);
+      if (reloadedPlan) {
+        renderPlan('plans-detail-weeks', reloadedPlan.sessions, `extra:${planId}`);
+      }
+      renderPlansList();
+      requestDashboardRefresh();
+      notify('✓ Séance ajoutée');
+    })
+    .catch((e) => notify(`⚠ ${e.message}`));
+}
+
+function deletePlan(planId) {
+  askConfirm('Supprimer le plan ?', 'Cette action est irréversible.', async () => {
+    try {
+      await deletePlanInDb(planId);
+      await loadPlansFromDb();
+      renderPlansList();
+      requestDashboardRefresh();
+      notify('🗑 Plan supprimé');
+    } catch (e) {
+      notify(`⚠ ${e.message}`);
+    }
+  });
+}
+
+function deleteExtraPlan(planId) {
+  askConfirm('Supprimer le plan ?', 'Cette action est irréversible.', async () => {
+    try {
+      await deletePlanInDb(planId);
+      await loadPlansFromDb();
+      backToPlansList();
+      requestDashboardRefresh();
+      notify('🗑 Plan supprimé');
+    } catch (e) {
+      notify(`⚠ ${e.message}`);
+    }
+  });
+}
 
 function renderPlan(containerId, data, stateKey) {
-  let html='', blockNum=1, i=0;
-  while(i<data.length){
-    const end=Math.min(i+4,data.length), block=data.slice(i,end);
-    const wd=block.find(s=>s.date)?.date;
-    html+=`<div class="week-card"><div class="week-header"><span class="week-num">BLOC ${blockNum}</span><span class="week-date">${wd?formatDate(wd):'—'}</span></div>`;
-    block.forEach((s,j)=>{
-      const idx=i+j, done=state[stateKey][idx];
-      html+=`<div class="session-row" onclick="toggleSession('${stateKey}',${idx},this)">
-        <div class="session-check ${done?'done':''}">${done?'✓':''}</div>
-        <div class="session-format">${formatZones(s.format)}${s.opt?' <span class="optional-tag">(optionnel)</span>':''}</div>
-        <div class="session-meta">
-          ${s.pe?`<span class="pe-badge">PE ${s.pe}`:''}</span>
-          ${s.total?`<span class="duration-badge">${s.total}'</span>`:''}
-          <div class="action-btns">
-            <button class="action-btn" onclick="event.stopPropagation();openPlanEdit('${stateKey}',${idx})" title="Modifier">✏️</button>
-            <button class="action-btn del" onclick="event.stopPropagation();deletePlanSession('${stateKey}',${idx})" title="Supprimer">🗑</button>
-          </div>
-        </div>
-      </div>`;
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const weekNodes = [];
+  const blocks = [];
+  let i = 0;
+
+  while (i < data.length) {
+    const sem = Number.isFinite(Number(data[i]?.sem)) ? Number(data[i].sem) : null;
+
+    // Fallback for undated/legacy rows without sem: preserve previous chunking by 4.
+    if (sem === null) {
+      const chunk = data.slice(i, Math.min(i + 4, data.length)).map((s, offset) => ({
+        ...s,
+        __idx: i + offset,
+      }));
+      blocks.push({ sem: null, sessions: chunk });
+      i += 4;
+      continue;
+    }
+
+    const start = i;
+    while (i < data.length && Number(data[i]?.sem) === sem) {
+      i += 1;
+    }
+
+    blocks.push({
+      sem,
+      sessions: data.slice(start, i).map((s, offset) => ({
+        ...s,
+        __idx: start + offset,
+      })),
     });
-    html+=`</div>`; i=end; blockNum++;
   }
-  document.getElementById(containerId).innerHTML=html;
+
+  blocks.forEach((block, blockIndex) => {
+    const wd = block.sessions.find((s) => s.date)?.date;
+    const week = cloneTemplate('plan-week-card-template') || document.createElement('div');
+    const weekNumEl = week.querySelector('.week-num');
+    const weekDateEl = week.querySelector('.week-date');
+    const weekSessionsEl = week.querySelector('.week-sessions');
+    if (weekNumEl) weekNumEl.textContent = `BLOC ${block.sem ?? (blockIndex + 1)}`;
+    if (weekDateEl) weekDateEl.textContent = wd ? formatDate(wd) : '—';
+    const sessionNodes = [];
+    block.sessions.forEach((s) => {
+      const idx = s.__idx;
+      const done = stateKey.startsWith('extra:')
+        ? !!(getExtraPlan(stateKey.slice(6))?.done?.[idx])
+        : !!state[stateKey]?.[idx];
+      const row = cloneTemplate('plan-session-row-template') || document.createElement('div');
+      const checkEl = row.querySelector('.session-check');
+      const formatEl = row.querySelector('.session-format');
+      const dateEl = row.querySelector('.session-date-badge');
+      const peEl = row.querySelector('.pe-badge');
+      const durEl = row.querySelector('.duration-badge');
+      const optEl = row.querySelector('.optional-tag');
+      const editBtn = row.querySelector('.session-edit');
+      const delBtn = row.querySelector('.session-delete');
+      if (checkEl) {
+        checkEl.classList.toggle('done', done);
+        checkEl.textContent = done ? '✓' : '';
+      }
+      appendFormattedZones(formatEl, s.format || '');
+      if (dateEl) {
+        dateEl.hidden = !s.date;
+        dateEl.textContent = s.date ? formatDate(s.date) : '';
+      }
+      if (peEl) {
+        peEl.hidden = !s.pe;
+        peEl.textContent = s.pe ? `PE ${s.pe}` : '';
+      }
+      if (durEl) {
+        durEl.hidden = !s.total;
+        durEl.textContent = s.total ? `${s.total}'` : '';
+      }
+      if (optEl) optEl.hidden = !s.opt;
+      row.addEventListener('click', () => toggleSession(stateKey, idx, row));
+      if (editBtn) {
+        editBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openPlanEdit(stateKey, idx);
+        });
+      }
+      if (delBtn) {
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          deletePlanSession(stateKey, idx);
+        });
+      }
+      sessionNodes.push(row);
+    });
+    if (weekSessionsEl) weekSessionsEl.replaceChildren(...sessionNodes);
+    weekNodes.push(week);
+  });
+  container.replaceChildren(...weekNodes);
 }
 
 async function toggleSession(stateKey, idx, row) {
-  state[stateKey][idx]=!state[stateKey][idx];
-  const c=row.querySelector('.session-check');
-  c.classList.toggle('done',!!state[stateKey][idx]);
-  c.textContent=state[stateKey][idx]?'✓':'';
+  if (stateKey.startsWith('extra:')) {
+    const ep = getExtraPlan(stateKey.slice(6));
+    if (!ep) return;
+    ep.done[idx] = !ep.done[idx];
+    try {
+      await replacePlanSessionsInDb(ep.id, ep.sessions, ep.done);
+      await savePlanProgress(String(ep.id), idx, ep.done[idx]);
+    } catch (e) {
+      notify('⚠ ' + e.message);
+      return;
+    }
+    const c = row.querySelector('.session-check');
+    c.classList.toggle('done', !!ep.done[idx]);
+    c.textContent = ep.done[idx] ? '✓' : '';
+    renderPlansList();
+    requestDashboardRefresh();
+    notify(ep.done[idx] ? '✓ Séance validée !' : 'Séance décochée');
+    return;
+  }
+
+  state[stateKey][idx] = !state[stateKey][idx];
+  const c = row.querySelector('.session-check');
+  c.classList.toggle('done', !!state[stateKey][idx]);
+  c.textContent = state[stateKey][idx] ? '✓' : '';
+
   try {
-    // API Platform: POST /plan_checks (processor handles upsert)
-    await apiFetch('/plan_checks',{method:'POST',body:JSON.stringify({
-      planKey:stateKey, sessionIndex:idx, done:!!state[stateKey][idx]
-    })});
-    notify(state[stateKey][idx]?'✓ Séance validée !':'Séance décochée');
-  } catch(e){ notify('⚠ '+e.message); }
-  if(stateKey==='tempoDone') renderDashboard();
+    await savePlanProgress(stateKey, idx, state[stateKey][idx]);
+    notify(state[stateKey][idx] ? '✓ Séance validée !' : 'Séance décochée');
+  } catch (e) {
+    notify('⚠ ' + e.message);
+  }
+
+  requestDashboardRefresh();
+  renderPlansList();
 }
 
-// ── Plan edit (local only — plan data is static) ──────────
 function openPlanEdit(stateKey, idx) {
-  const s=planDataMap[stateKey][idx];
-  document.getElementById('pm-statekey').value=stateKey;
-  document.getElementById('pm-idx').value=idx;
-  document.getElementById('pm-format').value=s.format||'';
-  document.getElementById('pm-date').value=s.date||'';
-  document.getElementById('pm-pe').value=s.pe||'';
-  document.getElementById('pm-total').value=s.total||'';
-  document.getElementById('pm-opt').checked=!!s.opt;
+  const isExtra = stateKey.startsWith('extra:');
+  const planId = isExtra ? stateKey.slice(6) : null;
+  const data = isExtra ? getExtraPlan(planId)?.sessions : [];
+  const s = data?.[idx];
+  if (!s) return;
+
+  document.getElementById('pm-statekey').value = stateKey;
+  document.getElementById('pm-idx').value = idx;
+  document.getElementById('pm-format').value = s.format || '';
+  document.getElementById('pm-date').value = normalizeDateForStorage(s.date);
+  document.getElementById('pm-pe').value = s.pe || '';
+  document.getElementById('pm-total').value = s.total || '';
+  document.getElementById('pm-opt').checked = !!s.opt;
   openModal('plan-modal');
 }
+
 function savePlanEdit() {
-  const sk=document.getElementById('pm-statekey').value;
-  const idx=parseInt(document.getElementById('pm-idx').value);
-  const d=planDataMap[sk];
-  d[idx].format=document.getElementById('pm-format').value;
-  d[idx].date=document.getElementById('pm-date').value||null;
-  d[idx].pe=document.getElementById('pm-pe').value;
-  d[idx].total=parseInt(document.getElementById('pm-total').value)||null;
-  d[idx].opt=document.getElementById('pm-opt').checked;
-  renderPlan(planContainerMap[sk],d,sk);
+  const sk = document.getElementById('pm-statekey').value;
+  const idx = Number.parseInt(document.getElementById('pm-idx').value, 10);
+  const isExtra = sk.startsWith('extra:');
+  const planId = isExtra ? sk.slice(6) : null;
+  const d = isExtra ? getExtraPlan(planId)?.sessions : [];
+  if (!d?.[idx]) return;
+
+  d[idx].format = document.getElementById('pm-format').value;
+  const dateInput = document.getElementById('pm-date').value;
+  const isoDate = normalizeDateForStorage(dateInput);
+  if (dateInput && !isoDate) {
+    notify('⚠ Date invalide (format attendu: dd/mm/yyyy)');
+    return;
+  }
+  d[idx].date = isoDate || null;
+  d[idx].pe = document.getElementById('pm-pe').value;
+  d[idx].total = Number.parseInt(document.getElementById('pm-total').value, 10) || null;
+  d[idx].opt = document.getElementById('pm-opt').checked;
+
+  if (isExtra) {
+    replacePlanSessionsInDb(planId, d, getExtraPlan(planId)?.done || {})
+      .catch((e) => notify(`⚠ ${e.message}`));
+  }
+
+  renderPlan('plans-detail-weeks', d, sk);
+  renderPlansList();
+  requestDashboardRefresh();
   closeModal('plan-modal');
   notify('✓ Séance modifiée');
 }
+
 function deletePlanSession(sk, idx) {
-  const d=planDataMap[sk];
-  askConfirm('Supprimer la séance ?',`"${d[idx].format}"`,()=>{
-    d.splice(idx,1);
-    renderPlan(planContainerMap[sk],d,sk);
-    if(sk==='tempoDone') renderDashboard();
-    notify('🗑 Supprimée');
+  const isExtra = sk.startsWith('extra:');
+  const planId = isExtra ? sk.slice(6) : null;
+  const d = isExtra ? getExtraPlan(planId)?.sessions : [];
+  if (!d?.[idx]) return;
+
+  askConfirm('Supprimer la séance ?', `"${d[idx].format}"`, async () => {
+    d.splice(idx, 1);
+
+    if (isExtra) {
+      const ep = getExtraPlan(planId);
+      const nextDone = {};
+      Object.entries(ep.done || {}).forEach(([k, v]) => {
+        const ki = Number.parseInt(k, 10);
+        if (ki < idx) nextDone[ki] = v;
+        if (ki > idx) nextDone[ki - 1] = v;
+      });
+      ep.done = nextDone;
+      await replacePlanSessionsInDb(planId, d, ep.done);
+    }
+
+    renderPlan('plans-detail-weeks', d, sk);
+    renderPlansList();
+    requestDashboardRefresh();
+    notify('✓ Séance supprimée');
   });
 }
 
 // ============================================================
 // MODALS
 // ============================================================
-function closeModal(id){document.getElementById(id).classList.remove('open');}
-function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){
+  const modal = document.getElementById(id);
+  if (modal) modal.classList.remove('open');
+}
+function openModal(id){
+  const modal = document.getElementById(id);
+  if (modal) {
+    modal.classList.add('open');
+    return true;
+  }
+  return false;
+}
 document.addEventListener('click',e=>{
-  ['plan-modal','log-modal','race-modal'].forEach(id=>{
+  ['plan-modal','log-modal','race-modal','newplan-modal','meta-modal'].forEach(id=>{
     const el=document.getElementById(id);
     if(e.target===el) el.classList.remove('open');
   });
@@ -612,7 +1319,11 @@ function askConfirm(title,msg,fn){
   document.getElementById('confirm-msg').textContent=msg;
   document.getElementById('confirm-overlay').classList.add('open');
 }
-function confirmDelete(){if(_del)_del();_del=null;closeConfirm();}
+function confirmDelete() {
+  if (_del) _del();
+  _del = null;
+  closeConfirm();
+}
 function closeConfirm(){document.getElementById('confirm-overlay').classList.remove('open');}
 
 // ============================================================
@@ -626,29 +1337,77 @@ function toggleSort(){
   renderLog();
 }
 
+function buildLogMetricSpan(className, text) {
+  const span = document.createElement('span');
+  span.className = className;
+  span.textContent = text;
+  return span;
+}
+
+function setLogMetricCell(cell, value, className, suffix = '') {
+  if (!cell) return;
+  if (!value) {
+    cell.textContent = '—';
+    return;
+  }
+  cell.replaceChildren(buildLogMetricSpan(className, `${value}${suffix}`));
+}
+
+function setLogTypeCell(cell, runType) {
+  if (!cell) return;
+  if (!runType) {
+    cell.textContent = '—';
+    return;
+  }
+  const badge = cloneTemplate('log-type-badge-template') || document.createElement('span');
+  badge.textContent = runType;
+  cell.replaceChildren(badge);
+}
+
+function buildLogRow(r) {
+  const ac = allureClass(r.allure);
+  const row = cloneTemplate('log-row-template') || document.createElement('tr');
+  const dateEl = row.querySelector('.log-date');
+  const kmEl = row.querySelector('.log-km');
+  const durEl = row.querySelector('.log-dur');
+  const allureEl = row.querySelector('.log-allure');
+  const gapEl = row.querySelector('.log-gap');
+  const dplusEl = row.querySelector('.log-dplus');
+  const bpmEl = row.querySelector('.log-bpm');
+  const typeEl = row.querySelector('.log-type');
+  const notesEl = row.querySelector('.log-notes');
+  const editBtn = row.querySelector('.log-edit');
+  const delBtn = row.querySelector('.log-delete');
+
+  if (dateEl) dateEl.textContent = formatDate(r.date);
+  if (kmEl) kmEl.textContent = r.km?.toFixed(2) || '—';
+  if (durEl) durEl.textContent = r.duration || '—';
+  if (allureEl) {
+    allureEl.classList.add(ac);
+    allureEl.textContent = `${r.allure || '—'}/km`;
+  }
+  setLogMetricCell(gapEl, r.gap, 'metric-gap', '/km');
+  setLogMetricCell(dplusEl, r.dplus, 'metric-dplus', 'm');
+  if (bpmEl) bpmEl.textContent = r.bpm || '—';
+  setLogTypeCell(typeEl, r.run_type);
+  if (notesEl) notesEl.textContent = r.notes || '—';
+  if (editBtn) editBtn.addEventListener('click', () => openLogEdit(r.id));
+  if (delBtn) delBtn.addEventListener('click', () => deleteLog(r.id, r.date));
+
+  return row;
+}
+
 function renderLog() {
-  document.getElementById('log-sub').textContent=`${logData.length} sortie${logData.length>1?'s':''} enregistrée${logData.length>1?'s':''}`;
+  const logSub = document.getElementById('log-sub');
+  if (!logSub) return;
+  logSub.textContent=`${logData.length} sortie${logData.length>1?'s':''} enregistrée${logData.length>1?'s':''}`;
   let items=[...logData];
   items.sort((a,b)=>logSortAsc?new Date(a.date)-new Date(b.date):new Date(b.date)-new Date(a.date));
   if(logFilter!=='all') items=items.filter(r=>r.run_type===logFilter);
-  document.getElementById('log-tbody').innerHTML=items.map(r=>{
-    const ac=allureClass(r.allure);
-    return `<tr>
-      <td class="mono">${formatDate(r.date)}</td>
-      <td class="mono"><strong>${r.km?.toFixed(2)||'—'}</strong></td>
-      <td class="mono">${r.duration||'—'}</td>
-      <td class="mono ${ac}">${r.allure||'—'}/km</td>
-      <td class="mono">${r.gap?`<span style="color:var(--accent2)">${r.gap}/km</span>`:'—'}</td>
-      <td class="mono">${r.dplus?`<span style="color:var(--z3)">${r.dplus}m</span>`:'—'}</td>
-      <td class="mono">${r.bpm||'—'}</td>
-      <td>${r.run_type?`<span class="badge badge-done">${r.run_type}</span>`:'—'}</td>
-      <td style="font-size:12px;color:var(--text-muted)">${r.notes||'—'}</td>
-      <td><div class="action-btns" style="opacity:0">
-        <button class="action-btn" onclick="openLogEdit(${r.id})">✏️</button>
-        <button class="action-btn del" onclick="deleteLog(${r.id},'${r.date}')">🗑</button>
-      </div></td>
-    </tr>`;
-  }).join('');
+  const tbody = document.getElementById('log-tbody');
+  if (!tbody) return;
+  const rows = items.map(buildLogRow);
+  tbody.replaceChildren(...rows);
   addHoverListeners('log-tbody');
 }
 
@@ -661,10 +1420,10 @@ function filterLog(type,btn){
 
 async function addLog() {
   const date=document.getElementById('log-date').value;
-  const km=parseFloat(document.getElementById('log-km').value);
+  const km=Number.parseFloat(document.getElementById('log-km').value);
   const dur=document.getElementById('log-dur').value;
-  const dplus=parseInt(document.getElementById('log-dplus').value)||null;
-  const bpm=parseInt(document.getElementById('log-bpm').value)||null;
+  const dplus=Number.parseInt(document.getElementById('log-dplus').value, 10)||null;
+  const bpm=Number.parseInt(document.getElementById('log-bpm').value, 10)||null;
   const runType=document.getElementById('log-type').value||null;
   const notes=document.getElementById('log-notes').value||null;
   if(!date||!km||!dur){notify('⚠ Date, km et durée requis');return;}
@@ -676,7 +1435,7 @@ async function addLog() {
       date,km,duration:dur,allure,gap,dplus,bpm,runType,notes
     })});
     logData.unshift(normalizeLog(created));
-    renderLog(); renderDashboard();
+    renderLog(); requestDashboardRefresh();
     ['log-km','log-dur','log-dplus','log-bpm','log-notes'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('log-type').value='';
     notify('✓ Sortie enregistrée !');
@@ -697,10 +1456,10 @@ function openLogEdit(id) {
 }
 
 async function saveLogEdit() {
-  const id=parseInt(document.getElementById('lm-idx').value);
+  const id=Number.parseInt(document.getElementById('lm-idx').value, 10);
   const dur=document.getElementById('lm-dur').value;
-  const km=parseFloat(document.getElementById('lm-km').value);
-  const dplus=parseInt(document.getElementById('lm-dplus').value)||null;
+  const km=Number.parseFloat(document.getElementById('lm-km').value);
+  const dplus=Number.parseInt(document.getElementById('lm-dplus').value, 10)||null;
   const secs=durToSec(dur), allureSec=secs&&km?Math.round(secs/km):null;
   const allure=allureSec?secToDur(allureSec).slice(3):logData.find(r=>r.id===id)?.allure;
   const gap=allureSec?computeGAP(allureSec,km,dplus):null;
@@ -708,13 +1467,13 @@ async function saveLogEdit() {
     const updated=await apiFetch(`/run_logs/${id}`,{method:'PUT',body:JSON.stringify({
       date:document.getElementById('lm-date').value,
       km,duration:dur,allure,gap,dplus,
-      bpm:parseInt(document.getElementById('lm-bpm').value)||null,
+      bpm:Number.parseInt(document.getElementById('lm-bpm').value, 10)||null,
       runType:document.getElementById('lm-type').value||null,
       notes:document.getElementById('lm-notes').value||null,
     })});
     const idx=logData.findIndex(r=>r.id===id);
     if(idx>=0) logData[idx]=normalizeLog(updated);
-    renderLog(); renderDashboard();
+    renderLog(); requestDashboardRefresh();
     closeModal('log-modal');
     notify('✓ Sortie modifiée !');
   } catch(e){notify('⚠ '+e.message);}
@@ -725,7 +1484,7 @@ async function deleteLog(id,dateStr) {
     try {
       await apiFetch(`/run_logs/${id}`,{method:'DELETE'});
       logData=logData.filter(r=>r.id!==id);
-      renderLog(); renderDashboard();
+      renderLog(); requestDashboardRefresh();
       notify('🗑 Sortie supprimée');
     } catch(e){notify('⚠ '+e.message);}
   });
@@ -734,30 +1493,67 @@ async function deleteLog(id,dateStr) {
 // ============================================================
 // RACES
 // ============================================================
-function renderRaces() {
-  document.getElementById('races-tbody').innerHTML=racesData.map(r=>{
-    const days=getDaysTo(r.date);
-    let status;
-    if(r.result) status=`<span class="badge badge-done">✓ Terminée</span>`;
-    else if(days<0) status=`<span class="badge badge-future">Passée</span>`;
-    else if(days<=10) status=`<span class="badge badge-next">J-${days}</span>`;
-    else status=`<span class="badge badge-future">S-${Math.round(days/7)}</span>`;
-    let diff='—';
-    if(r.result&&r.objective){
-      const d=durToSec(r.result)-durToSec(r.objective);
-      diff=d<0?`<span style="color:var(--z1)">-${secToDur(-d).slice(3)}</span>`:`<span style="color:var(--accent3)">+${secToDur(d).slice(3)}</span>`;
+function getRaceStatus(r) {
+  const days = getDaysTo(r.date);
+  if (r.result) return { statusClass: 'badge-done', statusText: '✓ Terminée' };
+  if (days < 0) return { statusClass: 'badge-future', statusText: 'Passée' };
+  if (days <= 10) return { statusClass: 'badge-next', statusText: `J-${days}` };
+  return { statusClass: 'badge-future', statusText: `S-${Math.round(days / 7)}` };
+}
+
+function getRaceDiff(r) {
+  if (!r.result || !r.objective) return '—';
+  const delta = durToSec(r.result) - durToSec(r.objective);
+  if (delta < 0) return `-${secToDur(-delta).slice(3)}`;
+  return `+${secToDur(delta).slice(3)}`;
+}
+
+function buildRaceRow(r) {
+  const { statusClass, statusText } = getRaceStatus(r);
+  const diff = getRaceDiff(r);
+  const row = cloneTemplate('races-row-template') || document.createElement('tr');
+  const statusEl = row.querySelector('.races-status');
+  const nameEl = row.querySelector('.races-name');
+  const dateEl = row.querySelector('.races-date');
+  const distEl = row.querySelector('.races-dist');
+  const objEl = row.querySelector('.races-obj');
+  const realEl = row.querySelector('.races-real');
+  const diffEl = row.querySelector('.races-diff');
+  const editBtn = row.querySelector('.races-edit');
+  const delBtn = row.querySelector('.races-delete');
+
+  if (statusEl) {
+    const badge = cloneTemplate('races-status-badge-template') || document.createElement('span');
+    badge.classList.add(statusClass);
+    badge.textContent = statusText;
+    statusEl.replaceChildren(badge);
+  }
+  if (nameEl) nameEl.textContent = r.name || '—';
+  if (dateEl) dateEl.textContent = formatDate(r.date);
+  if (distEl) distEl.textContent = r.distance || '—';
+  if (objEl) objEl.textContent = r.objective || '—';
+  if (realEl) realEl.textContent = r.result || '—';
+  if (diffEl) {
+    if (diff === '—') {
+      diffEl.textContent = diff;
+    } else {
+      const span = document.createElement('span');
+      span.className = diff.startsWith('-') ? 'diff-good' : 'diff-bad';
+      span.textContent = diff;
+      diffEl.replaceChildren(span);
     }
-    return `<tr>
-      <td>${status}</td><td><strong>${r.name}</strong></td>
-      <td class="mono">${formatDate(r.date)}</td><td>${r.distance||'—'}</td>
-      <td class="mono">${r.objective||'—'}</td><td class="mono">${r.result||'—'}</td>
-      <td class="mono">${diff}</td>
-      <td><div class="action-btns" style="opacity:0">
-        <button class="action-btn" onclick="openRaceEdit(${r.id})">✏️</button>
-        <button class="action-btn del" onclick="deleteRace(${r.id},'${r.name}')">🗑</button>
-      </div></td>
-    </tr>`;
-  }).join('');
+  }
+  if (editBtn) editBtn.addEventListener('click', () => openRaceEdit(r.id));
+  if (delBtn) delBtn.addEventListener('click', () => deleteRace(r.id, r.name));
+
+  return row;
+}
+
+function renderRaces() {
+  const tbody = document.getElementById('races-tbody');
+  if (!tbody) return;
+  const rows = racesData.map(buildRaceRow);
+  tbody.replaceChildren(...rows);
   addHoverListeners('races-tbody');
 }
 
@@ -774,7 +1570,7 @@ async function addRace() {
     })});
     racesData.push(normalizeRace(created));
     racesData.sort((a,b)=>new Date(a.date)-new Date(b.date));
-    renderRaces(); renderDashboard();
+    renderRaces(); requestDashboardRefresh();
     ['r-name','r-date','r-dist','r-obj','r-real'].forEach(id=>document.getElementById(id).value='');
     notify('✓ Course ajoutée !');
   } catch(e){notify('⚠ '+e.message);}
@@ -792,7 +1588,7 @@ function openRaceEdit(id) {
 }
 
 async function saveRaceEdit() {
-  const id=parseInt(document.getElementById('rm-idx').value);
+  const id=Number.parseInt(document.getElementById('rm-idx').value, 10);
   try {
     const updated=await apiFetch(`/races/${id}`,{method:'PUT',body:JSON.stringify({
       name:document.getElementById('rm-name').value,
@@ -804,7 +1600,7 @@ async function saveRaceEdit() {
     const idx=racesData.findIndex(r=>r.id===id);
     if(idx>=0) racesData[idx]=normalizeRace(updated);
     racesData.sort((a,b)=>new Date(a.date)-new Date(b.date));
-    renderRaces(); renderDashboard();
+    renderRaces(); requestDashboardRefresh();
     closeModal('race-modal');
     notify('✓ Course modifiée !');
   } catch(e){notify('⚠ '+e.message);}
@@ -815,7 +1611,7 @@ async function deleteRace(id,name) {
     try {
       await apiFetch(`/races/${id}`,{method:'DELETE'});
       racesData=racesData.filter(r=>r.id!==id);
-      renderRaces(); renderDashboard();
+      renderRaces(); requestDashboardRefresh();
       notify('🗑 Course supprimée');
     } catch(e){notify('⚠ '+e.message);}
   });
@@ -824,25 +1620,67 @@ async function deleteRace(id,name) {
 // ============================================================
 // INIT
 // ============================================================
-(async () => {
+async function initApp() {
   // Verify token still valid
+  let me = null;
   try {
-    const me = await apiFetch('/auth/me');
+    if (globalThis.rtAuth?.fetchCurrentUser) {
+      me = await globalThis.rtAuth.fetchCurrentUser();
+    } else {
+      me = await apiFetch('/auth/me');
+    }
     if (!me) return; // logout() already called
   } catch {
     logout(); return;
   }
 
-  await loadAllData();
+  const usernameEl = document.getElementById('current-username');
+  if (usernameEl) {
+    const rawUsername = me?.username || me?.userIdentifier || me?.email || 'inconnu';
+    usernameEl.textContent = formatDisplayName(rawUsername);
+  }
 
-  renderDashboard();
-  renderPlan('tempo-weeks', tempoData, 'tempoDone');
-  renderPlan('prep-weeks',  prepData,  'prepDone');
-  renderPlan('semi-weeks',  semiData,  'semiDone');
-  renderLog();
-  renderRaces();
+  await loadAllData();
+  await loadDashboardAdvice();
+
+  const safeRender = (fn, name) => {
+    try {
+      fn();
+    } catch (e) {
+      console.error(`[render:${name}]`, e);
+    }
+  };
+
+  // Keep plans independent from dashboard errors.
+  safeRender(renderPlansList, 'plans');
+  safeRender(renderDashboard, 'dashboard');
+  safeRender(renderLog, 'log');
+  safeRender(renderRaces, 'races');
 
   const today = new Date().toISOString().split('T')[0];
-  document.getElementById('log-date').value = today;
-  document.getElementById('r-date').value   = today;
-})();
+  const logDateEl = document.getElementById('log-date');
+  if (logDateEl) logDateEl.value = today;
+  const raceDateEl = document.getElementById('r-date');
+  if (raceDateEl) raceDateEl.value = today;
+
+  // Setup date input handlers for FR format (jj/mm/yyyy) conversion
+  ['log-date', 'r-date', 'lm-date', 'rm-date', 'pm-date'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      const tryOpenPicker = () => {
+        if (typeof el.showPicker === 'function') {
+          try { el.showPicker(); } catch {}
+        }
+      };
+      el.addEventListener('click', tryOpenPicker);
+      el.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (val && !val.includes('-')) {
+          e.target.value = normalizeDateForStorage(val);
+        }
+      });
+    }
+  });
+}
+
+initApp();

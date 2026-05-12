@@ -19,7 +19,6 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Entity(repositoryClass: RunLogRepository::class)]
 #[ORM\Table(name: 'run_logs')]
 #[ApiResource(
-    routePrefix: '/api',
     normalizationContext: ['groups' => ['log:read']],
     denormalizationContext: ['groups' => ['log:write']],
     security: 'is_granted("ROLE_USER")',

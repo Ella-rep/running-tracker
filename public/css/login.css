@@ -1,0 +1,78 @@
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.login-theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+}
+
+#login-root {
+  width: 100%;
+  max-width: 400px;
+  padding: 20px;
+}
+
+.login-logo {
+  font-family: 'Space Mono', monospace;
+  font-size: 14px;
+  letter-spacing: 4px;
+  color: var(--accent);
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.login-logo span {
+  color: var(--text-muted);
+}
+
+.login-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: 'Space Mono', monospace;
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.login-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 36px;
+}
+
+.login-error {
+  color: var(--accent3);
+  font-size: 12px;
+  font-family: 'Space Mono', monospace;
+  min-height: 20px;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.login-submit-btn {
+  width: 100%;
+}
+
+.login-footer {
+  margin-top: 18px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'Space Mono', monospace;
+  text-align: center;
+}
+
+.login-toggle {
+  background: none;
+  border: 0;
+  color: var(--accent2);
+  cursor: pointer;
+  text-decoration: underline;
+  font: inherit;
+  padding: 0;
+}

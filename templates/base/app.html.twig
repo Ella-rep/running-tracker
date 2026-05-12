@@ -3,20 +3,22 @@
 
 {% block body %}
 <header>
-  <div class="logo">RUN<span>/</span>TRACKER</div>
+  <div class="header-left">
+    <div class="logo">RUN<span>/</span>TRACKER</div>
+    {% include 'components/_theme_toggle.html.twig' with { with_onclick: true } %}
+  </div>
   <nav>
     <button class="active" onclick="showSection('dashboard',this)">Dashboard</button>
-    <button onclick="showSection('tempo',this)">Tempo</button>
-    <button onclick="showSection('prep',this)">Prép. Semi</button>
-    <button onclick="showSection('semi',this)">Plan Semi</button>
+    <button onclick="showSection('plans',this)">Plans</button>
     <button onclick="showSection('log',this)">Log</button>
     <button onclick="showSection('courses',this)">Courses</button>
-    <a href="/gpx-replay.html" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);padding:7px 16px;border-radius:6px;font-family:'Syne',sans-serif;font-size:13px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-muted)'">🗺️ Replay GPX</a>
   </nav>
   <div class="user-badge">
-    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Basculer thème clair/sombre">🌙</button>
-    <strong>{{ username }}</strong>
-    <button class="logout-btn" onclick="logout()">Déconnexion</button>
+    <span class="user-greeting">Bienvenue,</span>
+    <strong id="current-username" class="current-username">{{ username ?: 'inconnu' }}</strong>
+    <button class="logout-btn" type="button" onclick="logout()" title="Déconnexion" aria-label="Déconnexion">
+      <span class="logout-icon" aria-hidden="true">⏻</span>
+    </button>
   </div>
 </header>
 
@@ -26,23 +28,59 @@
 <section id="dashboard" class="visible">
   <div class="section-title">Vue d'ensemble 🏃</div>
   <div class="section-sub" id="dash-date">Chargement…</div>
+  <div id="dashboard-advice"></div>
+  <template id="dashboard-advice-stack-template">
+    <div class="advice-stack"></div>
+  </template>
+  <template id="dashboard-advice-item-template">
+    <article class="advice-card">
+      <div class="advice-icon"></div>
+      <div class="advice-content">
+        <h4 class="advice-title">Conseil du jour</h4>
+        <p class="advice-text"></p>
+      </div>
+    </article>
+  </template>
   <div class="kpi-grid" id="kpi-grid"></div>
+  <template id="dashboard-kpi-template">
+    <article class="kpi">
+      <div class="kpi-label"></div>
+      <div class="kpi-value"></div>
+      <div class="kpi-unit"></div>
+    </article>
+  </template>
   <div class="chart-wrap" id="projections-wrap">
     <div class="chart-title">Temps projetés — basé sur tes 5 dernières sorties</div>
-    <div id="projections-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:4px;"></div>
-    <div id="projections-meta" style="margin-top:14px;font-size:11px;color:var(--text-muted);font-family:'Space Mono',monospace;"></div>
+    <div id="projections-grid" class="projections-grid"></div>
+    <template id="projection-card-template">
+      <article class="proj-card">
+        <div class="proj-label"></div>
+        <div class="proj-time"></div>
+        <div class="proj-pace"></div>
+      </article>
+    </template>
+    <template id="projection-empty-template">
+      <div class="empty-hint">Pas encore assez de données.</div>
+    </template>
+    <div id="projections-meta" class="meta-small"></div>
   </div>
   <div class="progress-section">
     <div class="progress-label">
-      <span>Phase actuelle : Tempo (pré-préparation)</span>
+      <span id="progress-plan-label">Progression du plan Semi (exemple)</span>
       <span id="tempo-pct">—</span>
     </div>
-    <div class="progress-bar"><div class="progress-fill" id="tempo-bar" style="width:0%"></div></div>
+    <div class="progress-bar"><div class="progress-fill" id="tempo-bar"></div></div>
     <div class="progress-meta" id="tempo-meta"></div>
   </div>
   <div class="chart-wrap">
     <div class="chart-title">Kilométrage mensuel (2026)</div>
     <div class="bar-chart" id="monthly-chart"></div>
+    <template id="monthly-bar-template">
+      <article class="bar-col">
+        <div class="bar"></div>
+        <div class="bar-label"></div>
+      </article>
+    </template>
   </div>
   <div class="table-wrap">
     <div class="table-header">📅 Prochaines courses</div>
@@ -50,48 +88,142 @@
       <thead><tr><th>Course</th><th>Date</th><th>Distance</th><th>Objectif</th><th>Statut</th></tr></thead>
       <tbody id="race-tbody"></tbody>
     </table>
+    <template id="dashboard-race-row-template">
+      <tr>
+        <td class="dashboard-race-name"></td>
+        <td class="mono dashboard-race-date"></td>
+        <td class="dashboard-race-dist"></td>
+        <td class="mono dashboard-race-obj"></td>
+        <td><span class="badge dashboard-race-status"></span></td>
+      </tr>
+    </template>
   </div>
   <div id="coherence-section"></div>
+  <template id="coherence-alert-template">
+    <div class="alert">
+      <div class="alert-title"></div>
+      <div class="alert-msg"></div>
+    </div>
+  </template>
 </section>
 
 {# ===== EF TRACKER ===== #}
 <div class="chart-wrap" id="ef-wrap">
   <div class="chart-title">Progression Endurance Fondamentale</div>
-  <div id="ef-kpis" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;"></div>
-  <div id="ef-chart-container" style="position:relative;height:180px;margin-bottom:20px;"></div>
-  <div id="ef-table-wrap" style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+  <div id="ef-kpis" class="ef-kpis-grid"></div>
+    <template id="ef-empty-template">
+      <div class="ef-empty">Pas encore assez de sorties EF avec BPM enregistré (minimum 2).</div>
+    </template>
+    <template id="ef-kpi-card-template">
+      <div class="ef-kpi-card">
+        <div class="ef-kpi-label"></div>
+        <div class="ef-kpi-value"></div>
+        <div class="ef-kpi-sub"></div>
+      </div>
+    </template>
+  <div id="ef-chart-container" class="ef-chart-container"></div>
+  <div id="ef-table-wrap" class="ef-table-wrap">
+    <table class="ef-table">
       <thead><tr>
-        <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;border-bottom:1px solid var(--border);">Date</th>
-        <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;border-bottom:1px solid var(--border);">Km</th>
-        <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;border-bottom:1px solid var(--border);">BPM</th>
-        <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;border-bottom:1px solid var(--border);">Allure</th>
-        <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;border-bottom:1px solid var(--border);">Indice EF</th>
-        <th style="text-align:left;padding:6px 10px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);font-family:'Space Mono',monospace;border-bottom:1px solid var(--border);">Tendance</th>
+        <th class="ef-th">Date</th>
+        <th class="ef-th">Km</th>
+        <th class="ef-th">BPM</th>
+        <th class="ef-th">Allure</th>
+        <th class="ef-th">Indice EF</th>
+        <th class="ef-th">Tendance</th>
       </tr></thead>
       <tbody id="ef-tbody"></tbody>
     </table>
+    <template id="ef-row-template">
+      <tr>
+        <td class="ef-td ef-mono ef-date"></td>
+        <td class="ef-td ef-mono ef-km"></td>
+        <td class="ef-td ef-mono tone-accent2 ef-bpm"></td>
+        <td class="ef-td ef-mono ef-allure"></td>
+        <td class="ef-td ef-mono ef-strong ef-index"></td>
+        <td class="ef-td ef-trend"></td>
+      </tr>
+    </template>
   </div>
-  <div id="ef-meta" style="margin-top:12px;font-size:11px;color:var(--text-muted);font-family:'Space Mono',monospace;"></div>
+  <div id="ef-meta" class="meta-small ef-meta"></div>
 </div>
 
 {# ===== PLANS ===== #}
-{% for plan in [
-  {id:'tempo', title:'Phase Tempo', sub:'Bloc de préparation actuel · 16 séances', key:'tempoDone'},
-  {id:'prep',  title:'Préparation Semi', sub:'Plan de préparation avant le plan semi · 48 séances', key:'prepDone'},
-  {id:'semi',  title:'Plan Semi-Marathon', sub:'Plan 12 semaines vers La Parisienne (13 sept.) · 48 séances', key:'semiDone'},
-] %}
-<section id="{{ plan.id }}">
-  <div class="section-title">{{ plan.title }}</div>
-  <div class="section-sub">{{ plan.sub }}</div>
-  <div class="zone-legend">
-    {% for z,label in {1:'Z1 récup', 2:'Z2 endurance', 3:'Z3 tempo', 4:'Z4 seuil', 5:'Z5 VO2max'} %}
-    <div class="zone-item"><div class="zone-dot" style="background:var(--z{{ z }})"></div>{{ label }}</div>
-    {% endfor %}
+<section id="plans">
+  <div class="section-title">Mes plans</div>
+  <div class="section-sub">Le plan Semi est fourni en exemple. Ajoute ensuite tes plans personnels.</div>
+
+  <div id="plans-list" class="plans-list"></div>
+  <template id="plan-card-template">
+    <article class="plan-card">
+      <div class="plan-card-head">
+        <div class="plan-card-main">
+          <div class="plan-card-title"></div>
+          <div class="plan-card-sub"></div>
+        </div>
+        <div class="plan-card-stats">
+          <div class="plan-card-pct"></div>
+          <div class="plan-card-count"></div>
+        </div>
+        <button class="plan-card-delete" title="Supprimer ce plan">🗑</button>
+        <div class="plan-card-arrow">›</div>
+      </div>
+      <div class="plan-card-bar-bg">
+        <div class="plan-card-bar"></div>
+      </div>
+    </article>
+  </template>
+
+  <button class="btn plans-create-btn" id="plans-create-btn" onclick="createNewPlanFromHub()">
+    + Nouveau plan
+  </button>
+
+  <div class="zone-legend plans-zone-legend" id="plans-zone-legend">
+    <div class="zone-item"><div class="zone-dot zone-dot-z1"></div><span class="zone-z1-text">Z1 récup</span></div>
+    <div class="zone-item"><div class="zone-dot zone-dot-z2"></div>Z2 endurance</div>
+    <div class="zone-item"><div class="zone-dot zone-dot-z3"></div>Z3 tempo</div>
+    <div class="zone-item"><div class="zone-dot zone-dot-z4"></div>Z4 seuil</div>
+    <div class="zone-item"><div class="zone-dot zone-dot-z5"></div>Z5 VO2max</div>
   </div>
-  <div id="{{ plan.id }}-weeks"></div>
+
+  <div id="plans-detail" class="plans-detail">
+    <div class="plans-detail-header">
+      <button class="btn-inline" onclick="backToPlansList()">← Retour</button>
+      <button id="delete-extra-btn" class="btn-inline btn-inline-danger" onclick="deleteExtraPlan(currentPlanId)">🗑 Supprimer</button>
+      <div class="section-title plans-detail-title" id="plans-detail-title"></div>
+      <button id="plans-edit-meta-btn" class="btn-inline-icon" onclick="editPlanMeta(currentPlanId)" title="Modifier">✏️</button>
+    </div>
+    <div class="section-sub" id="plans-detail-sub"></div>
+    <div class="plans-detail-actions">
+      <button class="btn btn-small" onclick="addPlanSession(currentPlanId)">+ Ajouter séance</button>
+    </div>
+    <div id="plans-detail-weeks"></div>
+    <template id="plan-week-card-template">
+      <div class="week-card">
+        <div class="week-header">
+          <span class="week-num"></span>
+          <span class="week-date"></span>
+        </div>
+        <div class="week-sessions"></div>
+      </div>
+    </template>
+    <template id="plan-session-row-template">
+      <div class="session-row">
+        <div class="session-check"></div>
+        <div class="session-format"></div>
+        <div class="session-meta">
+          <span class="pe-badge" hidden></span>
+          <span class="duration-badge" hidden></span>
+          <span class="optional-tag" hidden>(optionnel)</span>
+          <div class="action-btns">
+            <button class="action-btn session-edit" title="Modifier">✏️</button>
+            <button class="action-btn del session-delete" title="Supprimer">🗑</button>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
 </section>
-{% endfor %}
 
 {# ===== LOG ===== #}
 <section id="log">
@@ -100,12 +232,12 @@
   <div class="form-card">
     <h3>➕ Ajouter une sortie</h3>
     <div class="form-grid">
-      <div class="field"><label>Date</label><input type="date" id="log-date"></div>
-      <div class="field"><label>Distance (km)</label><input type="number" id="log-km" step="0.01" placeholder="5.00"></div>
-      <div class="field"><label>Durée (hh:mm:ss)</label><input type="text" id="log-dur" placeholder="00:45:00"></div>
-      <div class="field"><label>D+ (mètres)</label><input type="number" id="log-dplus" placeholder="0"></div>
-      <div class="field"><label>BPM moy.</label><input type="number" id="log-bpm" placeholder="150"></div>
-      <div class="field"><label>Type</label>
+      <div class="field"><label for="log-date">Date</label><input type="date" id="log-date" placeholder="jj/mm/yyyy"></div>
+      <div class="field"><label for="log-km">Distance (km)</label><input type="number" id="log-km" step="0.01" placeholder="5.00"></div>
+      <div class="field"><label for="log-dur">Durée (hh:mm:ss)</label><input type="text" id="log-dur" placeholder="00:45:00"></div>
+      <div class="field"><label for="log-dplus">D+ (mètres)</label><input type="number" id="log-dplus" placeholder="0"></div>
+      <div class="field"><label for="log-bpm">BPM moy.</label><input type="number" id="log-bpm" placeholder="150"></div>
+      <div class="field"><label for="log-type">Type</label>
         <select id="log-type">
           <option value="">—</option>
           <option value="EF">EF – Endurance fondamentale</option>
@@ -115,7 +247,7 @@
           <option value="Race">🏁 Course</option>
         </select>
       </div>
-      <div class="field"><label>Notes</label><input type="text" id="log-notes" placeholder="…"></div>
+      <div class="field"><label for="log-notes">Notes</label><input type="text" id="log-notes" placeholder="…"></div>
     </div>
     <button class="btn" onclick="addLog()">Enregistrer</button>
   </div>
@@ -129,11 +261,33 @@
   <div class="table-wrap">
     <table>
       <thead><tr>
-        <th><button id="sort-date-btn" onclick="toggleSort()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;display:flex;align-items:center;gap:5px;padding:0;white-space:nowrap;">Date <span id="sort-icon">↓</span></button></th>
+        <th><button id="sort-date-btn" class="sort-date-btn" onclick="toggleSort()">Date <span id="sort-icon">↓</span></button></th>
         <th>Km</th><th>Durée</th><th>Allure</th><th>GAP</th><th>D+</th><th>BPM</th><th>Type</th><th>Notes</th><th></th>
       </tr></thead>
       <tbody id="log-tbody"></tbody>
     </table>
+    <template id="log-row-template">
+      <tr>
+        <td class="mono log-date"></td>
+        <td class="mono log-km"></td>
+        <td class="mono log-dur"></td>
+        <td class="mono log-allure"></td>
+        <td class="mono log-gap"></td>
+        <td class="mono log-dplus"></td>
+        <td class="mono log-bpm"></td>
+        <td class="log-type"></td>
+        <td class="notes-cell log-notes"></td>
+        <td>
+          <div class="action-btns">
+            <button class="action-btn log-edit">✏️</button>
+            <button class="action-btn del log-delete">🗑</button>
+          </div>
+        </td>
+      </tr>
+    </template>
+    <template id="log-type-badge-template">
+      <span class="badge badge-done"></span>
+    </template>
   </div>
 </section>
 
@@ -144,11 +298,11 @@
   <div class="form-card">
     <h3>➕ Ajouter une course</h3>
     <div class="form-grid">
-      <div class="field"><label>Nom</label><input type="text" id="r-name" placeholder="10km de Paris"></div>
-      <div class="field"><label>Date</label><input type="date" id="r-date"></div>
-      <div class="field"><label>Distance</label><input type="text" id="r-dist" placeholder="10km"></div>
-      <div class="field"><label>Objectif (hh:mm:ss)</label><input type="text" id="r-obj" placeholder="00:55:00"></div>
-      <div class="field"><label>Résultat</label><input type="text" id="r-real" placeholder="00:53:22"></div>
+      <div class="field"><label for="r-name">Nom</label><input type="text" id="r-name" placeholder="10km de Paris"></div>
+      <div class="field"><label for="r-date">Date</label><input type="date" id="r-date" placeholder="jj/mm/yyyy"></div>
+      <div class="field"><label for="r-dist">Distance</label><input type="text" id="r-dist" placeholder="10km"></div>
+      <div class="field"><label for="r-obj">Objectif (hh:mm:ss)</label><input type="text" id="r-obj" placeholder="00:55:00"></div>
+      <div class="field"><label for="r-real">Résultat</label><input type="text" id="r-real" placeholder="00:53:22"></div>
     </div>
     <button class="btn" onclick="addRace()">Ajouter</button>
   </div>
@@ -157,6 +311,26 @@
       <thead><tr><th>Échéance</th><th>Course</th><th>Date</th><th>Distance</th><th>Objectif</th><th>Résultat</th><th>Écart</th><th></th></tr></thead>
       <tbody id="races-tbody"></tbody>
     </table>
+    <template id="races-row-template">
+      <tr>
+        <td class="races-status"></td>
+        <td><strong class="races-name"></strong></td>
+        <td class="mono races-date"></td>
+        <td class="races-dist"></td>
+        <td class="mono races-obj"></td>
+        <td class="mono races-real"></td>
+        <td class="mono races-diff"></td>
+        <td>
+          <div class="action-btns">
+            <button class="action-btn races-edit">✏️</button>
+            <button class="action-btn del races-delete">🗑</button>
+          </div>
+        </td>
+      </tr>
+    </template>
+    <template id="races-status-badge-template">
+      <span class="badge"></span>
+    </template>
   </div>
 </section>
 
@@ -170,14 +344,14 @@
     <button class="modal-close" onclick="closeModal('plan-modal')">✕</button>
     <div class="modal-title">Modifier la séance</div>
     <input type="hidden" id="pm-statekey"><input type="hidden" id="pm-idx">
-    <div class="form-grid" style="grid-template-columns:1fr;">
-      <div class="field"><label>Format</label><input type="text" id="pm-format"></div>
-      <div class="field"><label>Date</label><input type="date" id="pm-date"></div>
-      <div class="field"><label>PE</label><input type="text" id="pm-pe" placeholder="ex: 6/10"></div>
-      <div class="field"><label>Durée totale (min)</label><input type="number" id="pm-total"></div>
-      <div class="field" style="display:flex;align-items:center;gap:10px;padding-top:6px;">
-        <input type="checkbox" id="pm-opt" style="width:16px;height:16px;accent-color:var(--accent2)">
-        <label for="pm-opt" style="font-size:13px;letter-spacing:0;text-transform:none;color:var(--text)">Optionnelle</label>
+    <div class="form-grid form-grid-single">
+      <div class="field"><label for="pm-format">Format</label><input type="text" id="pm-format"></div>
+      <div class="field"><label for="pm-date">Date</label><input type="date" id="pm-date" placeholder="jj/mm/yyyy"></div>
+      <div class="field"><label for="pm-pe">PE</label><input type="text" id="pm-pe" placeholder="ex: 6/10"></div>
+      <div class="field"><label for="pm-total">Durée totale (min)</label><input type="number" id="pm-total"></div>
+      <div class="field field-inline">
+        <input type="checkbox" id="pm-opt" class="pm-opt">
+        <label for="pm-opt" class="pm-opt-label">Optionnelle</label>
       </div>
     </div>
     <div class="modal-actions">
@@ -193,12 +367,12 @@
     <div class="modal-title">Modifier la sortie</div>
     <input type="hidden" id="lm-idx">
     <div class="form-grid">
-      <div class="field"><label>Date</label><input type="date" id="lm-date"></div>
-      <div class="field"><label>Distance (km)</label><input type="number" id="lm-km" step="0.01"></div>
-      <div class="field"><label>Durée (hh:mm:ss)</label><input type="text" id="lm-dur"></div>
-      <div class="field"><label>D+ (mètres)</label><input type="number" id="lm-dplus"></div>
-      <div class="field"><label>BPM moy.</label><input type="number" id="lm-bpm"></div>
-      <div class="field"><label>Type</label>
+      <div class="field"><label for="lm-date">Date</label><input type="date" id="lm-date" placeholder="jj/mm/yyyy"></div>
+      <div class="field"><label for="lm-km">Distance (km)</label><input type="number" id="lm-km" step="0.01"></div>
+      <div class="field"><label for="lm-dur">Durée (hh:mm:ss)</label><input type="text" id="lm-dur"></div>
+      <div class="field"><label for="lm-dplus">D+ (mètres)</label><input type="number" id="lm-dplus"></div>
+      <div class="field"><label for="lm-bpm">BPM moy.</label><input type="number" id="lm-bpm"></div>
+      <div class="field"><label for="lm-type">Type</label>
         <select id="lm-type">
           <option value="">—</option>
           <option value="EF">EF – Endurance fondamentale</option>
@@ -208,7 +382,7 @@
           <option value="Race">🏁 Course</option>
         </select>
       </div>
-      <div class="field"><label>Notes</label><input type="text" id="lm-notes"></div>
+      <div class="field"><label for="lm-notes">Notes</label><input type="text" id="lm-notes"></div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="saveLogEdit()">Enregistrer</button>
@@ -223,15 +397,43 @@
     <div class="modal-title">Modifier la course</div>
     <input type="hidden" id="rm-idx">
     <div class="form-grid">
-      <div class="field"><label>Nom</label><input type="text" id="rm-name"></div>
-      <div class="field"><label>Date</label><input type="date" id="rm-date"></div>
-      <div class="field"><label>Distance</label><input type="text" id="rm-dist"></div>
-      <div class="field"><label>Objectif</label><input type="text" id="rm-obj" placeholder="hh:mm:ss"></div>
-      <div class="field"><label>Résultat</label><input type="text" id="rm-real" placeholder="hh:mm:ss"></div>
+      <div class="field"><label for="rm-name">Nom</label><input type="text" id="rm-name"></div>
+      <div class="field"><label for="rm-date">Date</label><input type="date" id="rm-date" placeholder="jj/mm/yyyy"></div>
+      <div class="field"><label for="rm-dist">Distance</label><input type="text" id="rm-dist"></div>
+      <div class="field"><label for="rm-obj">Objectif</label><input type="text" id="rm-obj" placeholder="hh:mm:ss"></div>
+      <div class="field"><label for="rm-real">Résultat</label><input type="text" id="rm-real" placeholder="hh:mm:ss"></div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="saveRaceEdit()">Enregistrer</button>
       <button class="btn btn-ghost" onclick="closeModal('race-modal')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="newplan-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('newplan-modal')">✕</button>
+    <div class="modal-title">Nouveau plan</div>
+    <div class="form-grid form-grid-single">
+      <div class="field"><label for="np-title">Nom du plan</label><input type="text" id="np-title" placeholder="Ex: 10 km automne"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="confirmCreatePlan()">Créer</button>
+      <button class="btn btn-ghost" onclick="closeModal('newplan-modal')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="meta-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('meta-modal')">✕</button>
+    <div class="modal-title">Modifier le plan</div>
+    <div class="form-grid form-grid-single">
+      <div class="field"><label for="meta-title">Titre</label><input type="text" id="meta-title"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="meta-save-btn">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeModal('meta-modal')">Annuler</button>
     </div>
   </div>
 </div>
@@ -249,5 +451,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}"></script>
+<script src="{{ asset('js/app.js') }}?v=20260512-theme5"></script>
 {% endblock %}

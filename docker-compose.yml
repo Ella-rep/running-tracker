@@ -1,8 +1,7 @@
 services:
 
   db:
-    # image: postgres:16-alpine
-    image: zeroj1-docker-stages.repositoi-zac.enedis.fr/postgres:15.15
+    image: postgres:15-alpine
     container_name: runtracker_db
     restart: unless-stopped
     environment:
@@ -12,28 +11,30 @@ services:
     networks:
       - network1
     volumes:
-      - /home/f41374/Projects/running-tracker-db:/var/lib/postgresql/data:rw
+      - ./running-tracker-db:/var/lib/postgresql/data:rw
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-runner} -d ${DATABASE_NAME:-running-tracker}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-runner} -d ${DATABASE_NAME:-running_tracker_db}"]
       interval: 5s
       timeout: 5s
       retries: 15
 
   app:
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
-    #   args:
-    #     INSTALL_REMOTE_PROJECT: ${INSTALL_REMOTE_PROJECT:-false}
-    #     branch_project_name: ${branch_project_name:-main}
-    #     git_project_account: ${git_project_account:-}
-    #     git_project_account_secret: ${git_project_account_secret:-}
-    #     project_env: ${project_env:-}
-    #     git_project_repo_url: ${git_project_repo_url:-https://github.com/Ella-rep/running-tracker.git}
-    image: zeroj1-docker-stages.repositoi-zac.enedis.fr/ppi-deploiement-api:1-0-0
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,db}
+        INSTALL_REMOTE_PROJECT: ${INSTALL_REMOTE_PROJECT:-false}
+        branch_project_name: ${branch_project_name:-main}
+        git_project_account: ${git_project_account:-}
+        git_project_account_secret: ${git_project_account_secret:-}
+        project_env: ${project_env:-}
+        git_project_repo_url: ${git_project_repo_url:-https://github.com/Ella-rep/running-tracker.git}
     container_name: runtracker_app
     restart: unless-stopped
-    working_dir: /appli/apache2/htdocs/symfony
+    working_dir: /app
     ports:
       - "${APP_PORT:-8080}:80"
     networks:
@@ -46,16 +47,17 @@ services:
       DATABASE_USER: ${DATABASE_USER:-runner}
       DATABASE_PASSWORD: ${DATABASE_PASSWORD:-runner}
       DATABASE_NAME: ${DATABASE_NAME:-running_tracker_db}
-      DATABASE_VERSION: ${DATABASE_VERSION:-16}
-      JWT_SECRET_KEY: modifier
-      JWT_PUBLIC_KEY: modifier
+      DATABASE_VERSION: ${DATABASE_VERSION:-15}
+      DEFAULT_URI: ${DEFAULT_URI:-http://localhost}
+      JWT_SECRET_KEY: /app/config/jwt/private.pem
+      JWT_PUBLIC_KEY: /app/config/jwt/public.pem
       JWT_PASSPHRASE: ${JWT_PASSPHRASE:-change_me_jwt_passphrase}
       JWT_TTL: ${JWT_TTL:-604800}
       CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-'^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$'}
       
     volumes:
-      - jwt_keys:/appli/apache2/htdocs/symfony/config/jwt
-      - /home/f41374/Projects/running-tracker:/appli/apache2/htdocs/symfony:rw
+      - jwt_keys:/app/config/jwt
+      - ./:/app:rw
     depends_on:
       db:
         condition: service_healthy

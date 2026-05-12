@@ -3,6 +3,7 @@
 namespace App\EventListener;
 
 use ApiPlatform\Symfony\EventListener\EventPriorities;
+use App\Entity\Plan;
 use App\Entity\Race;
 use App\Entity\RunLog;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -26,9 +27,11 @@ final class SetOwnerListener
         }
 
         $user = $this->security->getUser();
-        if (!$user) return;
+        if (!$user) {
+            return;
+        }
 
-        if ($object instanceof RunLog || $object instanceof Race) {
+        if ($object instanceof RunLog || $object instanceof Race || $object instanceof \App\Entity\PlanDetails || $object instanceof Plan) {
             $object->setUser($user);
         }
     }

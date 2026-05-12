@@ -1,0 +1,19 @@
+<header>
+  <div class="header-left">
+    <div class="logo">RUN<span>/</span>TRACKER</div>
+    {% include 'components/_theme_toggle.html.twig' with { with_onclick: true } %}
+  </div>
+  <nav>
+    <a href="{{ path('app_dashboard') }}" class="nav-link{{ current_page == 'dashboard' ? ' active' : '' }}">Dashboard</a>
+    <a href="{{ path('app_plans') }}" class="nav-link{{ current_page == 'plans' ? ' active' : '' }}">Plans</a>
+    <a href="{{ path('app_log') }}" class="nav-link{{ current_page == 'log' ? ' active' : '' }}">Log</a>
+    <a href="{{ path('app_courses') }}" class="nav-link{{ current_page == 'courses' ? ' active' : '' }}">Courses</a>
+  </nav>
+  <div class="user-badge">
+    <span class="user-greeting">Bienvenue,</span>
+    <strong id="current-username" class="current-username">{{ username ?: 'inconnu' }}</strong>
+    <button class="logout-btn" type="button" onclick="logout()" title="Déconnexion" aria-label="Déconnexion">
+      <span class="logout-icon" aria-hidden="true">⏻</span>
+    </button>
+  </div>
+</header>

@@ -5,48 +5,46 @@ namespace App\Entity;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Post;
-use App\Repository\PlanCheckRepository;
-use App\State\PlanCheckProcessor;
+use App\Repository\PlanProgressRepository;
+use App\State\PlanProgressProcessor;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
 
-#[ORM\Entity(repositoryClass: PlanCheckRepository::class)]
-#[ORM\Table(name: 'plan_checks')]
+#[ORM\Entity(repositoryClass: PlanProgressRepository::class)]
+#[ORM\Table(name: 'plan_progress')]
 #[ORM\UniqueConstraint(columns: ['user_id', 'plan_key', 'session_index'])]
 #[ApiResource(
-    routePrefix: '/api',
-    normalizationContext: ['groups' => ['check:read']],
-    denormalizationContext: ['groups' => ['check:write']],
+    normalizationContext: ['groups' => ['progress:read']],
+    denormalizationContext: ['groups' => ['progress:write']],
     security: 'is_granted("ROLE_USER")',
     operations: [
-        new GetCollection(),
-        new Post(processor: PlanCheckProcessor::class),
+        new GetCollection(uriTemplate: '/plan_progresses'),
+        new Post(uriTemplate: '/plan_progresses', processor: PlanProgressProcessor::class),
     ]
 )]
-class PlanCheck
+class PlanProgress
 {
     #[ORM\Id, ORM\GeneratedValue, ORM\Column]
-    #[Groups(['check:read'])]
+    #[Groups(['progress:read'])]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'planChecks')]
+    #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'planProgresses')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private User $user;
 
     #[ORM\Column(length: 32)]
     #[Assert\NotBlank]
-    #[Assert\Choice(choices: ['tempoDone', 'prepDone', 'semiDone'])]
-    #[Groups(['check:read', 'check:write'])]
+    #[Groups(['progress:read', 'progress:write'])]
     private string $planKey = '';
 
     #[ORM\Column]
     #[Assert\GreaterThanOrEqual(0)]
-    #[Groups(['check:read', 'check:write'])]
+    #[Groups(['progress:read', 'progress:write'])]
     private int $sessionIndex = 0;
 
     #[ORM\Column]
-    #[Groups(['check:read', 'check:write'])]
+    #[Groups(['progress:read', 'progress:write'])]
     private bool $done = false;
 
     public function getId(): ?int { return $this->id; }

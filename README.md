@@ -3,9 +3,9 @@
 Application de suivi running avec :
 - **Backend** : Symfony 7 + API Platform 3 (REST auto-généré, doc Swagger)
 - **Auth** : JWT via LexikJWTAuthenticationBundle
-- **BDD** : PostgreSQL 16 + Doctrine ORM + migrations automatiques
+- **BDD** : PostgreSQL 15 + Doctrine ORM + migrations automatiques
 - **Frontend** : Twig (pages) + JS vanilla (interactions via API)
-- **Déploiement** : Docker Compose (Alpine + PHP 8.4 + Apache + PostgreSQL)
+- **Déploiement** : Docker Compose (Debian + PHP 8.4-FPM + Nginx + PostgreSQL)
 
 ---
 
@@ -70,12 +70,6 @@ openssl rand -hex 32
 openssl rand -hex 16
 ```
 
-Ajouter le token **Mapbox** pour la carte du GPX Replay :
-
-```bash
-MAPBOX_TOKEN=pk.eyJ1IjoiZWxob2RlZSIs...ton_vrai_token
-```
-
 ### 2. Build args disponibles (Dockerfile)
 
 Le Dockerfile supporte ces arguments de build :
@@ -116,33 +110,24 @@ docker compose up -d
 ```
 
 **Au premier démarrage**, le conteneur génère les clés JWT RSA,
-applique les migrations, chauffe le cache, puis démarre Apache.
+applique les migrations, chauffe le cache, puis démarre PHP-FPM et Nginx.
 
-→ L'application est disponible sur **http://ton-domaine-ou-ip:8080**
-→ La doc API Swagger est sur **http://ton-domaine-ou-ip:8080/api/docs**
+→ L'application est disponible sur **http://localhost:8080**
+→ La doc API Swagger est sur **http://localhost:8080/api/docs**
 
 ---
 
 ## 🔑 Premier compte
 
-Va sur `http://ton-domaine-ou-ip:8080` → "Créer un compte".
+Va sur `http://localhost:8080` → "Créer un compte".
 
 Ou via curl :
 
 ```bash
-curl -X POST http://ton-domaine-ou-ip:8080/api/users \
+curl -X POST http://localhost:8080/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{"username":"toi","plainPassword":"monmotdepasse"}'
 ```
-
----
-
-## 🗺️ GPX Replay
-
-La page de replay GPX est accessible sur `/gpx-replay`.
-
-Elle est servie par `GpxReplayController` qui injecte le token Mapbox depuis `.env.local`.
-Le fichier `.html` source est dans `templates/base/gpx-replay.html.twig`.
 
 ---
 
@@ -152,7 +137,7 @@ Tous les endpoints sont documentés sur `/api/docs` (Swagger UI interactif).
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
-| `POST` | `/api/users` | Créer un compte |
+| `POST` | `/api/auth/register` | Créer un compte |
 | `POST` | `/api/auth/login` | Connexion → retourne `{ token }` |
 | `GET` | `/api/auth/me` | Profil courant |
 | `GET` | `/api/run_logs` | Liste des sorties (triées par date desc) |
@@ -177,17 +162,17 @@ Authorization: Bearer <token>
 
 ```bash
 # Dump PostgreSQL
-docker exec runtracker_db pg_dump -U runner runtracker > backup_$(date +%Y%m%d).sql
+docker exec runtracker_db pg_dump -U runner postgres > backup_$(date +%Y%m%d).sql
 
 # Restauration
-docker exec -i runtracker_db psql -U runner runtracker < backup_20260325.sql
+docker exec -i runtracker_db psql -U runner postgres < backup_20260325.sql
 ```
 
 ### Sauvegarde automatique (cron NAS)
 
 ```bash
 # Tous les jours à 3h
-0 3 * * * docker exec runtracker_db pg_dump -U runner runtracker \
+0 3 * * * docker exec runtracker_db pg_dump -U runner postgres \
   > /volume1/backups/runtracker_$(date +\%Y\%m\%d).sql
 ```
 
@@ -299,8 +284,20 @@ Non — elles sont dans le volume `jwt_keys` qui survit à `down`. Seul `down -v
 **Comment changer le port ?**
 Modifier `APP_PORT` dans `.env.local` puis `docker compose up -d`.
 
+**Je vois "Apache2 Default Page" sur localhost, c'est normal ?**
+Oui: cela signifie en général que vous ouvrez `http://localhost` (port 80 de la machine hôte),
+pas le port publié par Docker Compose.
+
+Utilisez l'URL de l'application:
+- `http://localhost:8080`
+- `http://localhost:8080/api/docs`
+
+Vérification rapide:
+- `docker compose ps` puis contrôler la colonne `PORTS` de `runtracker_app`
+- si besoin, changer `APP_PORT` puis relancer `docker compose up -d --build`
+
 **Comment ajouter un deuxième utilisateur ?**
-Via l'interface web (bouton "Créer un compte") ou via l'API `/api/users`.
+Via l'interface web (bouton "Créer un compte") ou via l'API `/api/auth/register`.
 
 **La doc Swagger est accessible sans authentification ?**
 Oui, `/api/docs` est public. Les endpoints eux-mêmes requièrent un token JWT.

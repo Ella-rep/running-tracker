@@ -11,7 +11,3 @@ services:
             - '../src/DependencyInjection/'
             - '../src/Entity/'
             - '../src/Kernel.php'
-
-    App\State\PlanCheckProcessor:
-        arguments:
-            $repo: '@App\Repository\PlanCheckRepository'

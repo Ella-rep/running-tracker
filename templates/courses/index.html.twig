@@ -1,0 +1,85 @@
+{% extends 'base/layout.html.twig' %}
+{% block title %}Courses - Running Tracker{% endblock %}
+
+{% block body %}
+{% include 'components/_app_header.html.twig' with { current_page: 'courses', username: username } %}
+
+<main>
+  <section id="courses" class="visible">
+    <div class="section-title">Calendrier des courses</div>
+    <div class="section-sub">Saison 2026</div>
+    <div class="form-card">
+      <h3>➕ Ajouter une course</h3>
+      <div class="form-grid">
+        <div class="field"><label for="r-name">Nom</label><input type="text" id="r-name" placeholder="10km de Paris"></div>
+        <div class="field"><label for="r-date">Date</label><input type="date" id="r-date" placeholder="jj/mm/yyyy"></div>
+        <div class="field"><label for="r-dist">Distance</label><input type="text" id="r-dist" placeholder="10km"></div>
+        <div class="field"><label for="r-obj">Objectif (hh:mm:ss)</label><input type="text" id="r-obj" placeholder="00:55:00"></div>
+        <div class="field"><label for="r-real">Résultat</label><input type="text" id="r-real" placeholder="00:53:22"></div>
+      </div>
+      <button class="btn" onclick="addRace()">Ajouter</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Échéance</th><th>Course</th><th>Date</th><th>Distance</th><th>Objectif</th><th>Résultat</th><th>Écart</th><th></th></tr></thead>
+        <tbody id="races-tbody"></tbody>
+      </table>
+      <template id="races-row-template">
+        <tr>
+          <td class="races-status"></td>
+          <td><strong class="races-name"></strong></td>
+          <td class="mono races-date"></td>
+          <td class="races-dist"></td>
+          <td class="mono races-obj"></td>
+          <td class="mono races-real"></td>
+          <td class="mono races-diff"></td>
+          <td>
+            <div class="action-btns">
+              <button class="action-btn races-edit">✏️</button>
+              <button class="action-btn del races-delete">🗑</button>
+            </div>
+          </td>
+        </tr>
+      </template>
+      <template id="races-status-badge-template">
+        <span class="badge"></span>
+      </template>
+    </div>
+  </section>
+</main>
+
+<div class="notif" id="notif"></div>
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="modal">
+    <div class="modal-title" id="confirm-title">Confirmation</div>
+    <div id="confirm-msg"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="confirmDelete()">Confirmer</button>
+      <button class="btn btn-ghost" onclick="closeConfirm()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="race-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('race-modal')">✕</button>
+    <div class="modal-title">Modifier la course</div>
+    <input type="hidden" id="rm-idx">
+    <div class="form-grid">
+      <div class="field"><label for="rm-name">Nom</label><input type="text" id="rm-name"></div>
+      <div class="field"><label for="rm-date">Date</label><input type="date" id="rm-date" placeholder="jj/mm/yyyy"></div>
+      <div class="field"><label for="rm-dist">Distance</label><input type="text" id="rm-dist"></div>
+      <div class="field"><label for="rm-obj">Objectif</label><input type="text" id="rm-obj" placeholder="hh:mm:ss"></div>
+      <div class="field"><label for="rm-real">Résultat</label><input type="text" id="rm-real" placeholder="hh:mm:ss"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="saveRaceEdit()">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeModal('race-modal')">Annuler</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script src="{{ asset('js/app.js') }}?v=20260512-theme5"></script>
+{% endblock %}

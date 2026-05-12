@@ -1,0 +1,119 @@
+{% extends 'base/layout.html.twig' %}
+{% block title %}Log - Running Tracker{% endblock %}
+
+{% block body %}
+{% include 'components/_app_header.html.twig' with { current_page: 'log', username: username } %}
+
+<main>
+  <section id="log" class="visible">
+    <div class="section-title">Journal de course</div>
+    <div class="section-sub" id="log-sub">Chargement…</div>
+    <div class="form-card">
+      <h3>➕ Ajouter une sortie</h3>
+      <div class="form-grid">
+        <div class="field"><label for="log-date">Date</label><input type="date" id="log-date" placeholder="jj/mm/yyyy"></div>
+        <div class="field"><label for="log-km">Distance (km)</label><input type="number" id="log-km" step="0.01" placeholder="5.00"></div>
+        <div class="field"><label for="log-dur">Durée (hh:mm:ss)</label><input type="text" id="log-dur" placeholder="00:45:00"></div>
+        <div class="field"><label for="log-dplus">D+ (mètres)</label><input type="number" id="log-dplus" placeholder="0"></div>
+        <div class="field"><label for="log-bpm">BPM moy.</label><input type="number" id="log-bpm" placeholder="150"></div>
+        <div class="field"><label for="log-type">Type</label>
+          <select id="log-type">
+            <option value="">—</option>
+            <option value="EF">EF – Endurance fondamentale</option>
+            <option value="FC">FC – Fractionné court</option>
+            <option value="FL">FL – Sortie longue</option>
+            <option value="T">T – Tempo</option>
+            <option value="Race">🏁 Course</option>
+          </select>
+        </div>
+        <div class="field"><label for="log-notes">Notes</label><input type="text" id="log-notes" placeholder="…"></div>
+      </div>
+      <button class="btn" onclick="addLog()">Enregistrer</button>
+    </div>
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filterLog('all',this)">Tout</button>
+      <button class="filter-btn" onclick="filterLog('EF',this)">EF</button>
+      <button class="filter-btn" onclick="filterLog('FC',this)">Fractionné</button>
+      <button class="filter-btn" onclick="filterLog('FL',this)">Longue</button>
+      <button class="filter-btn" onclick="filterLog('Race',this)">Courses</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th><button id="sort-date-btn" class="sort-date-btn" onclick="toggleSort()">Date <span id="sort-icon">↓</span></button></th>
+          <th>Km</th><th>Durée</th><th>Allure</th><th>GAP</th><th>D+</th><th>BPM</th><th>Type</th><th>Notes</th><th></th>
+        </tr></thead>
+        <tbody id="log-tbody"></tbody>
+      </table>
+      <template id="log-row-template">
+        <tr>
+          <td class="mono log-date"></td>
+          <td class="mono log-km"></td>
+          <td class="mono log-dur"></td>
+          <td class="mono log-allure"></td>
+          <td class="mono log-gap"></td>
+          <td class="mono log-dplus"></td>
+          <td class="mono log-bpm"></td>
+          <td class="log-type"></td>
+          <td class="notes-cell log-notes"></td>
+          <td>
+            <div class="action-btns">
+              <button class="action-btn log-edit">✏️</button>
+              <button class="action-btn del log-delete">🗑</button>
+            </div>
+          </td>
+        </tr>
+      </template>
+      <template id="log-type-badge-template">
+        <span class="badge badge-done"></span>
+      </template>
+    </div>
+  </section>
+</main>
+
+<div class="notif" id="notif"></div>
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="modal">
+    <div class="modal-title" id="confirm-title">Confirmation</div>
+    <div id="confirm-msg"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="confirmDelete()">Confirmer</button>
+      <button class="btn btn-ghost" onclick="closeConfirm()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="log-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('log-modal')">✕</button>
+    <div class="modal-title">Modifier la sortie</div>
+    <input type="hidden" id="lm-idx">
+    <div class="form-grid">
+      <div class="field"><label for="lm-date">Date</label><input type="date" id="lm-date" placeholder="jj/mm/yyyy"></div>
+      <div class="field"><label for="lm-km">Distance (km)</label><input type="number" id="lm-km" step="0.01"></div>
+      <div class="field"><label for="lm-dur">Durée (hh:mm:ss)</label><input type="text" id="lm-dur"></div>
+      <div class="field"><label for="lm-dplus">D+ (mètres)</label><input type="number" id="lm-dplus"></div>
+      <div class="field"><label for="lm-bpm">BPM moy.</label><input type="number" id="lm-bpm"></div>
+      <div class="field"><label for="lm-type">Type</label>
+        <select id="lm-type">
+          <option value="">—</option>
+          <option value="EF">EF – Endurance fondamentale</option>
+          <option value="FC">FC – Fractionné court</option>
+          <option value="FL">FL – Sortie longue</option>
+          <option value="T">T – Tempo</option>
+          <option value="Race">🏁 Course</option>
+        </select>
+      </div>
+      <div class="field"><label for="lm-notes">Notes</label><input type="text" id="lm-notes"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="saveLogEdit()">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeModal('log-modal')">Annuler</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script src="{{ asset('js/app.js') }}?v=20260512-theme5"></script>
+{% endblock %}

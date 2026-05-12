@@ -9,6 +9,7 @@
 /var/
 /vendor/
 /seed*
+/Dockerfile.loc
 ###< symfony/framework-bundle ###
 
 ###> lexik/jwt-authentication-bundle ###

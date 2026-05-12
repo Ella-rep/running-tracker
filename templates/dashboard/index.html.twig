@@ -1,0 +1,108 @@
+{% extends 'base/layout.html.twig' %}
+{% block title %}Dashboard - Running Tracker{% endblock %}
+
+{% block body %}
+{% include 'components/_app_header.html.twig' with { current_page: 'dashboard', username: username } %}
+
+<main>
+  <section id="dashboard" class="visible">
+    <div class="section-title">Vue d'ensemble 🏃</div>
+    <div class="section-sub" id="dash-date">Chargement…</div>
+    <div id="dashboard-advice"></div>
+    <template id="dashboard-advice-stack-template">
+      <div class="advice-stack"></div>
+    </template>
+    <template id="dashboard-advice-item-template">
+      <article class="advice-card">
+        <div class="advice-icon"></div>
+        <div class="advice-content">
+          <h4 class="advice-title">Conseil du jour</h4>
+          <p class="advice-text"></p>
+        </div>
+      </article>
+    </template>
+
+    <div class="kpi-grid" id="kpi-grid"></div>
+    <template id="dashboard-kpi-template">
+      <article class="kpi">
+        <div class="kpi-label"></div>
+        <div class="kpi-value"></div>
+        <div class="kpi-unit"></div>
+      </article>
+    </template>
+    <div class="chart-wrap" id="projections-wrap">
+      <div class="chart-title">Temps projetés — basé sur tes 5 dernières sorties</div>
+      <div id="projections-grid" class="projections-grid"></div>
+      <template id="projection-card-template">
+        <article class="proj-card">
+          <div class="proj-label"></div>
+          <div class="proj-time"></div>
+          <div class="proj-pace"></div>
+        </article>
+      </template>
+      <template id="projection-empty-template">
+        <div class="empty-hint">Pas encore assez de données.</div>
+      </template>
+      <div id="projections-meta" class="meta-small"></div>
+    </div>
+    <div class="progress-section">
+      <div class="progress-label">
+        <span id="progress-plan-label">Progression du plan</span>
+        <span id="tempo-pct">—</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="tempo-bar"></div></div>
+      <div class="progress-meta" id="tempo-meta"></div>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title">Kilométrage mensuel (2026)</div>
+      <div class="bar-chart" id="monthly-chart"></div>
+      <template id="monthly-bar-template">
+        <article class="bar-col">
+          <div class="bar"></div>
+          <div class="bar-label"></div>
+        </article>
+      </template>
+    </div>
+    <div class="table-wrap">
+      <div class="table-header">📅 Prochaines courses</div>
+      <table>
+        <thead><tr><th>Course</th><th>Date</th><th>Distance</th><th>Objectif</th><th>Statut</th></tr></thead>
+        <tbody id="race-tbody"></tbody>
+      </table>
+      <template id="dashboard-race-row-template">
+        <tr>
+          <td class="dashboard-race-name"></td>
+          <td class="mono dashboard-race-date"></td>
+          <td class="dashboard-race-dist"></td>
+          <td class="mono dashboard-race-obj"></td>
+          <td><span class="badge dashboard-race-status"></span></td>
+        </tr>
+      </template>
+    </div>
+    <div id="coherence-section"></div>
+    <template id="coherence-alert-template">
+      <div class="alert">
+        <div class="alert-title"></div>
+        <p class="alert-body"></p>
+      </div>
+    </template>
+  </section>
+</main>
+
+<div class="notif" id="notif"></div>
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="modal">
+    <div class="modal-title" id="confirm-title">Confirmation</div>
+    <div id="confirm-msg"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="confirmDelete()">Confirmer</button>
+      <button class="btn btn-ghost" onclick="closeConfirm()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block javascripts %}
+<script src="{{ asset('js/app.js') }}?v=20260512-theme5"></script>
+{% endblock %}
