@@ -64,7 +64,7 @@ async function submitAuth() {
     } else {
       localStorage.setItem('rt_token', token);
     }
-    globalThis.location.href = '/';
+    globalThis.location.href = '/dashboard';
   } catch (error) {
     errEl.textContent = error.message;
     btn.textContent = mode === 'login' ? 'Se connecter' : 'Créer le compte';
@@ -103,7 +103,7 @@ async function redirectIfAlreadyLoggedIn() {
     if (auth?.fetchCurrentUser) {
       const me = await auth.fetchCurrentUser();
       if (me) {
-        globalThis.location.href = '/';
+        globalThis.location.href = '/dashboard';
       }
       return;
     }
@@ -116,7 +116,7 @@ async function redirectIfAlreadyLoggedIn() {
       headers: { Authorization: 'Bearer ' + token },
     });
     if (response.ok) {
-      globalThis.location.href = '/';
+      globalThis.location.href = '/dashboard';
     }
   } catch {
     // Ignore network/transient errors and keep user on login page.

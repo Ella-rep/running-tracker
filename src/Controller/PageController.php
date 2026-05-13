@@ -8,12 +8,22 @@ use Symfony\Component\Routing\Attribute\Route;
 
 class PageController extends AbstractController
 {
+    #[Route('/', name: 'app_home')]
+    public function home(): Response
+    {
+        return $this->redirectToRoute('app_login');
+    }
+
     /**
      * Login page
      */
     #[Route('/login', name: 'app_login')]
     public function login(): Response
     {
+        if ($this->getUser()) {
+            return $this->redirectToRoute('app_dashboard');
+        }
+
         return $this->render('base/login.html.twig');
     }
 

@@ -1,0 +1,6 @@
+/* Courses page specific styles */
+
+.metric-gap { color: var(--accent2); }
+.metric-dplus { color: var(--z3); }
+.diff-good { color: var(--z1); }
+.diff-bad { color: var(--accent3); }

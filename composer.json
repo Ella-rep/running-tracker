@@ -2,7 +2,7 @@
     "name": "running/tracker",
     "description": "Running Tracker — Symfony 7 + API Platform + PostgreSQL",
     "type": "project",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "license": "MIT",
     "require": {
         "php": ">=8.4",

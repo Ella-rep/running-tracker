@@ -30,6 +30,7 @@ final class DashboardMetricsService
     *   monthlyBars: array<int, array{label:string,km:float,height:int}>,
      *   projections: array<int, array{label:string,time:string,pace:string,color:string}>,
     *   projectionsMeta: string,
+    *   trainingLoad: array{hasData:bool,statusKey:string,statusLabel:string,statusColor:string,acute:float,chronic:float,ratio:float|null,deltaPct:int,recommendation:string,weekly:array<int, array{label:string,load:float}>},
     *   efKpis: array{items: array<int, array{label:string,value:string,valueColor:string,meta:string}>, emptyMessage:string},
     *   ef: array{
     *     hasData: bool,
@@ -61,6 +62,7 @@ final class DashboardMetricsService
         $monthlyBars = $this->buildMonthlyBars($logs);
         $efKpis = $this->buildEfKpis($logs);
         $ef = $this->buildEfSection($logs);
+        $trainingLoad = $this->buildTrainingLoad($logs);
         $coherenceAlerts = $this->buildCoherenceAlerts($logs);
         $racesTable = $this->buildDashboardRacesTable($user);
         $planProgress = $this->buildPlanProgress($user);
@@ -77,6 +79,7 @@ final class DashboardMetricsService
             'monthlyBars' => $monthlyBars,
             'projections' => $projections,
             'projectionsMeta' => $projectionsMeta,
+            'trainingLoad' => $trainingLoad,
             'efKpis' => $efKpis,
             'ef' => $ef,
             'coherenceAlerts' => $coherenceAlerts,
@@ -127,6 +130,173 @@ final class DashboardMetricsService
             'done' => $done,
             'total' => $total,
             'pct' => $pct,
+        ];
+    }
+
+    /**
+     * @param array<int, RunLog> $logs
+     * @return array{hasData:bool,statusKey:string,statusLabel:string,statusColor:string,acute:float,chronic:float,ratio:float|null,deltaPct:int,recommendation:string,weekly:array<int, array{label:string,load:float}>}
+     */
+    private function buildTrainingLoad(array $logs): array
+    {
+        $dailyLoads = [];
+
+        $factorForRunType = static function (string $runType): float {
+            $key = strtoupper(trim($runType));
+
+            return match ($key) {
+                'EF', 'ENDURANCE' => 1.0,
+                'RECUP', 'RECUPERATION' => 0.8,
+                'TEMPO' => 1.4,
+                'SEUIL' => 1.7,
+                'VMA', 'INTERVAL', 'INTERVALLE', 'FRACTIONNE', 'FRACTIONNEE' => 2.0,
+                'RACE' => 2.3,
+                default => 1.2,
+            };
+        };
+
+        foreach ($logs as $log) {
+            $date = $log->getDate();
+            if ($date === '' || strtoupper((string) ($log->getRunType() ?? '')) === 'RACE') {
+                continue;
+            }
+
+            $durationSec = $this->durationToSeconds($log->getDuration());
+            $durationMin = $durationSec !== null ? ($durationSec / 60.0) : null;
+
+            if ($durationMin === null || $durationMin <= 0) {
+                $km = (float) ($log->getKm() ?? 0.0);
+                $paceSec = $this->paceToSeconds($log->getAllure());
+
+                if ($km > 0.0 && $paceSec !== null) {
+                    $durationMin = ($km * $paceSec) / 60.0;
+                } elseif ($km > 0.0) {
+                    $durationMin = $km * 6.0;
+                }
+            }
+
+            $load = 0.0;
+            if ($durationMin !== null && $durationMin > 0) {
+                $factor = $factorForRunType((string) ($log->getRunType() ?? ''));
+                $load = round($durationMin * $factor, 1);
+            }
+
+            if ($load <= 0) {
+                continue;
+            }
+
+            if (!isset($dailyLoads[$date])) {
+                $dailyLoads[$date] = 0.0;
+            }
+            $dailyLoads[$date] += $load;
+        }
+
+        if (empty($dailyLoads)) {
+            return [
+                'hasData' => false,
+                'statusKey' => 'none',
+                'statusLabel' => 'Pas de donnees',
+                'statusColor' => 'var(--text-muted)',
+                'acute' => 0.0,
+                'chronic' => 0.0,
+                'ratio' => null,
+                'deltaPct' => 0,
+                'recommendation' => 'Ajoute quelques sorties pour activer le suivi de charge.',
+                'weekly' => [],
+            ];
+        }
+
+        $today = (new \DateTimeImmutable('now'))->setTime(0, 0, 0);
+        $acute = 0.0;
+        $chronicTotal = 0.0;
+
+        foreach ($dailyLoads as $date => $load) {
+            try {
+                $d = (new \DateTimeImmutable($date))->setTime(0, 0, 0);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            $daysAgo = (int) floor(($today->getTimestamp() - $d->getTimestamp()) / 86400);
+            if ($daysAgo < 0 || $daysAgo > 27) {
+                continue;
+            }
+
+            $chronicTotal += $load;
+            if ($daysAgo <= 6) {
+                $acute += $load;
+            }
+        }
+
+        $chronic = $chronicTotal / 4.0;
+        $ratio = $chronic > 0 ? round($acute / $chronic, 2) : null;
+        $deltaPct = $chronic > 0 ? (int) round((($acute - $chronic) / $chronic) * 100) : 0;
+
+        $statusKey = 'initial';
+        $statusLabel = 'Initialisation';
+        $statusColor = 'var(--accent2)';
+        $recommendation = 'Continue regulierement pour stabiliser ta charge de reference.';
+
+        if ($ratio !== null) {
+            if ($ratio < 0.8) {
+                $statusKey = 'under';
+                $statusLabel = 'Sous-charge';
+                $statusColor = 'var(--z2)';
+                $recommendation = 'Tu peux ajouter une seance facile ou un peu de volume progressif.';
+            } elseif ($ratio <= 1.3) {
+                $statusKey = 'balanced';
+                $statusLabel = 'Equilibre';
+                $statusColor = 'var(--z1)';
+                $recommendation = 'Charge bien equilibree: garde le cap et privilegie la regularite.';
+            } elseif ($ratio <= 1.5) {
+                $statusKey = 'watch';
+                $statusLabel = 'Vigilance';
+                $statusColor = 'var(--z3)';
+                $recommendation = 'Legere hausse de charge: conserve une seance facile de recuperation.';
+            } else {
+                $statusKey = 'high';
+                $statusLabel = 'Surcharge';
+                $statusColor = 'var(--accent3)';
+                $recommendation = 'Hausse trop rapide: allege 24-48h et evite une grosse seance intense.';
+            }
+        }
+
+        $monday = $today->modify('monday this week');
+        $weekly = [];
+        for ($offset = 7; $offset >= 0; $offset--) {
+            $start = $monday->modify(sprintf('-%d week', $offset));
+            $end = $start->modify('+6 day');
+            $sum = 0.0;
+
+            foreach ($dailyLoads as $date => $load) {
+                try {
+                    $d = (new \DateTimeImmutable($date))->setTime(0, 0, 0);
+                } catch (\Throwable) {
+                    continue;
+                }
+
+                if ($d >= $start && $d <= $end) {
+                    $sum += $load;
+                }
+            }
+
+            $weekly[] = [
+                'label' => $start->format('d/m'),
+                'load' => round($sum, 1),
+            ];
+        }
+
+        return [
+            'hasData' => true,
+            'statusKey' => $statusKey,
+            'statusLabel' => $statusLabel,
+            'statusColor' => $statusColor,
+            'acute' => round($acute, 1),
+            'chronic' => round($chronic, 1),
+            'ratio' => $ratio,
+            'deltaPct' => $deltaPct,
+            'recommendation' => $recommendation,
+            'weekly' => $weekly,
         ];
     }
 
@@ -307,6 +477,23 @@ final class DashboardMetricsService
             }
         }
 
+        // ── BPM trend (EF runs only, chronological) ──────────────
+        $efBpmTrend = [];
+        $bpmWindow = [];
+        foreach ($efRuns as $run) {
+            $bpmVal = (int) $run->getBpm();
+            $bpmWindow[] = $bpmVal;
+            if (count($bpmWindow) > 3) {
+                array_shift($bpmWindow);
+            }
+            $avg3 = count($bpmWindow) >= 2 ? round(array_sum($bpmWindow) / count($bpmWindow), 1) : null;
+            $efBpmTrend[] = [
+                'date' => $run->getDate(),
+                'bpm' => $bpmVal,
+                'avg3' => $avg3,
+            ];
+        }
+
         $tableRows = [];
         $prevIdx = null;
         foreach ($efRuns as $i => $run) {
@@ -364,6 +551,7 @@ final class DashboardMetricsService
                 'efDots' => $efDots,
             ],
             'tableRows' => $tableRows,
+            'efBpmTrend' => $efBpmTrend,
             'meta' => 'Indice aérobie = allure (sec/km) ÷ BPM · Plus il est bas, meilleure est ton efficacité aérobie à effort constant',
         ];
     }

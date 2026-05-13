@@ -360,10 +360,35 @@ async function savePlanProgress(planKey, sessionIndex, done) {
   });
 }
 
-function renderDashboardAdvice() {
+function renderDashboardAdvice(metrics = {}) {
   const box = document.getElementById('dashboard-advice');
   if (!box) return;
-  const items = Array.isArray(dashboardAdvice) ? dashboardAdvice : [];
+  const items = Array.isArray(dashboardAdvice) ? [...dashboardAdvice] : [];
+
+  const load = metrics?.trainingLoad;
+  if (load?.hasData) {
+    const toneByKey = {
+      balanced: 'success',
+      watch: 'warning',
+      high: 'warning',
+      under: 'info',
+      initial: 'encourage',
+    };
+    const iconByKey = {
+      balanced: '✅',
+      watch: '⚠️',
+      high: '⛔',
+      under: '🟦',
+      initial: '🧭',
+    };
+
+    items.unshift({
+      tone: toneByKey[load.statusKey] || 'info',
+      icon: iconByKey[load.statusKey] || '⚖️',
+      title: `Charge d'entrainement · ${load.statusLabel || 'Statut'}`,
+      text: `${load.recommendation || ''} (7j: ${Number(load.acute || 0).toFixed(0)} · base: ${Number(load.chronic || 0).toFixed(0)})`,
+    });
+  }
 
   if (!items.length) {
     box.replaceChildren();
@@ -397,11 +422,104 @@ function renderDashboardAdvice() {
     if (titleEl) titleEl.textContent = item?.title || 'Conseil du jour';
     if (textEl) textEl.textContent = item?.text || '';
 
+    if (item?.actionType === 'openPlanSession' && Number.isFinite(Number(item?.actionPlanId))) {
+      const actionBtn = document.createElement('button');
+      actionBtn.type = 'button';
+      actionBtn.className = 'advice-action-btn';
+      actionBtn.textContent = item?.actionLabel || 'Aller au plan';
+      actionBtn.addEventListener('click', () => {
+        focusPlannedSessionFromAdvice(Number(item.actionPlanId), Number(item.actionSessionIndex || 0));
+      });
+      card.querySelector('.advice-content')?.appendChild(actionBtn);
+    }
+
     return card;
   });
 
   stack.replaceChildren(...nodes);
   box.replaceChildren(stack);
+}
+
+function activatePlansSection() {
+  const plansBtn = Array.from(document.querySelectorAll('nav button')).find((btn) =>
+    String(btn.getAttribute('onclick') || '').includes("showSection('plans'")
+  );
+
+  if (plansBtn) {
+    showSection('plans', plansBtn);
+    return;
+  }
+
+  const plansSection = document.getElementById('plans');
+  if (!plansSection) return;
+  document.querySelectorAll('section').forEach((s) => s.classList.remove('visible'));
+  plansSection.classList.add('visible');
+}
+
+function highlightPlannedSession(sessionIndex) {
+  const row = document.querySelector(`#plans-detail-weeks .session-row[data-session-index="${sessionIndex}"]`);
+  if (!row) return false;
+
+  const check = row.querySelector('.session-check');
+  row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  row.classList.add('session-row-highlight');
+  check?.classList.add('session-check-pulse');
+  globalThis.setTimeout(() => row.classList.remove('session-row-highlight'), 1400);
+  globalThis.setTimeout(() => check?.classList.remove('session-check-pulse'), 1600);
+  return true;
+}
+
+function focusPlannedSessionFromAdvice(planId, sessionIndex) {
+  if (!Number.isFinite(planId)) return;
+
+  const plansDetailRoot = document.getElementById('plans-detail-weeks');
+  const plansSection = document.getElementById('plans');
+
+  // On dashboard-only pages, navigate to /plans and carry focus info.
+  if (!plansDetailRoot || !plansSection) {
+    const target = new URL('/plans', globalThis.location.origin);
+    target.searchParams.set('focusPlanId', String(planId));
+    target.searchParams.set('focusSessionIndex', String(Number(sessionIndex) || 0));
+    globalThis.location.href = target.toString();
+    return;
+  }
+
+  activatePlansSection();
+  openPlan(planId);
+
+  globalThis.setTimeout(() => {
+    highlightPlannedSession(Number(sessionIndex) || 0);
+  }, 120);
+}
+
+function consumeAdviceFocusFromUrl() {
+  const params = new URLSearchParams(globalThis.location.search || '');
+  const rawPlanId = params.get('focusPlanId');
+  if (!rawPlanId) return;
+
+  const planId = Number(rawPlanId);
+  if (!Number.isFinite(planId)) return;
+
+  const sessionIndex = Number(params.get('focusSessionIndex') || 0);
+  openPlan(planId);
+
+  // Try multiple times while the plan detail DOM settles.
+  let attempts = 0;
+  const maxAttempts = 10;
+  const tick = () => {
+    attempts += 1;
+    if (highlightPlannedSession(sessionIndex)) {
+      const cleanUrl = new URL(globalThis.location.href);
+      cleanUrl.searchParams.delete('focusPlanId');
+      cleanUrl.searchParams.delete('focusSessionIndex');
+      globalThis.history.replaceState({}, '', `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`);
+      return;
+    }
+    if (attempts < maxAttempts) {
+      globalThis.setTimeout(tick, 120);
+    }
+  };
+  globalThis.setTimeout(tick, 80);
 }
 
 function iriToId(iri) {
@@ -533,13 +651,12 @@ function addHoverListeners(tbodyId) {
 // DASHBOARD
 // ============================================================
 function renderDashboard() {
+  const metrics = dashboardMetrics || {};
   const dashDateEl = document.getElementById('dash-date');
   if (!dashDateEl) return;
   dashDateEl.textContent =
     'Mise à jour · ' + new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
-  renderDashboardAdvice();
-
-  const metrics = dashboardMetrics || {};
+  renderDashboardAdvice(metrics);
   const kpisData = metrics.kpis || {};
 
   const kpiGrid = document.getElementById('kpi-grid');
@@ -574,7 +691,7 @@ function renderDashboard() {
   const barsSource = Array.isArray(metrics.monthlyBars) ? metrics.monthlyBars : [];
   const monthlyChart = document.getElementById('monthly-chart');
   if (monthlyChart) {
-    const barNodes = barsSource.map((bar) => {
+    const barNodes = barsSource.map((bar, index) => {
       const km = Number(bar.km || 0);
       const h = Number(bar.height || 0);
       const node = cloneTemplate('monthly-bar-template') || document.createElement('article');
@@ -583,6 +700,7 @@ function renderDashboard() {
       if (barEl) {
         barEl.style.height = `${h}px`;
         barEl.title = `${km.toFixed(1)} km`;
+        barEl.style.background = `var(--z${(index % 5) + 1})`;
       }
       if (labelEl) {
         labelEl.replaceChildren(
@@ -620,7 +738,129 @@ function renderDashboard() {
 
   renderCoherence();
   renderProjections();
+  renderTrainingLoad();
   renderEF();
+  renderEfBpmChart();
+}
+
+function renderTrainingLoad() {
+  const wrap = document.getElementById('training-load-wrap');
+  if (!wrap) return;
+
+  const load = dashboardMetrics?.trainingLoad || {};
+  if (!load.hasData) {
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'block';
+
+  const statusEl = document.getElementById('training-load-status');
+  const ratioEl = document.getElementById('training-load-ratio');
+  const acuteEl = document.getElementById('training-load-acute');
+  const chronicEl = document.getElementById('training-load-chronic');
+  const deltaEl = document.getElementById('training-load-delta');
+  const recoEl = document.getElementById('training-load-reco');
+
+  setTrainingLoadStatusChip(statusEl, load);
+
+  if (ratioEl) ratioEl.textContent = load.ratio === null ? 'Ratio —' : `Ratio ${Number(load.ratio).toFixed(2)}`;
+  if (acuteEl) acuteEl.textContent = Number(load.acute || 0).toFixed(1);
+  if (chronicEl) chronicEl.textContent = Number(load.chronic || 0).toFixed(1);
+  if (deltaEl) {
+    const delta = Number(load.deltaPct || 0);
+    deltaEl.textContent = `${delta >= 0 ? '+' : ''}${delta}%`;
+    deltaEl.style.color = getTrainingLoadDeltaColor(delta);
+  }
+  if (recoEl) recoEl.textContent = load.recommendation || '';
+
+  renderTrainingLoadChart(Array.isArray(load.weekly) ? load.weekly : []);
+}
+
+function setTrainingLoadStatusChip(statusEl, load) {
+  if (!statusEl) return;
+  const statusColor = load.statusColor || 'var(--text)';
+  statusEl.textContent = load.statusLabel || 'Initialisation';
+  statusEl.style.color = statusColor;
+  statusEl.style.borderColor = `color-mix(in srgb, ${statusColor} 65%, var(--border))`;
+  statusEl.style.background = `color-mix(in srgb, ${statusColor} 16%, var(--surface2))`;
+}
+
+function getTrainingLoadDeltaColor(delta) {
+  if (delta > 15) return 'var(--accent3)';
+  if (delta < -15) return 'var(--z2)';
+  return 'var(--z1)';
+}
+
+function renderTrainingLoadChart(weeklyData) {
+  const container = document.getElementById('training-load-chart');
+  if (!container) return;
+
+  if (!Array.isArray(weeklyData) || weeklyData.length === 0) {
+    container.replaceChildren();
+    return;
+  }
+
+  const W = container.clientWidth || 600;
+  const H = 150;
+  const PAD = { top: 12, right: 12, bottom: 34, left: 28 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+  const maxVal = Math.max(1, ...weeklyData.map((w) => Number(w.load || 0)));
+  const barW = cW / weeklyData.length;
+
+  const svg = createSvgEl('svg', { width: W, height: H, xmlns: 'http://www.w3.org/2000/svg' });
+
+  const pts = [];
+  weeklyData.forEach((w, i) => {
+    const val = Number(w.load || 0);
+    const x = PAD.left + i * barW + (barW / 2);
+    const h = (val / maxVal) * cH;
+    const y = PAD.top + (cH - h);
+    const bw = Math.max(8, barW - 8);
+
+    svg.appendChild(createSvgEl('rect', {
+      x: (x - bw / 2).toFixed(1),
+      y: y.toFixed(1),
+      width: bw.toFixed(1),
+      height: h.toFixed(1),
+      rx: 3,
+      fill: 'color-mix(in srgb, var(--accent2) 72%, var(--surface2))',
+      opacity: 0.6,
+    }));
+
+    pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+
+    svg.appendChild(createSvgEl('text', {
+      x: x.toFixed(1),
+      y: (H - 4).toFixed(1),
+      'text-anchor': 'middle',
+      fill: 'var(--text-muted)',
+      'font-size': 8,
+      'font-family': 'monospace',
+    }, String(w.label || '—')));
+  });
+
+  svg.appendChild(createSvgEl('polyline', {
+    points: pts.join(' '),
+    fill: 'none',
+    stroke: 'var(--z1)',
+    'stroke-width': 1.8,
+    'stroke-opacity': 0.9,
+  }));
+
+  pts.forEach((p) => {
+    const [cx, cy] = p.split(',');
+    svg.appendChild(createSvgEl('circle', {
+      cx,
+      cy,
+      r: 2.6,
+      fill: 'var(--z1)',
+      stroke: 'var(--surface)',
+      'stroke-width': 1,
+    }));
+  });
+
+  container.replaceChildren(svg);
 }
 
 
@@ -791,6 +1031,120 @@ function renderEF() {
   efTbody.replaceChildren(...rows);
 
   document.getElementById('ef-meta').textContent = ef.meta || '';
+
+  renderEfBpmChart();
+}
+
+// ============================================================
+// EF BPM TREND CHART
+// ============================================================
+function renderEfBpmChart() {
+  const container = document.getElementById('ef-bpm-chart-container');
+  if (!container) return;
+
+  const metrics = dashboardMetrics || {};
+  const ef = metrics.ef || {};
+  const trend = Array.isArray(ef.efBpmTrend) ? ef.efBpmTrend : [];
+
+  if (trend.length < 2) {
+    container.style.display = 'none';
+    const wrap = document.getElementById('ef-bpm-wrap');
+    if (wrap) wrap.style.display = 'none';
+    return;
+  }
+
+  container.style.display = '';
+  const wrap = document.getElementById('ef-bpm-wrap');
+  if (wrap) wrap.style.display = '';
+
+  const W = container.clientWidth || 600;
+  const H = 160;
+  const PAD = { top: 16, right: 32, bottom: 36, left: 42 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+  const n = trend.length;
+
+  const bpms = trend.map((d) => d.bpm);
+  const minB = Math.min(...bpms) - 4;
+  const maxB = Math.max(...bpms) + 4;
+  const bpmRange = Math.max(1, maxB - minB);
+
+  const xSc = (i) => PAD.left + (i / Math.max(1, n - 1)) * cW;
+  const ySc = (v) => PAD.top + (1 - (v - minB) / bpmRange) * cH;
+
+  const svg = createSvgEl('svg', { width: W, height: H, xmlns: 'http://www.w3.org/2000/svg' });
+
+  // Grid lines + Y labels
+  const yTicks = [0, 0.25, 0.5, 0.75, 1];
+  yTicks.forEach((t) => {
+    const bVal = Math.round(minB + t * bpmRange);
+    const y = PAD.top + (1 - t) * cH;
+    svg.appendChild(createSvgEl('line', {
+      x1: PAD.left, y1: y.toFixed(1),
+      x2: W - PAD.right, y2: y.toFixed(1),
+      stroke: 'var(--border)', 'stroke-width': 0.7, 'stroke-dasharray': '2,3',
+    }));
+    svg.appendChild(createSvgEl('text', {
+      x: PAD.left - 5, y: (y + 4).toFixed(1),
+      'text-anchor': 'end', fill: 'var(--text-muted)', 'font-size': 9, 'font-family': 'monospace',
+    }, String(bVal)));
+  });
+
+  // X labels: show at most 6 evenly-spaced dates
+  const maxLabels = Math.min(n, 6);
+  const step = Math.max(1, Math.floor((n - 1) / (maxLabels - 1)));
+  for (let i = 0; i < n; i += step) {
+    const x = xSc(i);
+    const label = formatDate(trend[i].date);
+    svg.appendChild(createSvgEl('text', {
+      x: x.toFixed(1), y: H - 4,
+      'text-anchor': 'middle', fill: 'var(--text-muted)', 'font-size': 8, 'font-family': 'monospace',
+    }, label));
+  }
+
+  // Moving avg line (dashed, muted)
+  const avg3Pts = trend
+    .map((d, i) => d.avg3 === null ? null : `${xSc(i).toFixed(1)},${ySc(d.avg3).toFixed(1)}`)
+    .filter(Boolean);
+  if (avg3Pts.length > 1) {
+    svg.appendChild(createSvgEl('polyline', {
+      points: avg3Pts.join(' '),
+      fill: 'none', stroke: 'var(--accent2)', 'stroke-width': 1.5,
+      'stroke-opacity': 0.35, 'stroke-dasharray': '4,3',
+    }));
+  }
+
+  // BPM line
+  const bpmPts = trend.map((d, i) => `${xSc(i).toFixed(1)},${ySc(d.bpm).toFixed(1)}`).join(' ');
+  svg.appendChild(createSvgEl('polyline', {
+    points: bpmPts,
+    fill: 'none', stroke: 'var(--accent2)', 'stroke-width': 2, 'stroke-opacity': 0.85,
+  }));
+
+  // Dots
+  trend.forEach((d, i) => {
+    svg.appendChild(createSvgEl('circle', {
+      cx: xSc(i).toFixed(1), cy: ySc(d.bpm).toFixed(1),
+      r: 3.5, fill: 'var(--accent2)', stroke: 'var(--surface)', 'stroke-width': 1.5,
+    }));
+  });
+
+  // Legend
+  svg.appendChild(createSvgEl('circle', { cx: PAD.left + 8, cy: H - 20, r: 3.5, fill: 'var(--accent2)' }));
+  svg.appendChild(createSvgEl('text', {
+    x: PAD.left + 16, y: H - 16,
+    fill: 'var(--text-muted)', 'font-size': 9, 'font-family': 'monospace',
+  }, 'BPM EF'));
+  svg.appendChild(createSvgEl('line', {
+    x1: PAD.left + 70, y1: H - 20, x2: PAD.left + 82, y2: H - 20,
+    stroke: 'var(--accent2)', 'stroke-width': 1.5, 'stroke-dasharray': '4,3', 'stroke-opacity': 0.45,
+  }));
+  svg.appendChild(createSvgEl('text', {
+    x: PAD.left + 86, y: H - 16,
+    fill: 'var(--text-muted)', 'font-size': 9, 'font-family': 'monospace',
+  }, 'moy. mobile (3)'));
+
+  container.replaceChildren(svg);
 }
 
 function renderCoherence() {
@@ -890,16 +1244,21 @@ function openPlan(planId) {
   const extra = getExtraPlan(planId);
   if (!extra) return;
 
-  document.getElementById('plans-list').style.display = 'none';
-  document.getElementById('plans-list-header').style.display = 'none';
-  document.getElementById('plans-create-btn').style.display = 'none';
-  document.getElementById('plans-zone-legend').style.display = 'none';
-  document.getElementById('plans-detail').style.display = 'block';
+  const plansList = document.getElementById('plans-list');
+  if (plansList) plansList.style.display = 'none';
+  const plansListHeader = document.getElementById('plans-list-header');
+  if (plansListHeader) plansListHeader.style.display = 'none';
+  const plansCreateBtn = document.getElementById('plans-create-btn');
+  if (plansCreateBtn) plansCreateBtn.style.display = 'none';
+  const plansZoneLegend = document.getElementById('plans-zone-legend');
+  if (plansZoneLegend) plansZoneLegend.style.display = 'none';
+  const plansDetail = document.getElementById('plans-detail');
+  if (plansDetail) plansDetail.style.display = 'block';
 
   const deleteBtn = document.getElementById('delete-extra-btn');
   const editMetaBtn = document.getElementById('plans-edit-meta-btn');
-  deleteBtn.style.display = '';
-  editMetaBtn.style.display = '';
+  if (deleteBtn) deleteBtn.style.display = '';
+  if (editMetaBtn) editMetaBtn.style.display = '';
 
   const meta = { title: extra.title, sub: extra.sub || '' };
   const detailTitle = document.getElementById('plans-detail-title');
@@ -914,12 +1273,18 @@ function openPlan(planId) {
 
 function backToPlansList() {
   currentPlanId = null;
-  document.getElementById('plans-list').style.display = 'flex';
-  document.getElementById('plans-list-header').style.display = '';
-  document.getElementById('plans-create-btn').style.display = '';
-  document.getElementById('plans-zone-legend').style.display = '';
-  document.getElementById('plans-detail').style.display = 'none';
-  document.getElementById('plans-detail-weeks').replaceChildren();
+  const plansList = document.getElementById('plans-list');
+  if (plansList) plansList.style.display = 'flex';
+  const plansListHeader = document.getElementById('plans-list-header');
+  if (plansListHeader) plansListHeader.style.display = '';
+  const plansCreateBtn = document.getElementById('plans-create-btn');
+  if (plansCreateBtn) plansCreateBtn.style.display = '';
+  const plansZoneLegend = document.getElementById('plans-zone-legend');
+  if (plansZoneLegend) plansZoneLegend.style.display = '';
+  const plansDetail = document.getElementById('plans-detail');
+  if (plansDetail) plansDetail.style.display = 'none';
+  const plansDetailWeeks = document.getElementById('plans-detail-weeks');
+  if (plansDetailWeeks) plansDetailWeeks.replaceChildren();
   const crumbCurrent = document.getElementById('plans-crumb-current');
   if (crumbCurrent) crumbCurrent.textContent = '';
   renderPlansList();
@@ -1130,6 +1495,7 @@ function renderPlan(containerId, data, stateKey) {
         ? !!(getExtraPlan(stateKey.slice(6))?.done?.[idx])
         : !!state[stateKey]?.[idx];
       const row = cloneTemplate('plan-session-row-template') || document.createElement('div');
+      row.dataset.sessionIndex = String(idx);
       const checkEl = row.querySelector('.session-check');
       const formatEl = row.querySelector('.session-format');
       const dateEl = row.querySelector('.session-date-badge');
@@ -1182,19 +1548,19 @@ async function toggleSession(stateKey, idx, row) {
     const ep = getExtraPlan(stateKey.slice(6));
     if (!ep) return;
     ep.done[idx] = !ep.done[idx];
-    try {
-      await replacePlanSessionsInDb(ep.id, ep.sessions, ep.done);
-      await savePlanProgress(String(ep.id), idx, ep.done[idx]);
-    } catch (e) {
-      notify('⚠ ' + e.message);
-      return;
-    }
+    
+    // Update UI immediately
     const c = row.querySelector('.session-check');
     c.classList.toggle('done', !!ep.done[idx]);
     c.textContent = ep.done[idx] ? '✓' : '';
     renderPlansList();
-    requestDashboardRefresh();
     notify(ep.done[idx] ? '✓ Séance validée !' : 'Séance décochée');
+    
+    // Save in background (non-blocking)
+    replacePlanSessionsInDb(ep.id, ep.sessions, ep.done)
+      .then(() => savePlanProgress(String(ep.id), idx, ep.done[idx]))
+      .then(() => requestDashboardRefresh())
+      .catch(e => notify('⚠ Erreur de sauvegarde: ' + e.message));
     return;
   }
 
@@ -1202,16 +1568,15 @@ async function toggleSession(stateKey, idx, row) {
   const c = row.querySelector('.session-check');
   c.classList.toggle('done', !!state[stateKey][idx]);
   c.textContent = state[stateKey][idx] ? '✓' : '';
-
-  try {
-    await savePlanProgress(stateKey, idx, state[stateKey][idx]);
-    notify(state[stateKey][idx] ? '✓ Séance validée !' : 'Séance décochée');
-  } catch (e) {
-    notify('⚠ ' + e.message);
-  }
-
-  requestDashboardRefresh();
+  
+  // Update UI and lists immediately
   renderPlansList();
+  notify(state[stateKey][idx] ? '✓ Séance validée !' : 'Séance décochée');
+  
+  // Save in background (non-blocking)
+  savePlanProgress(stateKey, idx, state[stateKey][idx])
+    .then(() => requestDashboardRefresh())
+    .catch(e => notify('⚠ Erreur de sauvegarde: ' + e.message));
 }
 
 function openPlanEdit(stateKey, idx) {
@@ -1621,6 +1986,11 @@ async function deleteRace(id,name) {
 // INIT
 // ============================================================
 async function initApp() {
+  if (!authToken) {
+    globalThis.location.href = '/login';
+    return;
+  }
+
   // Verify token still valid
   let me = null;
   try {
@@ -1629,15 +1999,27 @@ async function initApp() {
     } else {
       me = await apiFetch('/auth/me');
     }
-    if (!me) return; // logout() already called
+    if (!me) {
+      logout();
+      return;
+    }
   } catch {
     logout(); return;
   }
 
+  const rawUsername = me?.username || me?.userIdentifier || me?.email;
+  const normalizedUsername = String(rawUsername || '').trim();
+  const invalidUsernames = new Set(['', 'inconnu', 'unknown', 'utilisateur', 'user', 'null', 'undefined']);
+
+  // If authenticated payload has no usable identity, force re-login
+  if (invalidUsernames.has(normalizedUsername.toLowerCase())) {
+    globalThis.location.href = '/login';
+    return;
+  }
+
   const usernameEl = document.getElementById('current-username');
   if (usernameEl) {
-    const rawUsername = me?.username || me?.userIdentifier || me?.email || 'inconnu';
-    usernameEl.textContent = formatDisplayName(rawUsername);
+    usernameEl.textContent = formatDisplayName(normalizedUsername);
   }
 
   await loadAllData();
@@ -1656,6 +2038,7 @@ async function initApp() {
   safeRender(renderDashboard, 'dashboard');
   safeRender(renderLog, 'log');
   safeRender(renderRaces, 'races');
+  safeRender(consumeAdviceFocusFromUrl, 'advice-focus-url');
 
   const today = new Date().toISOString().split('T')[0];
   const logDateEl = document.getElementById('log-date');

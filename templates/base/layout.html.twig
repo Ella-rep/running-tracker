@@ -4,13 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Running Tracker{% endblock %}</title>
-  <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=20260512-theme6">
+  <link rel="stylesheet" href="{{ asset('css/app.css') }}?v=20260513-split4">
   <script src="{{ asset('js/theme.js') }}?v=20260512-theme1"></script>
   <script src="{{ asset('js/auth.js') }}?v=20260512-auth1"></script>
+  {# Shell (header/nav) and components (modal/notif) loaded per-page context #}
   {% block stylesheets %}{% endblock %}
 </head>
 <body>
   {% block body %}{% endblock %}
+  {% include 'components/_app_footer.html.twig' %}
   {% block javascripts %}{% endblock %}
 </body>
 </html>

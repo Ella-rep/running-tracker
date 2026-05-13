@@ -1,6 +1,15 @@
 {% extends 'base/layout.html.twig' %}
 {% block title %}Running Tracker{% endblock %}
 
+{% block stylesheets %}
+  <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260513-shell1">
+  <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
+  <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260513-split1">
+  <link rel="stylesheet" href="{{ asset('css/plans.css') }}?v=20260513-split1">
+  <link rel="stylesheet" href="{{ asset('css/log.css') }}?v=20260513-split1">
+  <link rel="stylesheet" href="{{ asset('css/courses.css') }}?v=20260513-split1">
+{% endblock %}
+
 {% block body %}
 <header>
   <div class="header-left">
@@ -72,6 +81,20 @@
     <div class="progress-bar"><div class="progress-fill" id="tempo-bar"></div></div>
     <div class="progress-meta" id="tempo-meta"></div>
   </div>
+  <div class="chart-wrap" id="training-load-wrap">
+    <div class="chart-title">Charge d'entrainement</div>
+    <div class="training-load-head">
+      <span id="training-load-status" class="training-load-status">Initialisation</span>
+      <span id="training-load-ratio" class="training-load-ratio">Ratio —</span>
+    </div>
+    <div class="training-load-kpis">
+      <div class="training-load-kpi"><span>7 jours</span><strong id="training-load-acute">—</strong></div>
+      <div class="training-load-kpi"><span>Base 28j/4</span><strong id="training-load-chronic">—</strong></div>
+      <div class="training-load-kpi"><span>Ecart</span><strong id="training-load-delta">—</strong></div>
+    </div>
+    <div id="training-load-reco" class="training-load-reco"></div>
+    <div id="training-load-chart" class="training-load-chart"></div>
+  </div>
   <div class="chart-wrap">
     <div class="chart-title">Kilométrage mensuel (2026)</div>
     <div class="bar-chart" id="monthly-chart"></div>
@@ -122,6 +145,7 @@
       </div>
     </template>
   <div id="ef-chart-container" class="ef-chart-container"></div>
+  <div id="ef-bpm-chart-container" class="ef-bpm-chart-container"></div>
   <div id="ef-table-wrap" class="ef-table-wrap">
     <table class="ef-table">
       <thead><tr>
@@ -451,5 +475,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260512-theme5"></script>
+<script src="{{ asset('js/app.js') }}?v=20260513-loadv3"></script>
 {% endblock %}

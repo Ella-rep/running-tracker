@@ -1,6 +1,12 @@
 {% extends 'base/layout.html.twig' %}
 {% block title %}Log - Running Tracker{% endblock %}
 
+{% block stylesheets %}
+<link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260513-shell1">
+<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
+<link rel="stylesheet" href="{{ asset('css/log.css') }}?v=20260513-split1">
+{% endblock %}
+
 {% block body %}
 {% include 'components/_app_header.html.twig' with { current_page: 'log', username: username } %}
 
@@ -115,5 +121,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260512-theme5"></script>
+<script src="{{ asset('js/app.js') }}?v=20260513-loadv3"></script>
 {% endblock %}
