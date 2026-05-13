@@ -1,3 +1,20 @@
+# ── Stage 1 : vendor (composer install) ──────────────────────────────────────
+FROM composer:2 AS vendor
+
+WORKDIR /app
+
+COPY composer.json ./
+
+# No lock file in repository currently; install remains best-effort deterministic.
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --no-progress \
+    --prefer-dist \
+    --optimize-autoloader \
+    --classmap-authoritative \
+    --no-scripts
+
 # ── Image finale (repo, sans proxy) ──────────────────────────────────────────
 FROM php:8.4-fpm
 
@@ -42,6 +59,9 @@ WORKDIR /app
 
 # Code source complet
 COPY . .
+
+# Composer dependencies (required for Symfony runtime)
+COPY --from=vendor /app/vendor ./vendor
 
 # Permissions
 RUN mkdir -p var/cache var/log \
