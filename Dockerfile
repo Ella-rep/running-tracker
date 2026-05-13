@@ -1,22 +1,16 @@
 # ── Stage 1 : vendor (composer install) ──────────────────────────────────────
-FROM composer:2 AS vendor
+#FROM composer:2 AS vendor
 
-WORKDIR /app
+# Composer
 
-COPY composer.json ./
-
-# No lock file in repository currently; install remains best-effort deterministic.
-RUN composer install \
-    --no-dev \
-    --no-interaction \
-    --no-progress \
-    --prefer-dist \
-    --optimize-autoloader \
-    --classmap-authoritative \
-    --no-scripts
 
 # ── Image finale (repo, sans proxy) ──────────────────────────────────────────
 FROM php:8.4-fpm
+
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+WORKDIR /app
+
+COPY composer.json ./
 
 # Packages système
 RUN set -eux; \
@@ -30,14 +24,29 @@ RUN set -eux; \
         libpq-dev \
         libzip-dev \
         libicu-dev \
+        libxml2-dev \
         pkg-config \
         g++ \
         make \
-        autoconf; \
-    docker-php-ext-install -j"$(nproc)" pdo_pgsql pgsql zip intl opcache; \
-    docker-php-ext-enable opcache; \
+        autoconf \
+        unzip \
+        git; \
+    docker-php-ext-install -j"$(nproc)" pdo_pgsql pgsql zip intl xml opcache; \
+    docker-php-ext-enable xml opcache; \
     apt-get purge -y --auto-remove g++ make autoconf pkg-config; \
     rm -rf /var/lib/apt/lists/* /tmp/*
+
+COPY . .
+
+# Generate composer.lock and install dependencies
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --no-progress \
+    --prefer-dist \
+    --optimize-autoloader \
+    --classmap-authoritative \
+    --no-scripts
 
 # OPcache
 RUN { \
@@ -60,8 +69,6 @@ WORKDIR /app
 # Code source complet
 COPY . .
 
-# Composer dependencies (required for Symfony runtime)
-COPY --from=vendor /app/vendor ./vendor
 
 # Permissions
 RUN mkdir -p var/cache var/log \
