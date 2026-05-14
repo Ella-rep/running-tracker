@@ -7,9 +7,41 @@ Application de suivi running avec :
 - **Frontend** : Twig (pages) + JS vanilla (interactions via API)
 - **Déploiement** : Docker Compose (Debian + PHP 8.4-FPM + Nginx + PostgreSQL)
 
+## ✨ Fonctionnalités
+
+### 📊 Métriques de course
+- Suivi des sorties running avec distance, durée, vitesse moyenne
+- Calcul automatique du rythme (min/km) et de la vitesse (km/h)
+- Historique complet des performances avec graphiques d'évolution
+- Statistiques mensuelles/annuelles (distance totale, temps cumulé, nombre de sorties)
+
+### 🎯 Plans d'entraînement
+- Création de plans personnalisés avec objectifs de course
+- Suivi des séances d'entraînement (fractionné, endurance, récupération)
+- Coche automatique des séances réalisées
+- Progression visualisée avec indicateurs de réalisation
+
+### 🏁 Gestion des courses
+- Enregistrement des courses passées et futures
+- Suivi des performances par course (temps, classement, conditions météo)
+- Objectifs de course avec préparation personnalisée
+- Historique des participations et résultats
+
+### 💡 Conseils d'entraînement
+- Conseils adaptés basés sur les données de performance
+- Recommandations de récupération selon l'intensité des séances
+- Alertes sur la surcharge d'entraînement
+- Suggestions d'amélioration du rythme et de la forme physique
+
+### 🔐 Sécurité et confidentialité
+- Comptes utilisateurs isolés avec authentification JWT
+- Toutes les données personnelles et de performance sont privées
+- Chiffrement des mots de passe et des tokens de session
+
 ---
 
 ## Structure du projet
+
 
 ```
 running-symfony/
@@ -70,16 +102,9 @@ openssl rand -hex 32
 openssl rand -hex 16
 ```
 
-### 2. Build args disponibles (Dockerfile)
+### 2. Déploiement Docker
 
-Le Dockerfile supporte ces arguments de build :
-
-- `INSTALL_REMOTE_PROJECT` (default: `false`)
-- `branch_project_name` (default: `main`)
-- `git_project_account` (optionnel)
-- `git_project_account_secret` (optionnel)
-- `project_env` (optionnel)
-- `git_project_repo_url` (default: `https://github.com/Ella-rep/running-tracker.git`)
+Le projet se lance avec Docker Compose. Le `Dockerfile` ne dépend pas de build args spécifiques : la génération des clés JWT est exécutée au démarrage du conteneur par `docker/entrypoint.sh`.
 
 ### 3. Lancer en mode standard (recommandé)
 
@@ -87,30 +112,29 @@ Le Dockerfile supporte ces arguments de build :
 docker compose up -d --build
 ```
 
-### 4. Lancer avec récupération Git au build (optionnel)
+**Au premier démarrage**, le conteneur génère les clés JWT RSA, applique les migrations, chauffe le cache, puis démarre PHP-FPM et Nginx.
+
+### Commandes exécutées au démarrage :
 
 ```bash
-docker compose build app \
-  --build-arg INSTALL_REMOTE_PROJECT=true \
-  --build-arg branch_project_name=main \
-  --build-arg git_project_repo_url=https://github.com/Ella-rep/running-tracker.git \
-  --build-arg project_env=prod
-docker compose up -d
+# Migrations Doctrine
+php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+
+# Installation des assets
+php bin/console assets:install public --symlink --relative --env=prod
+
+# Cache warmup
+php bin/console cache:warmup --env=prod
+
+# Démarrage PHP-FPM (en arrière-plan)
+php-fpm -D
+
+# Attente du socket PHP-FPM
+until [ -S /run/php-fpm.sock ]; do sleep 0.2; done
+
+# Démarrage Nginx
+exec nginx -g "daemon off;"
 ```
-
-Exemple si le repo nécessite une authentification :
-
-```bash
-docker compose build app \
-  --build-arg INSTALL_REMOTE_PROJECT=true \
-  --build-arg branch_project_name=main \
-  --build-arg git_project_account=<user> \
-  --build-arg git_project_account_secret=<token>
-docker compose up -d
-```
-
-**Au premier démarrage**, le conteneur génère les clés JWT RSA,
-applique les migrations, chauffe le cache, puis démarre PHP-FPM et Nginx.
 
 → L'application est disponible sur **http://localhost:8080**
 → La doc API Swagger est sur **http://localhost:8080/api/docs**
@@ -243,15 +267,16 @@ docker compose up -d db
 # Installer les dépendances PHP
 composer install
 
-# Générer les clés JWT
-mkdir -p config/jwt
-openssl genpkey -algorithm RSA -out config/jwt/private.pem -pkeyopt rsa_keygen_bits:4096 \
-  -pass pass:changeme
-openssl pkey -in config/jwt/private.pem -out config/jwt/public.pem -pubout -passin pass:changeme
-
 # Créer le fichier .env.local
 cp .env.local.dist .env.local
-# Éditer DATABASE_URL pour pointer vers localhost:5432
+# Éditer APP_SECRET, JWT_PASSPHRASE et DATABASE_URL pour pointer vers localhost:5432
+
+# Générer les clés JWT
+mkdir -p config/jwt
+JWT_PASSPHRASE="$(grep '^JWT_PASSPHRASE=' .env.local | cut -d= -f2)"
+openssl genpkey -algorithm RSA -out config/jwt/private.pem -pkeyopt rsa_keygen_bits:4096 \
+  -pass pass:"$JWT_PASSPHRASE"
+openssl pkey -in config/jwt/private.pem -out config/jwt/public.pem -pubout -passin pass:"$JWT_PASSPHRASE"
 
 # Appliquer les migrations
 php bin/console doctrine:migrations:migrate
