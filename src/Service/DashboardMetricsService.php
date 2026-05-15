@@ -783,17 +783,21 @@ final class DashboardMetricsService
      */
     private function buildProjections(array $logs): array
     {
+        // Filtrer les logs valides: date presente, allure enregistree, et pas une course (RACE)
         $valid = array_values(array_filter($logs, function (RunLog $log): bool {
             return $log->getDate() !== '' && $this->paceToSeconds($log->getAllure()) !== null && strtoupper((string) ($log->getRunType() ?? '')) !== 'RACE';
         }));
 
+        // Trier par date decroissante (plus recent en premier)
         usort($valid, static fn (RunLog $a, RunLog $b) => strcmp($b->getDate(), $a->getDate()));
+        // Prendre les 5 dernières sorties valides pour calculer la tendance récente
         $recent = array_slice($valid, 0, 5);
 
         if (empty($recent)) {
             return [[], 'Pas encore assez de donnees.'];
         }
 
+        // Collecter les allures (en secondes) des 5 dernières sorties
         $paceSecList = [];
         $runsWithGap = 0;
 
@@ -802,12 +806,15 @@ final class DashboardMetricsService
             $allureSec = $this->paceToSeconds($log->getAllure());
             $hasDplus = ($log->getDplus() ?? 0) > 0;
 
+            // Priorité: utiliser le GAP (Gradient Adjusted Pace) si D+ est renseigné
+            // Car le GAP corrige l'allure en fonction du dénivelé
             if ($gapSec !== null && $hasDplus) {
                 $paceSecList[] = $gapSec;
                 $runsWithGap++;
                 continue;
             }
 
+            // Sinon, utiliser l'allure brute
             if ($allureSec !== null) {
                 $paceSecList[] = $allureSec;
             }
@@ -817,9 +824,12 @@ final class DashboardMetricsService
             return [[], 'Pas encore assez de donnees.'];
         }
 
+        // Calculer l'allure moyenne en secondes/km
         $avgSecPerKm = array_sum($paceSecList) / count($paceSecList);
+        // Temps de base pour 5 km à cette allure
         $base5k = $avgSecPerKm * 5;
 
+        // Distances cibles pour les projections
         $distances = [
             ['label' => '5 km', 'dist' => 5.0],
             ['label' => '10 km', 'dist' => 10.0],
@@ -830,12 +840,18 @@ final class DashboardMetricsService
 
         $projections = [];
         foreach ($distances as $idx => $d) {
+            // Formule de Riegel: T2 = T1 × (D2/D1)^1.06
+            // où 1.06 est un coefficient empirique qui tient compte de la fatigue
+            // Pour le 5 km, utiliser directement le temps calculé
+            // Pour les autres distances, appliquer le coefficient de Riegel
             $projected = $d['dist'] === 5.0
                 ? $base5k
                 : $base5k * pow($d['dist'] / 5.0, 1.06);
 
-            $timeSec = (int) round($projected);
-            $paceSec = (int) round($projected / $d['dist']);
+            // Multiplier le temps projeté par 1.22 (correction/facteur additionnel)
+            $timeSec = (int) round($projected * 1.22);
+            // Calculer l'allure moyenne pour cette distance
+            $paceSec = (int) round($timeSec / $d['dist']);
 
             $projections[] = [
                 'label' => $d['label'],
@@ -845,13 +861,14 @@ final class DashboardMetricsService
             ];
         }
 
+        // Construire le message de métadonnées
         $paceLabel = $runsWithGap > 0 ? 'GAP moy.' : 'Allure moy.';
         $avgAllureStr = $this->secondsToMmSs((int) round($avgSecPerKm));
         $gapNote = $runsWithGap > 0
             ? sprintf(' · %d/%d sorties avec D+ corrige (GAP)', $runsWithGap, count($recent))
             : ' · Aucun D+ renseigne - allure brute utilisee';
 
-        $meta = sprintf('%s des %d dernieres sorties: %s/km · Riegel (1.06)%s', $paceLabel, count($recent), $avgAllureStr, $gapNote);
+        $meta = sprintf('%s des %d dernieres sorties: %s/km · Riegel (1.06) × 1.22%s', $paceLabel, count($recent), $avgAllureStr, $gapNote);
 
         return [$projections, $meta];
     }
