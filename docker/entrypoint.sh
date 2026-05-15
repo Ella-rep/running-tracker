@@ -3,6 +3,18 @@ set -e
 
 cd /app
 
+echo "📚  Vérification des dépendances Composer..."
+if [ ! -f vendor/autoload.php ] || [ ! -d vendor/twig/extra-bundle ]; then
+    echo "➕  Installation des dépendances Composer (vendor manquant ou incomplet)"
+    composer install \
+        --no-dev \
+        --no-interaction \
+        --no-progress \
+        --prefer-dist \
+        --optimize-autoloader \
+        --classmap-authoritative
+fi
+
 echo "⏳  Attente de PostgreSQL sur db:5432..."
 until nc -z db 5432; do
     printf "."

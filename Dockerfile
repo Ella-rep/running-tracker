@@ -11,6 +11,11 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 WORKDIR /app
 
 COPY composer.json ./
+# Installer sans scripts (pas de kernel au build)
+# SYMFONY_ENV=prod évite que Flex pose des questions interactives
+ENV SYMFONY_ENV=prod
+RUN mkdir -p vendor
+
 
 # Packages système
 RUN set -eux; \
@@ -38,15 +43,7 @@ RUN set -eux; \
 
 COPY . .
 
-# Generate composer.lock and install dependencies
-RUN composer install \
-    --no-dev \
-    --no-interaction \
-    --no-progress \
-    --prefer-dist \
-    --optimize-autoloader \
-    --classmap-authoritative \
-    --no-scripts
+
 
 # OPcache
 RUN { \
