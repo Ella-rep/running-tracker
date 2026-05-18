@@ -263,6 +263,23 @@
   margin-bottom: 8px;
 }
 
+.plan-calendar-day-add {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.plan-calendar-day-add:hover {
+  border-color: var(--accent2);
+  color: var(--accent2);
+}
+
 .plan-calendar-day-num {
   font-size: 14px;
   font-weight: 800;
@@ -309,6 +326,12 @@
   border-left-color: var(--accent3);
   background: color-mix(in srgb, var(--accent3) 20%, var(--surface));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent3) 30%, transparent);
+}
+
+.plan-calendar-item.is-personal {
+  border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent);
 }
 
 .plan-calendar-item.is-race.is-done {

@@ -57,6 +57,7 @@ let racesData = [];
 let plansData = [];
 let dashboardAdvice = [];
 let dashboardMetrics = null;
+let calendarEventsData = [];
 let state     = { doneByKey: {}, planMeta: {}, extraPlans: [] };
 const WEATHER_CITY_STORAGE_KEY = 'rt_weather_city';
 
@@ -90,6 +91,25 @@ function formatDateForInput(value) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   if (!m) return '';
   return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+function normalizeCalendarEvent(row) {
+  const id = Number.parseInt(row?.id, 10);
+  return {
+    id: Number.isFinite(id) ? id : null,
+    date: normalizeDateForStorage(row?.date),
+    title: String(row?.title || '').trim(),
+  };
+}
+
+async function loadCalendarEvents() {
+  try {
+    const data = await apiFetch('/calendar/events');
+    const items = members(data?.items || data);
+    calendarEventsData = items.map(normalizeCalendarEvent).filter((e) => Number.isFinite(e.id) && e.date && e.title);
+  } catch {
+    calendarEventsData = [];
+  }
 }
 
 function buildUniquePlanName(baseName) {
@@ -318,6 +338,8 @@ async function loadAllData() {
     state.doneByKey[key] ??= {};
     state.doneByKey[key][c.sessionIndex] = !!c.done;
   });
+
+  await loadCalendarEvents();
 
   try {
     await loadPlansFromDb();
@@ -1076,6 +1098,22 @@ function renderPlanCalendar(calendar) {
     });
   });
 
+  const personalByDate = new Map();
+  (Array.isArray(calendarEventsData) ? calendarEventsData : []).forEach((evt) => {
+    if (!evt?.date) return;
+    if (!personalByDate.has(evt.date)) personalByDate.set(evt.date, []);
+    personalByDate.get(evt.date).push({
+      kind: 'personal',
+      personalId: evt.id,
+      date: evt.date,
+      label: 'Perso',
+      format: evt.title,
+      title: evt.title,
+      isDone: false,
+      isOptional: false,
+    });
+  });
+
   const days = Array.isArray(safeCalendar.days) ? safeCalendar.days : [];
   const nodes = days.map((day) => {
     const dayKey = normalizeDateForStorage(day?.date);
@@ -1091,7 +1129,8 @@ function renderPlanCalendar(calendar) {
       };
     });
     const raceItems = racesByDate.get(dayKey) || [];
-    const items = [...sessionItems, ...raceItems];
+    const personalItems = personalByDate.get(dayKey) || [];
+    const items = [...sessionItems, ...raceItems, ...personalItems];
 
     const cell = document.createElement('article');
     cell.className = 'plan-calendar-day';
@@ -1106,27 +1145,43 @@ function renderPlanCalendar(calendar) {
     num.textContent = String(day?.day ?? '');
     head.appendChild(num);
 
+    if (day?.inMonth && dayKey) {
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'plan-calendar-day-add';
+      addBtn.textContent = '+';
+      addBtn.title = 'Ajouter un evenement perso';
+      addBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openCalendarActionModal({ kind: 'personal', date: dayKey, title: '' });
+      });
+      head.appendChild(addBtn);
+    }
+
     const list = document.createElement('div');
     list.className = 'plan-calendar-items';
 
     items.forEach((item) => {
       const itemKind = item?.kind === 'race' ? 'race' : 'session';
+      const normalizedKind = item?.kind === 'personal' ? 'personal' : itemKind;
       const entry = document.createElement('div');
       entry.className = 'plan-calendar-item';
-      if (itemKind === 'race') entry.classList.add('is-race');
+      if (normalizedKind === 'race') entry.classList.add('is-race');
+      if (normalizedKind === 'personal') entry.classList.add('is-personal');
       if (item?.isDone) entry.classList.add('is-done');
       if (item?.isOptional) entry.classList.add('is-optional');
       entry.title = [item?.label, item?.format, item?.pe].filter(Boolean).join(' · ');
 
-      const hasRaceRef = itemKind === 'race' && Number.isFinite(Number(item?.raceId));
-      const hasSessionRef = itemKind === 'session' && Number.isFinite(Number(item?.detailId));
-      if (hasRaceRef || itemKind === 'session') {
+      const hasRaceRef = normalizedKind === 'race' && Number.isFinite(Number(item?.raceId));
+      const hasSessionRef = normalizedKind === 'session' && Number.isFinite(Number(item?.detailId));
+      if (hasRaceRef || normalizedKind === 'session' || normalizedKind === 'personal') {
         entry.classList.add('is-actionable');
         entry.tabIndex = 0;
         entry.setAttribute('role', 'button');
         const actionPayload = {
           ...item,
-          kind: itemKind,
+          kind: normalizedKind,
           date: dayKey,
           hasSessionRef,
         };
@@ -1144,7 +1199,10 @@ function renderPlanCalendar(calendar) {
 
       const label = document.createElement('div');
       label.className = 'plan-calendar-item-label';
-      label.textContent = itemKind === 'race' ? 'Course' : (item?.label || 'Séance');
+      let itemLabel = item?.label || 'Séance';
+      if (normalizedKind === 'race') itemLabel = 'Course';
+      if (normalizedKind === 'personal') itemLabel = 'Perso';
+      label.textContent = itemLabel;
       const format = document.createElement('div');
       format.className = 'plan-calendar-item-format';
       const suffix = item?.pe ? ` · ${item.pe}` : '';
@@ -2118,6 +2176,7 @@ function ensureCalendarActionModal() {
       title: document.getElementById('calendar-action-title'),
       subtitle: document.getElementById('calendar-action-subtitle'),
       inputWrap: document.getElementById('calendar-action-input-wrap'),
+      inputLabel: document.querySelector('label[for="calendar-race-result-input"]'),
       input: document.getElementById('calendar-race-result-input'),
       buttons: document.getElementById('calendar-action-buttons'),
     };
@@ -2153,6 +2212,7 @@ function ensureCalendarActionModal() {
     title: document.getElementById('calendar-action-title'),
     subtitle: document.getElementById('calendar-action-subtitle'),
     inputWrap: document.getElementById('calendar-action-input-wrap'),
+    inputLabel: document.querySelector('label[for="calendar-race-result-input"]'),
     input: document.getElementById('calendar-race-result-input'),
     buttons: document.getElementById('calendar-action-buttons'),
   };
@@ -2169,14 +2229,19 @@ function calendarActionButton(label, classes, onClick) {
 
 function openCalendarActionModal(item) {
   const modal = ensureCalendarActionModal();
-  if (!modal.overlay || !modal.buttons || !modal.title || !modal.subtitle || !modal.inputWrap || !modal.input) return;
+  if (!modal.overlay || !modal.buttons || !modal.title || !modal.subtitle || !modal.inputWrap || !modal.input || !modal.inputLabel) return;
 
   modal.buttons.replaceChildren();
-  modal.title.textContent = item?.kind === 'race' ? 'Actions course' : 'Actions seance';
+  let modalTitle = 'Actions seance';
+  if (item?.kind === 'race') modalTitle = 'Actions course';
+  if (item?.kind === 'personal') modalTitle = 'Evenement perso';
+  modal.title.textContent = modalTitle;
   modal.subtitle.textContent = [item?.label, item?.format, item?.pe].filter(Boolean).join(' · ');
 
   if (item?.kind === 'race') {
     modal.inputWrap.style.display = 'block';
+    modal.inputLabel.textContent = 'Resultat (hh:mm:ss)';
+    modal.input.placeholder = '00:53:22';
     modal.input.value = String(item?.result || '');
     modal.buttons.appendChild(calendarActionButton('Enregistrer resultat', 'btn', () => {
       void saveRaceResultFromCalendar(item, modal.input.value);
@@ -2188,8 +2253,22 @@ function openCalendarActionModal(item) {
       }
       globalThis.location.href = target.toString();
     }));
+  } else if (item?.kind === 'personal') {
+    modal.inputWrap.style.display = 'block';
+    modal.inputLabel.textContent = 'Titre';
+    modal.input.placeholder = 'Ex: Renfo, RDV kine, Repos';
+    modal.input.value = String(item?.title || item?.format || '');
+    modal.buttons.appendChild(calendarActionButton('Enregistrer', 'btn', () => {
+      void savePersonalEventFromCalendar(item, modal.input.value);
+    }));
+    if (String(item?.personalId || '').trim()) {
+      modal.buttons.appendChild(calendarActionButton('Supprimer', 'btn btn-ghost', () => {
+        void deletePersonalEventFromCalendar(item);
+      }));
+    }
   } else {
     modal.inputWrap.style.display = 'none';
+    modal.input.value = '';
     if (item?.hasSessionRef) {
       const nextDone = !item?.isDone;
       modal.buttons.appendChild(calendarActionButton(nextDone ? 'Valider la seance' : 'Retirer la validation', 'btn', () => {
@@ -2219,6 +2298,59 @@ function openCalendarActionModal(item) {
 
   modal.buttons.appendChild(calendarActionButton('Annuler', 'btn btn-ghost', () => closeModal('calendar-action-modal')));
   openModal('calendar-action-modal');
+}
+
+async function savePersonalEventFromCalendar(item, rawTitle) {
+  const title = String(rawTitle || '').trim();
+  const date = normalizeDateForStorage(item?.date);
+  if (!date) {
+    notify('⚠ Date invalide pour cet evenement');
+    return;
+  }
+  if (!title) {
+    notify('⚠ Le titre est obligatoire');
+    return;
+  }
+
+  const personalId = Number.parseInt(item?.personalId, 10);
+  try {
+    if (Number.isFinite(personalId)) {
+      await apiFetch(`/calendar/events/${personalId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ date, title }),
+      });
+    } else {
+      await apiFetch('/calendar/events', {
+        method: 'POST',
+        body: JSON.stringify({ date, title }),
+      });
+    }
+
+    await loadCalendarEvents();
+    closeModal('calendar-action-modal');
+    notify('✓ Evenement perso enregistre');
+    renderDashboard();
+  } catch (e) {
+    notify(`⚠ ${e?.message || 'Impossible d\'enregistrer l\'evenement'}`);
+  }
+}
+
+async function deletePersonalEventFromCalendar(item) {
+  const personalId = Number.parseInt(item?.personalId, 10);
+  if (!Number.isFinite(personalId)) {
+    notify('⚠ Evenement introuvable');
+    return;
+  }
+
+  try {
+    await apiFetch(`/calendar/events/${personalId}`, { method: 'DELETE' });
+    await loadCalendarEvents();
+    closeModal('calendar-action-modal');
+    notify('✓ Evenement perso supprime');
+    renderDashboard();
+  } catch (e) {
+    notify(`⚠ ${e?.message || 'Impossible de supprimer l\'evenement'}`);
+  }
 }
 
 async function toggleSessionDoneFromCalendar(item, nextDone) {
