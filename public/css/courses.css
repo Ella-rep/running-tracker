@@ -4,3 +4,13 @@
 .metric-dplus { color: var(--z3); }
 .diff-good { color: var(--z1); }
 .diff-bad { color: var(--accent3); }
+
+.action-btn.races-result:hover {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+
+.action-btn.races-result.has-value {
+	border-color: var(--z1);
+	color: var(--z1);
+}

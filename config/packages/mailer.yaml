@@ -1,0 +1,1 @@
+# Mailer désactivé: envoi géré via la fonction mail() native dans PasswordResetController.

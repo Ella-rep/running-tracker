@@ -19,6 +19,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: 'users')]
 #[UniqueEntity(fields: ['username'], message: "Ce nom d'utilisateur est déjà utilisé.")]
+#[UniqueEntity(fields: ['email'], message: 'Cette adresse email est déjà utilisée.')]
 #[ApiResource(
     operations: [
         new Get(
@@ -43,6 +44,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Groups(['user:read', 'user:write'])]
     private string $username = '';
 
+    #[ORM\Column(length: 180, unique: true, nullable: true)]
+    #[Assert\NotBlank(groups: ['Default'])]
+    #[Assert\Email]
+    #[Groups(['user:read', 'user:write'])]
+    private ?string $email = null;
+
     #[ORM\Column]
     private string $password = '';
 
@@ -57,6 +64,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     #[Groups(['user:read'])]
     private \DateTimeImmutable $createdAt;
+    
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $resetPasswordTokenHash = null;
+    
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $resetPasswordExpiresAt = null;
 
     #[ORM\OneToMany(targetEntity: RunLog::class, mappedBy: 'user', cascade: ['remove'])]
     private Collection $runLogs;
@@ -76,8 +89,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     }
 
     public function getId(): ?int { return $this->id; }
-    public function getUsername(): string { return $this->username; }
+    public function getUsername(): string { return $this->getUserIdentifier(); }
     public function setUsername(string $u): static { $this->username = $u; return $this; }
+    public function getEmail(): ?string { return $this->email; }
+    public function setEmail(?string $email): static { $this->email = $email !== null ? strtolower(trim($email)) : null; return $this; }
     public function getUserIdentifier(): string { return $this->username; }
     public function getPassword(): string { return $this->password; }
     public function setPassword(string $p): static { $this->password = $p; return $this; }
@@ -87,4 +102,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setRoles(array $r): static { $this->roles = $r; return $this; }
     public function eraseCredentials(): void { $this->plainPassword = null; }
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
+    
+    public function getResetPasswordTokenHash(): ?string { return $this->resetPasswordTokenHash; }
+    public function setResetPasswordTokenHash(?string $hash): static { $this->resetPasswordTokenHash = $hash; return $this; }
+    public function getResetPasswordExpiresAt(): ?\DateTimeImmutable { return $this->resetPasswordExpiresAt; }
+    public function setResetPasswordExpiresAt(?\DateTimeImmutable $expiresAt): static { $this->resetPasswordExpiresAt = $expiresAt; return $this; }
 }

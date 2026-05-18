@@ -11,7 +11,9 @@ class PageController extends AbstractController
     #[Route('/', name: 'app_home')]
     public function home(): Response
     {
-        return $this->redirectToRoute('app_login');
+        return $this->render('home/index.html.twig', [
+            'username' => $this->getUser()?->getUserIdentifier(),
+        ]);
     }
 
     /**
@@ -20,10 +22,6 @@ class PageController extends AbstractController
     #[Route('/login', name: 'app_login')]
     public function login(): Response
     {
-        if ($this->getUser()) {
-            return $this->redirectToRoute('app_dashboard');
-        }
-
         return $this->render('base/login.html.twig');
     }
 

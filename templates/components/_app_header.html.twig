@@ -4,6 +4,7 @@
     {% include 'components/_theme_toggle.html.twig' with { with_onclick: true } %}
   </div>
   <nav>
+    <a href="{{ path('app_home') }}" class="nav-link{{ current_page == 'home' ? ' active' : '' }}">Accueil</a>
     <a href="{{ path('app_dashboard') }}" class="nav-link{{ current_page == 'dashboard' ? ' active' : '' }}">Dashboard</a>
     <a href="{{ path('app_plans') }}" class="nav-link{{ current_page == 'plans' ? ' active' : '' }}">Plans</a>
     <a href="{{ path('app_log') }}" class="nav-link{{ current_page == 'log' ? ' active' : '' }}">Log</a>

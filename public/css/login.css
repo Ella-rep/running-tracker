@@ -26,12 +26,6 @@ body {
   z-index: 10;
 }
 
-#login-root {
-  width: 100%;
-  max-width: 400px;
-  padding: 20px;
-}
-
 .login-logo {
   font-family: 'Space Mono', monospace;
   font-size: 14px;
@@ -58,10 +52,22 @@ body {
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 36px;
+  width: 100%;
+  max-width: 400px;
+  box-sizing: border-box;
 }
 
 .login-error {
   color: var(--accent3);
+  font-size: 12px;
+  font-family: 'Space Mono', monospace;
+  min-height: 20px;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+.login-info {
+  color: var(--z1);
   font-size: 12px;
   font-family: 'Space Mono', monospace;
   min-height: 20px;
@@ -71,6 +77,25 @@ body {
 
 .login-submit-btn {
   width: 100%;
+}
+/* Forgot Password Link Styles */
+.forgot-password-link {
+    color: #7b7bff;
+    text-decoration: underline;
+    cursor: pointer;
+    margin-bottom: 1rem;
+    display: block;
+    text-align: center;
+    font-size: 0.95rem;
+}
+
+.login-actions {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.login-actions .login-toggle {
+  font-size: 11px;
 }
 
 .login-footer {
@@ -89,4 +114,23 @@ body {
   text-decoration: underline;
   font: inherit;
   padding: 0;
+  transition: color 0.2s;
+}
+
+[data-theme="light"] .login-toggle {
+  color: #1f6fc9;
+}
+
+.forgot-password-link {
+    color: #7b7bff;
+    text-decoration: underline;
+    cursor: pointer;
+    margin-bottom: 1rem;
+    display: block;
+    text-align: center;
+    font-size: 0.95rem;
+    transition: color 0.2s;
+}
+[data-theme="light"] .forgot-password-link {
+    color: #1f6fc9;
 }

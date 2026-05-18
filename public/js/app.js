@@ -57,7 +57,13 @@ let racesData = [];
 let plansData = [];
 let dashboardAdvice = [];
 let dashboardMetrics = null;
-let state     = { semiDone: {}, planMeta: {}, extraPlans: [] };
+let state     = { doneByKey: {}, planMeta: {}, extraPlans: [] };
+const WEATHER_CITY_STORAGE_KEY = 'rt_weather_city';
+
+function isExamplePlanName(name) {
+  const normalized = String(name || '').trim().toLowerCase();
+  return normalized === 'starter';
+}
 
 
 // Plans data always loaded from API—no localStorage caching
@@ -232,8 +238,8 @@ function mapDbRowsToPlans(rows, plans) {
       grouped[planId] = {
         id: planId,
         key: planKey,
-        title: planKey === 'semi' ? 'Plan Semi (exemple)' : planKey,
-        sub: planKey === 'semi' ? 'Plan fourni avec l\'application · blocs hebdomadaires' : '',
+        title: isExamplePlanName(planKey) ? 'Plan de depart (exemple)' : planKey,
+        sub: isExamplePlanName(planKey) ? 'Plan fourni avec l\'application · blocs hebdomadaires' : '',
         sessions: [],
         done: {},
       };
@@ -241,6 +247,7 @@ function mapDbRowsToPlans(rows, plans) {
 
     const idx = Math.max(0, (row.position || 1) - 1);
     grouped[planId].sessions[idx] = {
+      detailId: Number.parseInt(row.id, 10) || iriToId(row['@id']) || null,
       sem: row.sem,
       date: normalizeDateForStorage(row.sessionDate),
       format: row.format,
@@ -273,8 +280,8 @@ async function loadPlansFromDb() {
     mapped.push({
       id: plan.id,
       key: plan.name,
-      title: plan.name === 'semi' ? 'Plan Semi (exemple)' : plan.name,
-      sub: plan.name === 'semi' ? 'Plan fourni avec l\'application · blocs hebdomadaires' : '',
+      title: isExamplePlanName(plan.name) ? 'Plan de depart (exemple)' : plan.name,
+      sub: isExamplePlanName(plan.name) ? 'Plan fourni avec l\'application · blocs hebdomadaires' : '',
       sessions: [],
       done: {},
     });
@@ -283,10 +290,11 @@ async function loadPlansFromDb() {
   state.extraPlans = mapped;
 }
 
-async function initializeSemiPlan() {
-  const semiPlanRef = (plansData || []).find(p => p.name === 'semi');
-  if (!semiPlanRef) {
-    await createPlanInDb('semi');
+async function initializeStarterPlan() {
+  const examplePlanRef = (plansData || []).find(p => isExamplePlanName(p.name));
+  if (!examplePlanRef) {
+    // Creating the "starter" plan triggers backend starterSessions via PlanSessionService.
+    await createPlanInDb('starter');
     await loadPlansFromDb();
   }
 }
@@ -303,11 +311,12 @@ async function loadAllData() {
   logData   = members(logs).map(normalizeLog);
   racesData = members(races).map(normalizeRace);
 
-  state = { semiDone: {}, planMeta: {}, extraPlans: [] };
+  state = { doneByKey: {}, planMeta: {}, extraPlans: [] };
   checksList.forEach(c => {
-    if (state[c.planKey] !== undefined) {
-      state[c.planKey][c.sessionIndex] = c.done;
-    }
+    const key = String(c.planKey || '').trim();
+    if (!key) return;
+    state.doneByKey[key] ??= {};
+    state.doneByKey[key][c.sessionIndex] = !!c.done;
   });
 
   try {
@@ -322,7 +331,7 @@ async function loadAllData() {
       extra.done[c.sessionIndex] = !!c.done;
     });
 
-    await initializeSemiPlan();
+    await initializeStarterPlan();
     await loadDashboardMetrics();
   } catch {
     // Keep app usable even if plans endpoints are temporarily unavailable.
@@ -331,12 +340,34 @@ async function loadAllData() {
 }
 
 async function loadDashboardAdvice() {
+  const customCity = String(localStorage.getItem(WEATHER_CITY_STORAGE_KEY) || '').trim();
+  const path = customCity ? `/dashboard/advice?city=${encodeURIComponent(customCity)}` : '/dashboard/advice';
   try {
-    const data = await apiFetch('/dashboard/advice');
+    const data = await apiFetch(path);
     dashboardAdvice = members(data?.items || []);
+    return true;
   } catch {
     dashboardAdvice = [];
+    return false;
   }
+}
+
+function getWeatherAdviceItem() {
+  const weatherItem = (Array.isArray(dashboardAdvice) ? dashboardAdvice : []).find((item) =>
+    String(item?.title || '').toLowerCase().includes('meteo')
+  );
+  return weatherItem || null;
+}
+
+function getWeatherCityFeedback() {
+  const item = getWeatherAdviceItem();
+  if (!item) return null;
+
+  const message = String(item?.cityMessage || '').trim();
+  const status = String(item?.cityStatus || '').trim();
+  if (!message) return null;
+
+  return { message, status };
 }
 
 async function loadDashboardMetrics() {
@@ -362,8 +393,11 @@ async function savePlanProgress(planKey, sessionIndex, done) {
 
 function renderDashboardAdvice(metrics = {}) {
   const box = document.getElementById('dashboard-advice');
-  if (!box) return;
-  const items = Array.isArray(dashboardAdvice) ? [...dashboardAdvice] : [];
+  const weatherBox = document.getElementById('dashboard-weather');
+  if (!box || !weatherBox) return;
+  const sourceItems = Array.isArray(dashboardAdvice) ? [...dashboardAdvice] : [];
+  const weatherItem = sourceItems.find((item) => String(item?.title || '').toLowerCase().includes('meteo')) || null;
+  const items = sourceItems.filter((item) => item !== weatherItem);
 
   const load = metrics?.trainingLoad;
   if (load?.hasData) {
@@ -378,7 +412,7 @@ function renderDashboardAdvice(metrics = {}) {
       balanced: '✅',
       watch: '⚠️',
       high: '⛔',
-      under: '🟦',
+      under: '📉',
       initial: '🧭',
     };
 
@@ -392,7 +426,6 @@ function renderDashboardAdvice(metrics = {}) {
 
   if (!items.length) {
     box.replaceChildren();
-    return;
   }
 
   const clsForTone = (tone) => {
@@ -409,17 +442,27 @@ function renderDashboardAdvice(metrics = {}) {
     return;
   }
 
-  const stack = stackTpl.content.firstElementChild.cloneNode(true);
-  const nodes = items.map((item) => {
+  const createAdviceCard = (item) => {
     const card = itemTpl.content.firstElementChild.cloneNode(true);
     card.classList.add(clsForTone(item?.tone));
 
     const iconEl = card.querySelector('.advice-icon');
     const titleEl = card.querySelector('.advice-title');
+    const badgeEl = card.querySelector('.advice-badge');
     const textEl = card.querySelector('.advice-text');
 
     if (iconEl) iconEl.textContent = item?.icon || '💡';
     if (titleEl) titleEl.textContent = item?.title || 'Conseil du jour';
+    if (badgeEl) {
+      const badge = String(item?.badge || '').trim();
+      if (badge) {
+        badgeEl.textContent = badge;
+        badgeEl.style.display = '';
+      } else {
+        badgeEl.textContent = '';
+        badgeEl.style.display = 'none';
+      }
+    }
     if (textEl) textEl.textContent = item?.text || '';
 
     if (item?.actionType === 'openPlanSession' && Number.isFinite(Number(item?.actionPlanId))) {
@@ -434,10 +477,161 @@ function renderDashboardAdvice(metrics = {}) {
     }
 
     return card;
-  });
+  };
+
+  const stack = stackTpl.content.firstElementChild.cloneNode(true);
+  const nodes = items.map(createAdviceCard);
+
+  if (weatherItem) {
+    const weatherCard = createAdviceCard(weatherItem);
+    const weatherBadge = weatherCard.querySelector('.advice-badge');
+    if (weatherBadge) {
+      weatherBadge.classList.add('advice-badge-action');
+      weatherBadge.dataset.tooltip = 'Changer de ville';
+      weatherBadge.setAttribute('role', 'button');
+      weatherBadge.setAttribute('tabindex', '0');
+      weatherBadge.setAttribute('aria-label', 'Changer de ville');
+      weatherBadge.addEventListener('click', () => {
+        openWeatherCityModal();
+      });
+      weatherBadge.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openWeatherCityModal();
+        }
+      });
+    }
+    weatherBox.replaceChildren(weatherCard);
+  } else {
+    weatherBox.replaceChildren();
+  }
 
   stack.replaceChildren(...nodes);
   box.replaceChildren(stack);
+
+  updateWeatherCitySummary();
+}
+
+function setupWeatherCityControls() {
+  const input = document.getElementById('weather-city-input');
+  const applyBtn = document.getElementById('weather-city-apply');
+  const resetBtn = document.getElementById('weather-city-reset');
+  const openBtn = document.getElementById('weather-city-open');
+  const closeBtn = document.getElementById('weather-city-close');
+  const modal = document.getElementById('weather-city-modal');
+  if (!input || !applyBtn || !resetBtn || !closeBtn || !modal) return;
+
+  const saved = String(localStorage.getItem(WEATHER_CITY_STORAGE_KEY) || '').trim();
+  input.value = saved;
+  updateWeatherCitySummary();
+
+  const apply = async () => {
+    const city = String(input.value || '').trim();
+    if (city) {
+      localStorage.setItem(WEATHER_CITY_STORAGE_KEY, city);
+    } else {
+      localStorage.removeItem(WEATHER_CITY_STORAGE_KEY);
+    }
+
+    const loaded = await loadDashboardAdvice();
+    renderDashboardAdvice(dashboardMetrics || {});
+
+    if (!loaded) {
+      notify('⚠ Impossible de charger la meteo pour cette ville.');
+      return;
+    }
+
+    const feedback = getWeatherCityFeedback();
+    if (!feedback) {
+      notify(city ? `✓ Ville meteo appliquee: ${city}` : '✓ Ville meteo automatique');
+      return;
+    }
+
+    if (feedback.status === 'error') {
+      notify(`⚠ ${feedback.message}`);
+      return;
+    }
+
+    notify(`✓ ${feedback.message}`);
+    closeWeatherCityModal();
+  };
+
+  applyBtn.addEventListener('click', () => {
+    void apply();
+  });
+
+  resetBtn.addEventListener('click', () => {
+    input.value = '';
+    localStorage.removeItem(WEATHER_CITY_STORAGE_KEY);
+    void loadDashboardAdvice().then((loaded) => {
+      renderDashboardAdvice(dashboardMetrics || {});
+      if (!loaded) {
+        notify('⚠ Impossible de charger la meteo automatique.');
+        return;
+      }
+
+      const feedback = getWeatherCityFeedback();
+      notify(feedback?.message ? `✓ ${feedback.message}` : '✓ Ville meteo automatique');
+      closeWeatherCityModal();
+    });
+  });
+
+  if (openBtn) {
+    openBtn.addEventListener('click', () => {
+      openWeatherCityModal();
+    });
+  }
+
+  closeBtn.addEventListener('click', () => {
+    closeWeatherCityModal();
+  });
+
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) {
+      closeWeatherCityModal();
+    }
+  });
+
+  input.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    void apply();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && modal.classList.contains('open')) {
+      closeWeatherCityModal();
+    }
+  });
+}
+
+function openWeatherCityModal() {
+  const modal = document.getElementById('weather-city-modal');
+  const input = document.getElementById('weather-city-input');
+  if (!modal || !input) return;
+
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+  const saved = String(localStorage.getItem(WEATHER_CITY_STORAGE_KEY) || '').trim();
+  input.value = saved;
+  input.focus();
+  input.select();
+}
+
+function closeWeatherCityModal() {
+  const modal = document.getElementById('weather-city-modal');
+  if (!modal) return;
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden', 'true');
+}
+
+function updateWeatherCitySummary() {
+  const currentEl = document.getElementById('weather-city-current');
+  if (!currentEl) return;
+
+  const item = getWeatherAdviceItem();
+  const city = String(item?.appliedCity || item?.badge || '').trim();
+  currentEl.textContent = city || 'Auto';
 }
 
 function activatePlansSection() {
@@ -520,6 +714,91 @@ function consumeAdviceFocusFromUrl() {
     }
   };
   globalThis.setTimeout(tick, 80);
+}
+
+function consumePlanEditIntentFromUrl() {
+  const plansRoot = document.getElementById('plans-detail-weeks');
+  const planModal = document.getElementById('plan-modal');
+  if (!plansRoot || !planModal) return;
+
+  const params = new URLSearchParams(globalThis.location.search || '');
+  const rawDetailId = params.get('editSessionDetailId');
+  const rawPlanId = params.get('editPlanId');
+  const rawSessionIndex = params.get('editSessionIndex');
+  const rawSessionDate = normalizeDateForStorage(params.get('editSessionDate') || '');
+  const rawSessionFormat = String(params.get('editSessionFormat') || '').trim();
+
+  if (!rawDetailId && !rawPlanId && !rawSessionIndex && !rawSessionDate) return;
+
+  const detailId = Number(rawDetailId);
+  const hasDetailId = Number.isFinite(detailId);
+  const planId = Number(rawPlanId);
+  const hasPlanId = Number.isFinite(planId);
+  const requestedIndex = Number(rawSessionIndex);
+  const hasRequestedIndex = Number.isFinite(requestedIndex) && requestedIndex >= 0;
+
+  let targetPlan = null;
+  if (hasPlanId) {
+    targetPlan = getExtraPlan(planId);
+  }
+  if (!targetPlan && hasDetailId) {
+    targetPlan = (state.extraPlans || []).find((plan) =>
+      (Array.isArray(plan.sessions) ? plan.sessions : []).some((s) => Number(s?.detailId) === detailId)
+    ) || null;
+  }
+  if (!targetPlan && rawSessionDate) {
+    targetPlan = (state.extraPlans || []).find((plan) =>
+      (Array.isArray(plan.sessions) ? plan.sessions : []).some((s) => normalizeDateForStorage(s?.date) === rawSessionDate)
+    ) || null;
+  }
+  if (!targetPlan) return;
+
+  let idx = -1;
+  const sessions = Array.isArray(targetPlan.sessions) ? targetPlan.sessions : [];
+  if (hasDetailId) {
+    idx = sessions.findIndex((s) => Number(s?.detailId) === detailId);
+  }
+  if (idx < 0 && hasRequestedIndex && requestedIndex < sessions.length) {
+    idx = requestedIndex;
+  }
+  if (idx < 0 && rawSessionDate && rawSessionFormat) {
+    idx = sessions.findIndex((s) => normalizeDateForStorage(s?.date) === rawSessionDate && String(s?.format || '').trim() === rawSessionFormat);
+  }
+  if (idx < 0 && rawSessionDate) {
+    idx = sessions.findIndex((s) => normalizeDateForStorage(s?.date) === rawSessionDate);
+  }
+
+  openPlan(targetPlan.id);
+  if (idx >= 0) {
+    openPlanEdit(`extra:${targetPlan.id}`, idx);
+  }
+
+  const cleanUrl = new URL(globalThis.location.href);
+  cleanUrl.searchParams.delete('editSessionDetailId');
+  cleanUrl.searchParams.delete('editPlanId');
+  cleanUrl.searchParams.delete('editSessionIndex');
+  cleanUrl.searchParams.delete('editSessionDate');
+  cleanUrl.searchParams.delete('editSessionFormat');
+  globalThis.history.replaceState({}, '', `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`);
+}
+
+function consumeRaceEditIntentFromUrl() {
+  const raceModal = document.getElementById('race-modal');
+  if (!raceModal) return;
+
+  const params = new URLSearchParams(globalThis.location.search || '');
+  const rawRaceId = params.get('editRaceId');
+  if (!rawRaceId) return;
+
+  const raceId = Number(rawRaceId);
+  if (!Number.isFinite(raceId)) return;
+  if (!(Array.isArray(racesData) && racesData.some((r) => Number(r.id) === raceId))) return;
+
+  openRaceEdit(raceId);
+
+  const cleanUrl = new URL(globalThis.location.href);
+  cleanUrl.searchParams.delete('editRaceId');
+  globalThis.history.replaceState({}, '', `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`);
 }
 
 function iriToId(iri) {
@@ -620,7 +899,15 @@ function createSvgEl(tag, attrs = {}, text = null) {
 }
 function notify(msg) {
   const n=document.getElementById('notif');
-  n.textContent=msg; n.classList.add('show');
+  const text = String(msg || '');
+  let kind = 'info';
+  if (text.startsWith('⚠')) {
+    kind = 'error';
+  } else if (text.startsWith('✓')) {
+    kind = 'success';
+  }
+  n.textContent = text;
+  n.className = `notif notif-${kind} show`;
   setTimeout(()=>n.classList.remove('show'),2500);
 }
 function computeGAP(allureSec, km, dplus) {
@@ -684,9 +971,14 @@ function renderDashboard() {
   const progress = metrics.planProgress || { title: '', done: 0, total: 0, pct: 0 };
   const labelEl = document.getElementById('progress-plan-label');
   if (labelEl) labelEl.textContent = progress.title;
-  document.getElementById('tempo-pct').textContent=progress.pct+'%';
-  document.getElementById('tempo-bar').style.width=progress.pct+'%';
-  document.getElementById('tempo-meta').textContent=`${progress.done} / ${progress.total} séances complétées`;
+  const tempoPctEl = document.getElementById('tempo-pct');
+  if (tempoPctEl) tempoPctEl.textContent = progress.pct + '%';
+  const tempoBarEl = document.getElementById('tempo-bar');
+  if (tempoBarEl) tempoBarEl.style.width = progress.pct + '%';
+  const tempoMetaEl = document.getElementById('tempo-meta');
+  if (tempoMetaEl) tempoMetaEl.textContent = `${progress.done} / ${progress.total} séances complétées`;
+
+  renderPlanCalendar(metrics.planCalendar || null);
 
   const barsSource = Array.isArray(metrics.monthlyBars) ? metrics.monthlyBars : [];
   const monthlyChart = document.getElementById('monthly-chart');
@@ -741,6 +1033,132 @@ function renderDashboard() {
   renderTrainingLoad();
   renderEF();
   renderEfBpmChart();
+}
+
+function renderPlanCalendar(calendar) {
+  const wrap = document.getElementById('plan-calendar-wrap');
+  const grid = document.getElementById('plan-calendar-grid');
+  const titleEl = document.getElementById('plan-calendar-title');
+  const monthEl = document.getElementById('plan-calendar-month');
+  const summaryEl = document.getElementById('plan-calendar-summary');
+  const emptyEl = document.getElementById('plan-calendar-empty');
+  if (!wrap || !grid || !titleEl || !monthEl || !summaryEl || !emptyEl) return;
+
+  const safeCalendar = calendar && typeof calendar === 'object' ? calendar : {
+    title: 'Calendrier des séances prévues',
+    monthLabel: new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
+    summary: 'Aucune séance programmée ce mois-ci',
+    emptyMessage: 'Ajoute un plan avec des dates de séances pour remplir ce calendrier.',
+    days: [],
+  };
+
+  titleEl.textContent = safeCalendar.title || 'Calendrier des séances prévues';
+  monthEl.textContent = safeCalendar.monthLabel || '—';
+  summaryEl.textContent = safeCalendar.summary || '—';
+  emptyEl.textContent = safeCalendar.emptyMessage || '';
+  emptyEl.style.display = safeCalendar.emptyMessage ? 'block' : 'none';
+
+  const racesByDate = new Map();
+  (Array.isArray(racesData) ? racesData : []).forEach((race) => {
+    const dateKey = normalizeDateForStorage(race?.date);
+    if (!dateKey) return;
+    const raceResult = String(race?.result || '').trim();
+    if (!racesByDate.has(dateKey)) racesByDate.set(dateKey, []);
+    racesByDate.get(dateKey).push({
+      kind: 'race',
+      raceId: Number.parseInt(race?.id, 10),
+      label: race?.name || 'Course',
+      format: race?.distance ? String(race.distance) : 'Course',
+      pe: race?.objective ? `Obj ${race.objective}` : null,
+      result: raceResult,
+      isDone: raceResult.length > 0,
+      isOptional: false,
+    });
+  });
+
+  const days = Array.isArray(safeCalendar.days) ? safeCalendar.days : [];
+  const nodes = days.map((day) => {
+    const dayKey = normalizeDateForStorage(day?.date);
+    const sessionItems = (Array.isArray(day?.items) ? day.items : []).map((sessionItem) => {
+      const normalizedLabel = String(sessionItem?.label || '');
+      const sessionMatch = /seance\s+(\d+)/i.exec(normalizedLabel);
+      const parsedSessionNumber = Number.parseInt(sessionMatch?.[1] || '', 10);
+      return {
+        ...sessionItem,
+        kind: sessionItem?.kind || 'session',
+        date: dayKey,
+        sessionIndex: Number.isFinite(parsedSessionNumber) ? Math.max(0, parsedSessionNumber - 1) : null,
+      };
+    });
+    const raceItems = racesByDate.get(dayKey) || [];
+    const items = [...sessionItems, ...raceItems];
+
+    const cell = document.createElement('article');
+    cell.className = 'plan-calendar-day';
+    if (!day?.inMonth) cell.classList.add('is-outside');
+    if (day?.isToday) cell.classList.add('is-today');
+    if (items.length > 0) cell.classList.add('has-items');
+
+    const head = document.createElement('div');
+    head.className = 'plan-calendar-day-head';
+    const num = document.createElement('span');
+    num.className = 'plan-calendar-day-num';
+    num.textContent = String(day?.day ?? '');
+    head.appendChild(num);
+
+    const list = document.createElement('div');
+    list.className = 'plan-calendar-items';
+
+    items.forEach((item) => {
+      const itemKind = item?.kind === 'race' ? 'race' : 'session';
+      const entry = document.createElement('div');
+      entry.className = 'plan-calendar-item';
+      if (itemKind === 'race') entry.classList.add('is-race');
+      if (item?.isDone) entry.classList.add('is-done');
+      if (item?.isOptional) entry.classList.add('is-optional');
+      entry.title = [item?.label, item?.format, item?.pe].filter(Boolean).join(' · ');
+
+      const hasRaceRef = itemKind === 'race' && Number.isFinite(Number(item?.raceId));
+      const hasSessionRef = itemKind === 'session' && Number.isFinite(Number(item?.detailId));
+      if (hasRaceRef || itemKind === 'session') {
+        entry.classList.add('is-actionable');
+        entry.tabIndex = 0;
+        entry.setAttribute('role', 'button');
+        const actionPayload = {
+          ...item,
+          kind: itemKind,
+          date: dayKey,
+          hasSessionRef,
+        };
+        entry.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          openCalendarActionModal(actionPayload);
+        });
+        entry.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          openCalendarActionModal(actionPayload);
+        });
+      }
+
+      const label = document.createElement('div');
+      label.className = 'plan-calendar-item-label';
+      label.textContent = itemKind === 'race' ? 'Course' : (item?.label || 'Séance');
+      const format = document.createElement('div');
+      format.className = 'plan-calendar-item-format';
+      const suffix = item?.pe ? ` · ${item.pe}` : '';
+      format.textContent = `${item?.format || '—'}${suffix}`;
+
+      entry.append(label, format);
+      list.appendChild(entry);
+    });
+
+    cell.append(head, list);
+    return cell;
+  });
+
+  grid.replaceChildren(...nodes);
 }
 
 function renderTrainingLoad() {
@@ -1161,9 +1579,9 @@ function renderCoherence() {
     const node = cloneTemplate('coherence-alert-template') || document.createElement('div');
     if (a.ok) node.classList.add('alert-ok');
     const t = node.querySelector('.alert-title');
-    const m = node.querySelector('.alert-msg');
+    const m = node.querySelector('.alert-msg') || node.querySelector('.alert-body');
     if (t) t.textContent = `${a.ok ? '✓' : '⚠'} ${a.title}`;
-    if (m) m.textContent = a.msg;
+    if (m) m.textContent = String(a.msg || 'Aucun detail disponible.');
     return node;
   });
   section.replaceChildren(title, ...nodes);
@@ -1493,7 +1911,7 @@ function renderPlan(containerId, data, stateKey) {
       const idx = s.__idx;
       const done = stateKey.startsWith('extra:')
         ? !!(getExtraPlan(stateKey.slice(6))?.done?.[idx])
-        : !!state[stateKey]?.[idx];
+        : !!state.doneByKey?.[stateKey]?.[idx];
       const row = cloneTemplate('plan-session-row-template') || document.createElement('div');
       row.dataset.sessionIndex = String(idx);
       const checkEl = row.querySelector('.session-check');
@@ -1564,17 +1982,18 @@ async function toggleSession(stateKey, idx, row) {
     return;
   }
 
-  state[stateKey][idx] = !state[stateKey][idx];
+  state.doneByKey[stateKey] ??= {};
+  state.doneByKey[stateKey][idx] = !state.doneByKey[stateKey][idx];
   const c = row.querySelector('.session-check');
-  c.classList.toggle('done', !!state[stateKey][idx]);
-  c.textContent = state[stateKey][idx] ? '✓' : '';
+  c.classList.toggle('done', !!state.doneByKey[stateKey][idx]);
+  c.textContent = state.doneByKey[stateKey][idx] ? '✓' : '';
   
   // Update UI and lists immediately
   renderPlansList();
-  notify(state[stateKey][idx] ? '✓ Séance validée !' : 'Séance décochée');
+  notify(state.doneByKey[stateKey][idx] ? '✓ Séance validée !' : 'Séance décochée');
   
   // Save in background (non-blocking)
-  savePlanProgress(stateKey, idx, state[stateKey][idx])
+  savePlanProgress(stateKey, idx, state.doneByKey[stateKey][idx])
     .then(() => requestDashboardRefresh())
     .catch(e => notify('⚠ Erreur de sauvegarde: ' + e.message));
 }
@@ -1672,7 +2091,7 @@ function openModal(id){
   return false;
 }
 document.addEventListener('click',e=>{
-  ['plan-modal','log-modal','race-modal','newplan-modal','meta-modal'].forEach(id=>{
+  ['plan-modal','log-modal','race-modal','race-result-modal','newplan-modal','meta-modal'].forEach(id=>{
     const el=document.getElementById(id);
     if(e.target===el) el.classList.remove('open');
   });
@@ -1690,6 +2109,203 @@ function confirmDelete() {
   closeConfirm();
 }
 function closeConfirm(){document.getElementById('confirm-overlay').classList.remove('open');}
+
+function ensureCalendarActionModal() {
+  let overlay = document.getElementById('calendar-action-modal');
+  if (overlay) {
+    return {
+      overlay,
+      title: document.getElementById('calendar-action-title'),
+      subtitle: document.getElementById('calendar-action-subtitle'),
+      inputWrap: document.getElementById('calendar-action-input-wrap'),
+      input: document.getElementById('calendar-race-result-input'),
+      buttons: document.getElementById('calendar-action-buttons'),
+    };
+  }
+
+  overlay = document.createElement('div');
+  overlay.id = 'calendar-action-modal';
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <button class="modal-close" aria-label="Fermer">x</button>
+      <div class="modal-title" id="calendar-action-title">Actions calendrier</div>
+      <div class="calendar-action-sub" id="calendar-action-subtitle"></div>
+      <div class="field calendar-action-input" id="calendar-action-input-wrap" style="display:none">
+        <label for="calendar-race-result-input">Resultat (hh:mm:ss)</label>
+        <input type="text" id="calendar-race-result-input" placeholder="00:53:22">
+      </div>
+      <div class="modal-actions" id="calendar-action-buttons"></div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const closeBtn = overlay.querySelector('.modal-close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => closeModal('calendar-action-modal'));
+  }
+  overlay.addEventListener('click', (event) => {
+    if (event.target === overlay) closeModal('calendar-action-modal');
+  });
+
+  return {
+    overlay,
+    title: document.getElementById('calendar-action-title'),
+    subtitle: document.getElementById('calendar-action-subtitle'),
+    inputWrap: document.getElementById('calendar-action-input-wrap'),
+    input: document.getElementById('calendar-race-result-input'),
+    buttons: document.getElementById('calendar-action-buttons'),
+  };
+}
+
+function calendarActionButton(label, classes, onClick) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = classes;
+  button.textContent = label;
+  button.addEventListener('click', onClick);
+  return button;
+}
+
+function openCalendarActionModal(item) {
+  const modal = ensureCalendarActionModal();
+  if (!modal.overlay || !modal.buttons || !modal.title || !modal.subtitle || !modal.inputWrap || !modal.input) return;
+
+  modal.buttons.replaceChildren();
+  modal.title.textContent = item?.kind === 'race' ? 'Actions course' : 'Actions seance';
+  modal.subtitle.textContent = [item?.label, item?.format, item?.pe].filter(Boolean).join(' · ');
+
+  if (item?.kind === 'race') {
+    modal.inputWrap.style.display = 'block';
+    modal.input.value = String(item?.result || '');
+    modal.buttons.appendChild(calendarActionButton('Enregistrer resultat', 'btn', () => {
+      void saveRaceResultFromCalendar(item, modal.input.value);
+    }));
+    modal.buttons.appendChild(calendarActionButton('Modifier la course', 'btn btn-ghost', () => {
+      const target = new URL('/courses', globalThis.location.origin);
+      if (Number.isFinite(Number(item?.raceId))) {
+        target.searchParams.set('editRaceId', String(Number(item.raceId)));
+      }
+      globalThis.location.href = target.toString();
+    }));
+  } else {
+    modal.inputWrap.style.display = 'none';
+    if (item?.hasSessionRef) {
+      const nextDone = !item?.isDone;
+      modal.buttons.appendChild(calendarActionButton(nextDone ? 'Valider la seance' : 'Retirer la validation', 'btn', () => {
+        void toggleSessionDoneFromCalendar(item, nextDone);
+      }));
+    }
+    modal.buttons.appendChild(calendarActionButton('Modifier la seance', 'btn btn-ghost', () => {
+      const target = new URL('/plans', globalThis.location.origin);
+      if (Number.isFinite(Number(item?.detailId))) {
+        target.searchParams.set('editSessionDetailId', String(Number(item.detailId)));
+      }
+      if (Number.isFinite(Number(item?.planId))) {
+        target.searchParams.set('editPlanId', String(Number(item.planId)));
+      }
+      if (Number.isFinite(Number(item?.sessionIndex))) {
+        target.searchParams.set('editSessionIndex', String(Number(item.sessionIndex)));
+      }
+      if (item?.date) {
+        target.searchParams.set('editSessionDate', String(item.date));
+      }
+      if (item?.format) {
+        target.searchParams.set('editSessionFormat', String(item.format));
+      }
+      globalThis.location.href = target.toString();
+    }));
+  }
+
+  modal.buttons.appendChild(calendarActionButton('Annuler', 'btn btn-ghost', () => closeModal('calendar-action-modal')));
+  openModal('calendar-action-modal');
+}
+
+async function toggleSessionDoneFromCalendar(item, nextDone) {
+  const detailId = Number.parseInt(item?.detailId, 10);
+  if (!Number.isFinite(detailId)) {
+    notify('⚠ Seance non modifiable depuis ce calendrier');
+    return;
+  }
+
+  try {
+    const current = await apiFetch(`/plan_details/${detailId}`);
+    let planRef = null;
+    if (typeof current?.plan === 'string') {
+      planRef = current.plan;
+    } else {
+      const rawPlanId = iriToId(current?.plan?.['@id'] || current?.plan?.id);
+      if (Number.isFinite(rawPlanId)) {
+        planRef = `/api/plans/${rawPlanId}`;
+      }
+    }
+    if (!planRef) throw new Error('Plan introuvable');
+
+    const payload = {
+      plan: planRef,
+      position: Number(current?.position || 1),
+      sem: current?.sem ?? null,
+      sessionDate: normalizeDateForStorage(current?.sessionDate) || null,
+      format: current?.format || "45'@Z2",
+      pe: current?.pe || null,
+      totalMin: current?.totalMin ?? null,
+      isOptional: !!current?.isOptional,
+      isDone: !!nextDone,
+    };
+
+    await apiFetch(`/plan_details/${detailId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+
+    closeModal('calendar-action-modal');
+    if (nextDone) {
+      notify('✓ Seance validee');
+    } else {
+      notify('✓ Validation retiree');
+    }
+    requestDashboardRefresh();
+  } catch (e) {
+    notify('⚠ ' + e.message);
+  }
+}
+
+async function saveRaceResultFromCalendar(item, rawResult) {
+  const raceId = Number.parseInt(item?.raceId, 10);
+  if (!Number.isFinite(raceId)) {
+    notify('⚠ Course introuvable');
+    return;
+  }
+
+  const current = racesData.find((race) => race.id === raceId);
+  if (!current) {
+    notify('⚠ Course introuvable');
+    return;
+  }
+
+  try {
+    const updated = await apiFetch(`/races/${raceId}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        name: current.name || '',
+        date: current.date || '',
+        distance: current.distance || null,
+        objective: current.objective || null,
+        result: String(rawResult || '').trim() || null,
+      }),
+    });
+
+    const idx = racesData.findIndex((race) => race.id === raceId);
+    if (idx >= 0) racesData[idx] = normalizeRace(updated);
+
+    renderRaces();
+    closeModal('calendar-action-modal');
+    notify('✓ Resultat enregistre');
+    requestDashboardRefresh();
+  } catch (e) {
+    notify('⚠ ' + e.message);
+  }
+}
 
 // ============================================================
 // LOG
@@ -1884,6 +2500,7 @@ function buildRaceRow(r) {
   const objEl = row.querySelector('.races-obj');
   const realEl = row.querySelector('.races-real');
   const diffEl = row.querySelector('.races-diff');
+  const resultBtn = row.querySelector('.races-result');
   const editBtn = row.querySelector('.races-edit');
   const delBtn = row.querySelector('.races-delete');
 
@@ -1907,6 +2524,13 @@ function buildRaceRow(r) {
       span.textContent = diff;
       diffEl.replaceChildren(span);
     }
+  }
+  if (resultBtn) {
+    const hasResult = Boolean(String(r.result || '').trim());
+    resultBtn.title = hasResult ? 'Modifier résultat' : 'Saisir résultat';
+    resultBtn.setAttribute('aria-label', resultBtn.title);
+    resultBtn.classList.toggle('has-value', hasResult);
+    resultBtn.addEventListener('click', () => openRaceResult(r.id));
   }
   if (editBtn) editBtn.addEventListener('click', () => openRaceEdit(r.id));
   if (delBtn) delBtn.addEventListener('click', () => deleteRace(r.id, r.name));
@@ -1948,19 +2572,19 @@ function openRaceEdit(id) {
   document.getElementById('rm-date').value=r.date||'';
   document.getElementById('rm-dist').value=r.distance||'';
   document.getElementById('rm-obj').value=r.objective||'';
-  document.getElementById('rm-real').value=r.result||'';
   openModal('race-modal');
 }
 
 async function saveRaceEdit() {
   const id=Number.parseInt(document.getElementById('rm-idx').value, 10);
+  const current = racesData.find((r) => r.id === id);
   try {
     const updated=await apiFetch(`/races/${id}`,{method:'PUT',body:JSON.stringify({
       name:document.getElementById('rm-name').value,
       date:document.getElementById('rm-date').value,
       distance:document.getElementById('rm-dist').value||null,
       objective:document.getElementById('rm-obj').value||null,
-      result:document.getElementById('rm-real').value||null,
+      result:current?.result||null,
     })});
     const idx=racesData.findIndex(r=>r.id===id);
     if(idx>=0) racesData[idx]=normalizeRace(updated);
@@ -1969,6 +2593,44 @@ async function saveRaceEdit() {
     closeModal('race-modal');
     notify('✓ Course modifiée !');
   } catch(e){notify('⚠ '+e.message);}
+}
+
+function openRaceResult(id) {
+  const r = racesData.find((x) => x.id === id);
+  if (!r) return;
+  document.getElementById('rr-idx').value = id;
+  document.getElementById('rr-real').value = r.result || '';
+  openModal('race-result-modal');
+}
+
+async function saveRaceResult() {
+  const id = Number.parseInt(document.getElementById('rr-idx').value, 10);
+  const current = racesData.find((r) => r.id === id);
+  if (!current) {
+    notify('⚠ Course introuvable');
+    return;
+  }
+
+  try {
+    const updated = await apiFetch(`/races/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        name: current.name || '',
+        date: current.date || '',
+        distance: current.distance || null,
+        objective: current.objective || null,
+        result: document.getElementById('rr-real').value.trim() || null,
+      }),
+    });
+    const idx = racesData.findIndex((r) => r.id === id);
+    if (idx >= 0) racesData[idx] = normalizeRace(updated);
+    racesData.sort((a,b)=>new Date(a.date)-new Date(b.date));
+    renderRaces(); requestDashboardRefresh();
+    closeModal('race-result-modal');
+    notify('✓ Résultat enregistré !');
+  } catch (e) {
+    notify('⚠ ' + e.message);
+  }
 }
 
 async function deleteRace(id,name) {
@@ -2039,6 +2701,9 @@ async function initApp() {
   safeRender(renderLog, 'log');
   safeRender(renderRaces, 'races');
   safeRender(consumeAdviceFocusFromUrl, 'advice-focus-url');
+  safeRender(consumePlanEditIntentFromUrl, 'plan-edit-url');
+  safeRender(consumeRaceEditIntentFromUrl, 'race-edit-url');
+  safeRender(setupWeatherCityControls, 'weather-city-controls');
 
   const today = new Date().toISOString().split('T')[0];
   const logDateEl = document.getElementById('log-date');

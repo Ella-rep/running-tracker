@@ -25,14 +25,16 @@ final class DashboardAdviceService
         private RaceRepository $races,
         private PlanRepository $plans,
         private PlanDetailsRepository $planDetails,
+        private MeteoService $meteo,
     ) {}
 
     /**
      * @return array<int, array{title:string,text:string,tone:string,icon:string,color:string,badge:string}>
      */
-    public function build(User $user): array
+    public function build(User $user, ?string $city = null): array
     {
         $ctx = $this->buildContext($user);
+        $weatherAdvice = $this->meteo->buildDailyAdvice(city: $city);
 
         $advice = $this->matchPlannedAdvice($ctx)
             ?? $this->matchRaceAdvice($ctx)
@@ -40,7 +42,7 @@ final class DashboardAdviceService
             ?? $this->matchVolumeAdvice($ctx)
             ?? $this->buildDefaultAdvice($ctx['weekKm'], $ctx['weekCount']);
 
-        return [$advice];
+        return [$weatherAdvice, $advice];
     }
 
     /**
@@ -510,17 +512,17 @@ final class DashboardAdviceService
     {
         $plans = $this->plans->findBy(['user' => $user], ['id' => 'ASC']);
         $latestPersonalPlan = null;
-        $semiPlan = null;
+        $starterPlan = null;
 
         foreach ($plans as $plan) {
-            if ($plan->getName() === 'semi') {
-                $semiPlan = $plan;
+            if ($plan->getName() === 'starter') {
+                $starterPlan = $plan;
                 continue;
             }
             $latestPersonalPlan = $plan;
         }
 
-        return $latestPersonalPlan ?? $semiPlan;
+        return $latestPersonalPlan ?? $starterPlan;
     }
 
     private function sessionLabel(PlanDetails $session): string

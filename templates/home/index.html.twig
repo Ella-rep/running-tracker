@@ -1,0 +1,102 @@
+{% extends 'base/layout.html.twig' %}
+{% block title %}Accueil - Running Tracker{% endblock %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260513-shell1">
+<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
+<link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260518-home12">
+<link rel="stylesheet" href="{{ asset('css/home.css') }}?v=20260518-home1">
+{% endblock %}
+
+{% block body %}
+{% include 'components/_app_header.html.twig' with { current_page: 'home', username: username } %}
+
+<main>
+  <section id="dashboard" class="visible">
+    <div class="dashboard-topline">
+      <div class="dashboard-intro">
+        <div class="section-title">Accueil</div>
+        <div class="section-sub" id="dash-date">Chargement…</div>
+      </div>
+      <div id="dashboard-weather"></div>
+    </div>
+
+    <div id="dashboard-advice"></div>
+    <template id="dashboard-advice-stack-template">
+      <div class="advice-stack"></div>
+    </template>
+    <template id="dashboard-advice-item-template">
+      <article class="advice-card">
+        <div class="advice-icon"></div>
+        <div class="advice-content">
+          <h4 class="advice-title">Conseil du jour</h4>
+          <div class="advice-meta"><span class="advice-badge"></span></div>
+          <p class="advice-text"></p>
+        </div>
+      </article>
+    </template>
+
+    <div class="progress-section">
+      <div class="progress-label">
+        <span id="progress-plan-label">Progression du plan</span>
+        <span id="tempo-pct">—</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="tempo-bar"></div></div>
+      <div class="progress-meta" id="tempo-meta"></div>
+    </div>
+
+    <div class="chart-wrap plan-calendar-wrap" id="plan-calendar-wrap">
+      <div class="plan-calendar-head">
+        <div>
+          <div class="chart-title" id="plan-calendar-title">Calendrier des séances prévues</div>
+          <div class="plan-calendar-month" id="plan-calendar-month">—</div>
+        </div>
+        <div class="plan-calendar-summary" id="plan-calendar-summary">—</div>
+      </div>
+      <div class="plan-calendar-weekdays" aria-hidden="true">
+        <span>Lun</span><span>Mar</span><span>Mer</span><span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span>
+      </div>
+      <div class="plan-calendar-grid" id="plan-calendar-grid"></div>
+      <div class="plan-calendar-empty" id="plan-calendar-empty"></div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-header">📅 Prochaines courses</div>
+      <table>
+        <thead><tr><th>Course</th><th>Date</th><th>Distance</th><th>Objectif</th><th>Statut</th></tr></thead>
+        <tbody id="race-tbody"></tbody>
+      </table>
+      <template id="dashboard-race-row-template">
+        <tr>
+          <td class="dashboard-race-name"></td>
+          <td class="mono dashboard-race-date"></td>
+          <td class="dashboard-race-dist"></td>
+          <td class="mono dashboard-race-obj"></td>
+          <td><span class="badge dashboard-race-status"></span></td>
+        </tr>
+      </template>
+    </div>
+  </section>
+</main>
+
+<div class="notif" id="notif"></div>
+
+<div class="modal-overlay" id="weather-city-modal" aria-hidden="true">
+  <div class="modal weather-city-modal" aria-labelledby="weather-city-modal-title">
+    <button class="modal-close" id="weather-city-close" type="button" aria-label="Fermer">✕</button>
+    <div class="modal-title" id="weather-city-modal-title">Choisir la ville meteo</div>
+    <div class="weather-city-modal-form">
+      <label for="weather-city-input">Ville</label>
+      <input id="weather-city-input" type="text" placeholder="Ex: Lyon" maxlength="80">
+    </div>
+    <div class="modal-actions weather-city-modal-actions">
+      <button class="btn" id="weather-city-apply" type="button">Appliquer</button>
+      <button class="btn btn-ghost" id="weather-city-reset" type="button">Auto</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script src="{{ asset('js/app.js') }}?v=20260518-home11"></script>
+{% endblock %}

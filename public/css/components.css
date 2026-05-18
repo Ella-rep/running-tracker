@@ -2,15 +2,16 @@
 
 .notif {
   position: fixed;
-  bottom: 24px;
+  top: 86px;
   right: 24px;
-  background: var(--accent);
-  color: #000;
+  background: var(--surface-2, #1a1f2f);
+  color: var(--text, #f4f6ff);
+  border: 1px solid var(--border, rgba(255,255,255,0.18));
   padding: 12px 20px;
   border-radius: 8px;
   font-weight: 700;
   font-size: 13px;
-  transform: translateY(80px);
+  transform: translateY(-20px);
   opacity: 0;
   transition: all 0.3s ease;
   z-index: 999;
@@ -19,6 +20,24 @@
 .notif.show {
   transform: translateY(0);
   opacity: 1;
+}
+
+.notif.notif-success {
+  background: rgba(37, 120, 70, 0.95);
+  border-color: rgba(97, 236, 160, 0.55);
+  color: #ecfff5;
+}
+
+.notif.notif-error {
+  background: rgba(132, 40, 40, 0.95);
+  border-color: rgba(255, 131, 131, 0.6);
+  color: #fff1f1;
+}
+
+.notif.notif-info {
+  background: rgba(39, 72, 126, 0.95);
+  border-color: rgba(130, 181, 255, 0.6);
+  color: #eef5ff;
 }
 
 .action-btns {
@@ -48,6 +67,14 @@ tr:hover .action-btns,
   justify-content: center;
   transition: all 0.15s;
   flex-shrink: 0;
+}
+
+.action-btn.action-btn-text {
+  width: auto;
+  min-width: 26px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .action-btn:hover {

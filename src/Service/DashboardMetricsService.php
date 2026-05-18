@@ -5,6 +5,7 @@ namespace App\Service;
 use App\Entity\Race;
 use App\Entity\RunLog;
 use App\Entity\User;
+use App\Entity\Plan;
 use App\Repository\PlanDetailsRepository;
 use App\Repository\PlanRepository;
 use App\Repository\RaceRepository;
@@ -47,7 +48,8 @@ final class DashboardMetricsService
     *   },
     *   coherenceAlerts: array<int, array{ok:bool,title:string,msg:string}>,
     *   racesTable: array<int, array{statusClass:string,statusLabel:string,name:string,date:string,dist:string,obj:string,real:string}>,
-    *   planProgress: array{title:string,done:int,total:int,pct:int}
+    *   planProgress: array{title:string,done:int,total:int,pct:int},
+    *   planCalendar: array{title:string,monthLabel:string,summary:string,emptyMessage:string,days:array<int, array{date:string,day:int,inMonth:bool,isToday:bool,items:array<int, array{label:string,format:string,pe:?string,isDone:bool,isOptional:bool}>}>}
      * }
      */
     public function build(User $user): array
@@ -65,7 +67,7 @@ final class DashboardMetricsService
         $trainingLoad = $this->buildTrainingLoad($logs);
         $coherenceAlerts = $this->buildCoherenceAlerts($logs);
         $racesTable = $this->buildDashboardRacesTable($user);
-        $planProgress = $this->buildPlanProgress($user);
+        $planWidgets = $this->buildPlanWidgets($user);
 
         [$projections, $projectionsMeta] = $this->buildProjections($logs);
 
@@ -84,52 +86,163 @@ final class DashboardMetricsService
             'ef' => $ef,
             'coherenceAlerts' => $coherenceAlerts,
             'racesTable' => $racesTable,
-            'planProgress' => $planProgress,
+            'planProgress' => $planWidgets['progress'],
+            'planCalendar' => $planWidgets['calendar'],
         ];
     }
 
-    /** @return array{title:string,done:int,total:int,pct:int} */
-    private function buildPlanProgress(User $user): array
+    /**
+     * @return array{
+     *   progress: array{title:string,done:int,total:int,pct:int},
+    *   calendar: array{title:string,monthLabel:string,summary:string,emptyMessage:string,days:array<int, array{date:string,day:int,inMonth:bool,isToday:bool,items:array<int, array{kind:string,detailId:?int,planId:?int,label:string,format:string,pe:?string,isDone:bool,isOptional:bool}>}>}
+     * }
+     */
+    private function buildPlanWidgets(User $user): array
     {
         $plans = $this->plans->findBy(['user' => $user], ['id' => 'ASC']);
-        $latestPersonalPlan = null;
-        $semiPlan = null;
+        $selection = array_reduce($plans, static function (array $carry, Plan $plan): array {
+            if ($plan->getName() === 'starter') {
+                $carry['starter'] = $plan;
 
-        foreach ($plans as $plan) {
-            if ($plan->getName() === 'semi') {
-                $semiPlan = $plan;
-                continue;
+                return $carry;
             }
-            $latestPersonalPlan = $plan;
-        }
 
-        $targetPlan = $latestPersonalPlan ?? $semiPlan;
-        if (!$targetPlan) {
+            $carry['latest'] = $plan;
+
+            return $carry;
+        }, ['latest' => null, 'starter' => null]);
+
+        $targetPlan = $selection['latest'] ?? $selection['starter'];
+        $isExample = $selection['latest'] === null
+            && $selection['starter'] instanceof Plan;
+        $today = (new \DateTimeImmutable('today'))->setTime(0, 0, 0);
+        $monthNames = [
+            1 => 'janvier', 2 => 'fevrier', 3 => 'mars', 4 => 'avril', 5 => 'mai', 6 => 'juin',
+            7 => 'juillet', 8 => 'aout', 9 => 'septembre', 10 => 'octobre', 11 => 'novembre', 12 => 'decembre',
+        ];
+        $buildCalendar = static function (\DateTimeImmutable $monthStart, \DateTimeImmutable $today, array $itemsByDate, array $monthNames, string $summary, string $emptyMessage): array {
+            $calendarStart = $monthStart->modify(sprintf('-%d days', (int) $monthStart->format('N') - 1));
+            $days = [];
+
+            for ($i = 0; $i < 42; $i++) {
+                $dayDate = $calendarStart->modify(sprintf('+%d days', $i));
+                $dayKey = $dayDate->format('Y-m-d');
+                $days[] = [
+                    'date' => $dayKey,
+                    'day' => (int) $dayDate->format('j'),
+                    'inMonth' => $dayDate->format('Y-m') === $monthStart->format('Y-m'),
+                    'isToday' => $dayDate->format('Y-m-d') === $today->format('Y-m-d'),
+                    'items' => $itemsByDate[$dayKey] ?? [],
+                ];
+            }
+
+            $monthNumber = (int) $monthStart->format('n');
+
             return [
-                'title' => 'Progression du plan Semi (exemple)',
-                'done' => 0,
-                'total' => 0,
-                'pct' => 0,
+                'title' => 'Calendrier des seances prevues',
+                'monthLabel' => sprintf('%s %s', ucfirst($monthNames[$monthNumber] ?? $monthStart->format('F')), $monthStart->format('Y')),
+                'summary' => $summary,
+                'emptyMessage' => $emptyMessage,
+                'days' => $days,
+            ];
+        };
+
+        if (!$targetPlan instanceof Plan) {
+            $monthStart = $today->modify('first day of this month')->setTime(0, 0, 0);
+
+            return [
+                'progress' => [
+                    'title' => 'Progression du plan exemple',
+                    'done' => 0,
+                    'total' => 0,
+                    'pct' => 0,
+                ],
+                'calendar' => $buildCalendar(
+                    $monthStart,
+                    $today,
+                    [],
+                    $monthNames,
+                    'Aucune seance programmee ce mois-ci',
+                    'Ajoute un plan avec des dates de seances pour remplir ce calendrier.'
+                ),
             ];
         }
 
         $rows = $this->planDetails->findBy(['user' => $user, 'plan' => $targetPlan], ['position' => 'ASC']);
         $total = count($rows);
-        $done = 0;
-        foreach ($rows as $row) {
-            if ($row->isDone()) {
-                $done++;
+        $aggregates = array_reduce($rows, static function (array $carry, $row): array {
+            $carry['done'] += $row->isDone() ? 1 : 0;
+
+            $date = $row->getSessionDate();
+            if (!$date instanceof \DateTimeInterface) {
+                return $carry;
             }
+
+            $sessionDate = \DateTimeImmutable::createFromInterface($date)->setTime(0, 0, 0);
+            $dateKey = $sessionDate->format('Y-m-d');
+
+            $carry['datedRows'][] = $sessionDate;
+            $carry['itemsByDate'][$dateKey] ??= [];
+            $carry['itemsByDate'][$dateKey][] = [
+                'kind' => 'session',
+                'detailId' => $row->getId(),
+                'planId' => $row->getPlan()->getId(),
+                'label' => sprintf('Seance %d', $row->getPosition()),
+                'format' => $row->getFormat(),
+                'pe' => $row->getPe(),
+                'isDone' => $row->isDone(),
+                'isOptional' => $row->isOptional(),
+            ];
+
+            return $carry;
+        }, ['done' => 0, 'datedRows' => [], 'itemsByDate' => []]);
+
+        $done = $aggregates['done'];
+        $datedRows = $aggregates['datedRows'];
+        $itemsByDate = $aggregates['itemsByDate'];
+
+        usort($datedRows, static fn (\DateTimeImmutable $left, \DateTimeImmutable $right): int => $left <=> $right);
+
+        $monthStart = $today->modify('first day of this month')->setTime(0, 0, 0);
+        $currentMonthKey = $monthStart->format('Y-m');
+        $datedMonthKeys = array_values(array_unique(array_map(static fn (\DateTimeImmutable $sessionDate): string => $sessionDate->format('Y-m'), $datedRows)));
+        $futureDates = array_values(array_filter($datedRows, static fn (\DateTimeImmutable $sessionDate): bool => $sessionDate >= $today));
+        $visibleMonthKey = $currentMonthKey;
+
+        if (!in_array($currentMonthKey, $datedMonthKeys, true)) {
+            $visibleMonthKey = $futureDates[0]->format('Y-m') ?? ($datedMonthKeys[0] ?? $currentMonthKey);
         }
-        $pct = $total > 0 ? (int) round(($done / $total) * 100) : 0;
+        if ($visibleMonthKey !== $currentMonthKey) {
+            $monthStart = new \DateTimeImmutable($visibleMonthKey . '-01');
+        }
+
+        $monthKey = $monthStart->format('Y-m');
+        $visibleDates = array_filter($datedRows, static fn (\DateTimeImmutable $sessionDate): bool => $sessionDate->format('Y-m') === $monthKey);
+        $visibleCount = count($visibleDates);
+        $progressTitle = $isExample
+            ? 'Progression du plan exemple'
+            : sprintf('Progression du plan %s', $targetPlan->getName());
+        $summary = 'Aucune seance programmee ce mois-ci';
+        if ($visibleCount > 0) {
+            $pluralSuffix = $visibleCount > 1 ? 's' : '';
+            $summary = sprintf('%d seance%s programmee%s', $visibleCount, $pluralSuffix, $pluralSuffix);
+        }
 
         return [
-            'title' => $latestPersonalPlan
-                ? sprintf('Progression du plan %s', $targetPlan->getName())
-                : 'Progression du plan Semi (exemple)',
-            'done' => $done,
-            'total' => $total,
-            'pct' => $pct,
+            'progress' => [
+                'title' => $progressTitle,
+                'done' => $done,
+                'total' => $total,
+                'pct' => $total > 0 ? (int) round(($done / $total) * 100) : 0,
+            ],
+            'calendar' => $buildCalendar(
+                $monthStart,
+                $today,
+                $itemsByDate,
+                $monthNames,
+                $summary,
+                $datedRows === [] ? 'Ajoute des dates a ton plan pour voir les seances sur le calendrier.' : ''
+            ),
         ];
     }
 
@@ -322,9 +435,9 @@ final class DashboardMetricsService
             $lastAvg = array_sum(array_map(fn (RunLog $r): int => $this->paceToSeconds($r->getAllure()) ?? 0, $last)) / max(1, count($last));
             $delta = (int) round($firstAvg - $lastAvg);
 
-            if ($delta >= 8) {
+            if ($delta > 15) {
                 $alerts[] = ['ok' => true, 'title' => 'Progression allure', 'msg' => sprintf('Amelioration moyenne de %s/km entre les premieres et dernieres sorties.', substr($this->secondsToDuration($delta), 3))];
-            } elseif ($delta <= -8) {
+            } elseif ($delta < -15) {
                 $alerts[] = ['ok' => false, 'title' => 'Progression allure', 'msg' => sprintf('Allure moyenne en baisse de %s/km sur les dernieres sorties.', substr($this->secondsToDuration(-$delta), 3))];
             } else {
                 $alerts[] = ['ok' => true, 'title' => 'Progression allure', 'msg' => 'Allure globalement stable sur la periode recente.'];
@@ -826,9 +939,6 @@ final class DashboardMetricsService
 
         // Calculer l'allure moyenne en secondes/km
         $avgSecPerKm = array_sum($paceSecList) / count($paceSecList);
-        // Temps de base pour 5 km à cette allure
-        $base5k = $avgSecPerKm * 5;
-
         // Distances cibles pour les projections
         $distances = [
             ['label' => '5 km', 'dist' => 5.0],
@@ -840,16 +950,8 @@ final class DashboardMetricsService
 
         $projections = [];
         foreach ($distances as $idx => $d) {
-            // Formule de Riegel: T2 = T1 × (D2/D1)^1.06
-            // où 1.06 est un coefficient empirique qui tient compte de la fatigue
-            // Pour le 5 km, utiliser directement le temps calculé
-            // Pour les autres distances, appliquer le coefficient de Riegel
-            $projected = $d['dist'] === 5.0
-                ? $base5k
-                : $base5k * pow($d['dist'] / 5.0, 1.06);
-
-            // Multiplier le temps projeté par 1.22 (correction/facteur additionnel)
-            $timeSec = (int) round($projected * 1.22);
+            // Projection simplifiee: allure moyenne x distance, puis facteur 1.22.
+            $timeSec = (int) round($avgSecPerKm * $d['dist'] * 1.22);
             // Calculer l'allure moyenne pour cette distance
             $paceSec = (int) round($timeSec / $d['dist']);
 
@@ -868,7 +970,7 @@ final class DashboardMetricsService
             ? sprintf(' · %d/%d sorties avec D+ corrige (GAP)', $runsWithGap, count($recent))
             : ' · Aucun D+ renseigne - allure brute utilisee';
 
-        $meta = sprintf('%s des %d dernieres sorties: %s/km · Riegel (1.06) × 1.22%s', $paceLabel, count($recent), $avgAllureStr, $gapNote);
+        $meta = sprintf('%s des %d dernieres sorties: %s/km · Projection: allure moyenne × 1.22%s', $paceLabel, count($recent), $avgAllureStr, $gapNote);
 
         return [$projections, $meta];
     }

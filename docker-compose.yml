@@ -35,12 +35,13 @@ services:
     container_name: runtracker_app
     restart: unless-stopped
     working_dir: /app
+    env_file:
+      - .env.local
     ports:
       - "${APP_PORT:-8080}:80"
     networks:
       - network1
     environment:
-      APP_ENV: ${APP_ENV:-prod}
       APP_SECRET: ${APP_SECRET:-change_me_generate_with_openssl_rand_hex_32}
       DATABASE_HOST: db
       DATABASE_PORT: 5432
@@ -51,9 +52,16 @@ services:
       DEFAULT_URI: ${DEFAULT_URI:-http://localhost}
       JWT_SECRET_KEY: /app/config/jwt/private.pem
       JWT_PUBLIC_KEY: /app/config/jwt/public.pem
-      JWT_PASSPHRASE: ${JWT_PASSPHRASE:-change_me_jwt_passphrase}
+      JWT_PASSPHRASE: adae0244853d5730e87d0a180763eed5
       JWT_TTL: ${JWT_TTL:-604800}
       CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-'^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$'}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-no-reply@runtracker.local}
+      SMTP_TLS: ${SMTP_TLS:-on}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-on}
       
     volumes:
       - jwt_keys:/app/config/jwt

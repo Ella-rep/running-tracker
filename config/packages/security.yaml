@@ -15,18 +15,8 @@ security:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
             security: false
 
-        api_login:
-            pattern: ^/api/auth/login
-            stateless: true
-            json_login:
-                check_path: /api/auth/login
-                username_path: username
-                password_path: password
-                success_handler: lexik_jwt_authentication.handler.authentication_success
-                failure_handler: lexik_jwt_authentication.handler.authentication_failure
-
-        api_register:
-            pattern: ^/api/auth/register
+        api_public_auth:
+            pattern: ^/api/auth/(login|register|reset-password/request|reset-password/confirm)$
             stateless: true
             security: false
 
@@ -42,7 +32,7 @@ security:
 
     access_control:
         - { path: ^/api/auth/login,    roles: PUBLIC_ACCESS }
-        - { path: ^/api/auth/register, roles: PUBLIC_ACCESS }
+        - { path: ^/api/auth/(login|register|reset-password/request|reset-password/confirm)$, roles: PUBLIC_ACCESS }
         - { path: ^/api/docs,          roles: PUBLIC_ACCESS }
         - { path: ^/api,               roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/,                  roles: PUBLIC_ACCESS }

@@ -9,8 +9,8 @@
     --accent3: #ff8e8e;
     --text: #f4f6fb;
     --text-muted: #adb3bf;
-    --z1: #8de1b8;
-    --z2: #8ac5ff;
+    --z1: #8ac5ff;
+    --z2: #8de1b8;
     --z3: #ffd27e;
     --z4: #b69aff;
     --z5: #ff8e8e;
@@ -37,13 +37,13 @@
     --surface: #ffffff;
     --surface2: #f1f4fa;
     --border: #d9e0ec;
-    --accent: #1f6fc9;
-    --accent2: #d7a344;
-    --accent3: #e46f7f;
+    --accent: #4d9eee;
+    --accent2: #d96a74;
+    --accent3: #d7a344;
     --text: #1b2533;
     --text-muted: #5c6f8a;
     --z1: #27b07c;
-    --z2: #3f8cff;
+    --z2: #4d9eee;
     --z3: #d7a344;
     --z4: #8f73df;
     --z5: #d96a74;
@@ -71,11 +71,24 @@
     background: radial-gradient(circle at top center, rgba(154,140,255,0.08), transparent 42%), var(--bg);
     color: var(--text);
     min-height: 100vh;
+    display: flex;
+    flex-direction: column;
     overflow-x: hidden;
   }
 
   /* MAIN */
-  main { padding: 32px; max-width: 1200px; margin: 0 auto; }
+  main {
+    flex: 1 0 auto;
+    width: 100%;
+    padding: 32px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .app-footer {
+    margin-top: auto;
+    flex-shrink: 0;
+  }
 
   section { display: none; }
   section.visible { display: block; }

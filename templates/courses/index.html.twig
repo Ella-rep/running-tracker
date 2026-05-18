@@ -4,7 +4,7 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260513-shell1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
-<link rel="stylesheet" href="{{ asset('css/courses.css') }}?v=20260513-split1">
+<link rel="stylesheet" href="{{ asset('css/courses.css') }}?v=20260518-courses3">
 {% endblock %}
 
 {% block body %}
@@ -41,7 +41,8 @@
           <td class="mono races-diff"></td>
           <td>
             <div class="action-btns">
-              <button class="action-btn races-edit">✏️</button>
+              <button class="action-btn action-btn-text races-result" title="Saisir résultat">Résultat</button>
+              <button class="action-btn action-btn-text races-edit" title="Modifier la course">Modifier</button>
               <button class="action-btn del races-delete">🗑</button>
             </div>
           </td>
@@ -76,7 +77,6 @@
       <div class="field"><label for="rm-date">Date</label><input type="date" id="rm-date" placeholder="jj/mm/yyyy"></div>
       <div class="field"><label for="rm-dist">Distance</label><input type="text" id="rm-dist"></div>
       <div class="field"><label for="rm-obj">Objectif</label><input type="text" id="rm-obj" placeholder="hh:mm:ss"></div>
-      <div class="field"><label for="rm-real">Résultat</label><input type="text" id="rm-real" placeholder="hh:mm:ss"></div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="saveRaceEdit()">Enregistrer</button>
@@ -84,8 +84,24 @@
     </div>
   </div>
 </div>
+
+<div class="modal-overlay" id="race-result-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('race-result-modal')">✕</button>
+    <div class="modal-title">Saisir le résultat</div>
+    <input type="hidden" id="rr-idx">
+    <div class="section-sub">Cette action met à jour uniquement le résultat final de la course.</div>
+    <div class="form-grid">
+      <div class="field"><label for="rr-real">Résultat (hh:mm:ss)</label><input type="text" id="rr-real" placeholder="00:53:22"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="saveRaceResult()">Enregistrer le résultat</button>
+      <button class="btn btn-ghost" onclick="closeModal('race-result-modal')">Annuler</button>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260513-loadv3"></script>
+<script src="{{ asset('js/app.js') }}?v=20260518-courses3"></script>
 {% endblock %}

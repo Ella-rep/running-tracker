@@ -4,7 +4,7 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260513-shell1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
-<link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260513-split1">
+<link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260518-home10">
 {% endblock %}
 
 {% block body %}
@@ -14,19 +14,6 @@
   <section id="dashboard" class="visible">
     <div class="section-title">Vue d'ensemble 🏃</div>
     <div class="section-sub" id="dash-date">Chargement…</div>
-    <div id="dashboard-advice"></div>
-    <template id="dashboard-advice-stack-template">
-      <div class="advice-stack"></div>
-    </template>
-    <template id="dashboard-advice-item-template">
-      <article class="advice-card">
-        <div class="advice-icon"></div>
-        <div class="advice-content">
-          <h4 class="advice-title">Conseil du jour</h4>
-          <p class="advice-text"></p>
-        </div>
-      </article>
-    </template>
 
     <div class="kpi-grid" id="kpi-grid"></div>
     <template id="dashboard-kpi-template">
@@ -55,52 +42,14 @@
       <div class="chart-title">Suivi BPM — Endurance Fondamentale</div>
       <div id="ef-bpm-chart-container" class="ef-bpm-chart-container"></div>
     </div>
-    <div class="progress-section">
-      <div class="progress-label">
-        <span id="progress-plan-label">Progression du plan</span>
-        <span id="tempo-pct">—</span>
-      </div>
-      <div class="progress-bar"><div class="progress-fill" id="tempo-bar"></div></div>
-      <div class="progress-meta" id="tempo-meta"></div>
-    </div>
     <div class="chart-wrap" id="training-load-wrap">
       <div class="chart-title">Charge d'entrainement</div>
-      <div class="training-load-head">
-        <span id="training-load-status" class="training-load-status">Initialisation</span>
-        <span id="training-load-ratio" class="training-load-ratio">Ratio —</span>
-      </div>
-      <div class="training-load-kpis">
-        <div class="training-load-kpi"><span>7 jours</span><strong id="training-load-acute">—</strong></div>
-        <div class="training-load-kpi"><span>Base 28j/4</span><strong id="training-load-chronic">—</strong></div>
-        <div class="training-load-kpi"><span>Ecart</span><strong id="training-load-delta">—</strong></div>
-      </div>
-      <div id="training-load-reco" class="training-load-reco"></div>
-      <div id="training-load-chart" class="training-load-chart"></div>
-    </div>
-    <div class="chart-wrap">
-      <div class="chart-title">Kilométrage mensuel (2026)</div>
       <div class="bar-chart" id="monthly-chart"></div>
       <template id="monthly-bar-template">
         <article class="bar-col">
           <div class="bar"></div>
           <div class="bar-label"></div>
         </article>
-      </template>
-    </div>
-    <div class="table-wrap">
-      <div class="table-header">📅 Prochaines courses</div>
-      <table>
-        <thead><tr><th>Course</th><th>Date</th><th>Distance</th><th>Objectif</th><th>Statut</th></tr></thead>
-        <tbody id="race-tbody"></tbody>
-      </table>
-      <template id="dashboard-race-row-template">
-        <tr>
-          <td class="dashboard-race-name"></td>
-          <td class="mono dashboard-race-date"></td>
-          <td class="dashboard-race-dist"></td>
-          <td class="mono dashboard-race-obj"></td>
-          <td><span class="badge dashboard-race-status"></span></td>
-        </tr>
       </template>
     </div>
     <div id="coherence-section"></div>
@@ -128,5 +77,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260513-loadv3"></script>
+<script src="{{ asset('js/app.js') }}?v=20260518-home10"></script>
 {% endblock %}
