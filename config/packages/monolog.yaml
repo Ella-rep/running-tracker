@@ -1,0 +1,8 @@
+when@prod:
+    monolog:
+        handlers:
+            main:
+                type: rotating_file
+                path: php://stderr
+                level: error
+                formatter: monolog.formatter.json

@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Repository\UserRepository;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -18,6 +19,7 @@ final class AuthLoginController extends AbstractController
         UserRepository $users,
         UserPasswordHasherInterface $passwordHasher,
         JWTTokenManagerInterface $jwtManager,
+        LoggerInterface $logger,
     ): JsonResponse {
         $status = 200;
         $payload = [];
@@ -48,9 +50,24 @@ final class AuthLoginController extends AbstractController
                         'message' => 'Mot de passe incorrect.',
                     ];
                 } else {
-                    $payload = [
-                        'token' => $jwtManager->create($user),
-                    ];
+                    try {
+                        $payload = [
+                            'token' => $jwtManager->create($user),
+                        ];
+                    } catch (\Throwable $e) {
+                        $logger->error('JWT generation failed during login.', [
+                            'user_id' => $user->getId(),
+                            'email' => $email,
+                            'exception_class' => $e::class,
+                            'exception_message' => $e->getMessage(),
+                        ]);
+
+                        $status = 500;
+                        $payload = [
+                            'code' => 'jwt_generation_failed',
+                            'message' => 'Configuration JWT invalide sur le serveur (cles/passphrase).',
+                        ];
+                    }
                 }
             }
         } catch (\JsonException) {
@@ -59,7 +76,12 @@ final class AuthLoginController extends AbstractController
                 'code' => 'invalid_payload',
                 'message' => 'Requete de connexion invalide.',
             ];
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            $logger->error('Unhandled error during login.', [
+                'exception_class' => $e::class,
+                'exception_message' => $e->getMessage(),
+            ]);
+
             $status = 500;
             $payload = [
                 'code' => 'internal_error',

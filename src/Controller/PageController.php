@@ -25,21 +25,4 @@ class PageController extends AbstractController
         return $this->render('base/login.html.twig');
     }
 
-    /**
-     * Backward compatibility: old SPA URL now redirects to dashboard
-     */
-    #[Route('/app', name: 'app_home_legacy')]
-    public function appLegacy(): Response
-    {
-        return $this->redirectToRoute('app_dashboard');
-    }
-
-    /**
-     * Backward compatibility: old tracker URL now redirects to dashboard
-     */
-    #[Route('/tracker', name: 'app_tracker_legacy')]
-    public function trackerLegacy(): Response
-    {
-        return $this->redirectToRoute('app_dashboard');
-    }
 }
