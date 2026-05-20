@@ -66,8 +66,8 @@ services:
     volumes:
       - jwt_keys:/app/config/jwt
       - ./:/app:rw
-      - /app/vendor
-      - /app/var
+      - ./vendor:/app/vendor
+      - ./var:/app/var
     depends_on:
       db:
         condition: service_healthy
