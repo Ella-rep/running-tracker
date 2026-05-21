@@ -28,9 +28,11 @@ security:
         main:
             pattern: ^/
             lazy: true
-            security: false
+            custom_authenticators:
+                - App\Security\GoogleAuthenticator
 
     access_control:
+        - { path: ^/connect/google,    roles: PUBLIC_ACCESS }
         - { path: ^/api/login$,         roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/login,    roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/(login|register|reset-password/request|reset-password/confirm)$, roles: PUBLIC_ACCESS }

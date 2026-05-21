@@ -70,7 +70,7 @@ if [ ! -f config/jwt/private.pem ] || [ ! -f config/jwt/public.pem ]; then
 fi
 chown -R www-data:www-data config/jwt
 
-echo "✉️   Configuration SMTP (msmtp)..."
+echo "✉️   Configuration email..."
 if [ -n "${SMTP_HOST:-}" ]; then
     SMTP_AUTH_MODE="off"
     if [ -n "${SMTP_USER:-}" ] && [ -n "${SMTP_PASSWORD:-}" ]; then
@@ -95,9 +95,12 @@ user ${SMTP_USER:-}
 password ${SMTP_PASSWORD:-}
 EOF
     chmod 600 /etc/msmtprc
-    echo "✅  SMTP configuré (${SMTP_HOST}:${SMTP_PORT:-587})"
+    echo "✅  SMTP legacy (msmtp) configuré (${SMTP_HOST}:${SMTP_PORT:-587})"
+elif [ -n "${MAILER_DSN:-}" ]; then
+    # Symfony Mailer uses MAILER_DSN directly; no msmtp setup required in this mode.
+    echo "✅  Symfony Mailer actif via MAILER_DSN"
 else
-    echo "⚠️   SMTP_HOST non défini: l'envoi d'email de reset échouera."
+    echo "⚠️   Aucun transport email configuré (MAILER_DSN ou SMTP_HOST manquant)."
 fi
 
 echo "📦  Installation des assets..."

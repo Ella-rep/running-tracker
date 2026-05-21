@@ -1,9 +1,21 @@
-<header>
+<header class="app-header">
   <div class="header-left">
     <div class="logo">RUN<span>/</span>TRACKER</div>
     {% include 'components/_theme_toggle.html.twig' with { with_onclick: true } %}
   </div>
-  <nav>
+  <button
+    class="mobile-nav-toggle"
+    id="mobile-nav-toggle"
+    type="button"
+    aria-label="Ouvrir le menu"
+    aria-expanded="false"
+    aria-controls="app-nav"
+  >
+    <span class="mobile-nav-toggle-bar"></span>
+    <span class="mobile-nav-toggle-bar"></span>
+    <span class="mobile-nav-toggle-bar"></span>
+  </button>
+  <nav id="app-nav" class="app-nav" aria-label="Navigation principale">
     <a href="{{ path('app_home') }}" class="nav-link{{ current_page == 'home' ? ' active' : '' }}">Accueil</a>
     <a href="{{ path('app_dashboard') }}" class="nav-link{{ current_page == 'dashboard' ? ' active' : '' }}">Dashboard</a>
     <a href="{{ path('app_plans') }}" class="nav-link{{ current_page == 'plans' ? ' active' : '' }}">Plans</a>

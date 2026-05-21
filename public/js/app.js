@@ -51,6 +51,43 @@ function logout() {
 // Ensure inline onclick handlers can always resolve these functions
 globalThis.logout = logout;
 
+function setupMobileHeaderNav() {
+  const header = document.querySelector('.app-header');
+  const toggle = document.getElementById('mobile-nav-toggle');
+  const nav = document.getElementById('app-nav');
+  if (!(header instanceof HTMLElement) || !(toggle instanceof HTMLButtonElement) || !(nav instanceof HTMLElement)) {
+    return;
+  }
+
+  const closeNav = () => {
+    header.classList.remove('nav-open');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-label', 'Ouvrir le menu');
+  };
+
+  toggle.addEventListener('click', () => {
+    const isOpen = header.classList.toggle('nav-open');
+    toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    toggle.setAttribute('aria-label', isOpen ? 'Fermer le menu' : 'Ouvrir le menu');
+  });
+
+  nav.querySelectorAll('a').forEach((link) => {
+    link.addEventListener('click', closeNav);
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeNav();
+    }
+  });
+
+  globalThis.addEventListener('resize', () => {
+    if (globalThis.innerWidth > 900) {
+      closeNav();
+    }
+  });
+}
+
 
 // ============================================================
 // DATA
@@ -1176,15 +1213,25 @@ function ensurePlannedSessionPickerModal() {
       renderPlannedSessionPicker();
     });
     document.getElementById('planned-picker-apply')?.addEventListener('click', () => {
-      const sessionId = Number.parseInt(plannedSessionPickerState.selectedSessionId, 10);
+      const allSessions = Array.isArray(plannedSessionsForLogs) ? plannedSessionsForLogs : [];
+      let sessionId = Number.parseInt(plannedSessionPickerState.selectedSessionId, 10);
+
+      if (!Number.isFinite(sessionId) && plannedSessionPickerState.selectedDateKey) {
+        const sameDaySessions = allSessions.filter(
+          (item) => normalizeDateForStorage(item.sessionDate) === plannedSessionPickerState.selectedDateKey
+        );
+        if (sameDaySessions.length > 0) {
+          sessionId = Number.parseInt(sameDaySessions[0]?.id, 10);
+          plannedSessionPickerState.selectedSessionId = sessionId;
+        }
+      }
+
       if (!Number.isFinite(sessionId)) {
         notify('⚠ Sélectionne une séance puis valide');
         return;
       }
 
-      const session = (Array.isArray(plannedSessionsForLogs) ? plannedSessionsForLogs : []).find(
-        (item) => Number(item.id) === sessionId
-      );
+      const session = allSessions.find((item) => Number(item.id) === sessionId);
       if (!session) {
         notify('⚠ Séance introuvable');
         return;
@@ -1198,28 +1245,23 @@ function ensurePlannedSessionPickerModal() {
 
       const dateInput = document.getElementById(plannedSessionPickerState.dateInputId);
       const plannedDateStr = session.sessionDate ? normalizeDateForStorage(session.sessionDate) : null;
+      let successMessage = '✓ Séance prévue liée au log';
 
       if (dateInput instanceof HTMLInputElement) {
         const logDateStr = dateInput.value;
-        if (plannedDateStr && (!logDateStr || logDateStr === plannedDateStr)) {
-          // Pas de date saisie ou déjà cohérente → on pré-remplit avec la date planifiée
+        if (plannedDateStr) {
+          // Toujours synchroniser la date du log avec la séance choisie.
           dateInput.value = plannedDateStr;
-          closeModal('planned-session-picker-modal');
-          notify('✓ Séance prévue liée au log');
-        } else if (plannedDateStr && logDateStr && logDateStr !== plannedDateStr) {
-          // Date du log différente de la date planifiée → on conserve la date réelle et on informe
-          const plannedFormatted = formatDate(plannedDateStr);
-          const realFormatted = formatDate(logDateStr);
-          closeModal('planned-session-picker-modal');
-          notify(`✓ Séance liée — prévue le ${plannedFormatted}, réalisée le ${realFormatted} (date mise à jour)`);
-        } else {
-          closeModal('planned-session-picker-modal');
-          notify('✓ Séance prévue liée au log');
+          dateInput.dispatchEvent(new Event('change', { bubbles: true }));
         }
-      } else {
-        closeModal('planned-session-picker-modal');
-        notify('✓ Séance prévue liée au log');
+        if (plannedDateStr && logDateStr && logDateStr !== plannedDateStr) {
+          const plannedFormatted = formatDate(plannedDateStr);
+          successMessage = `✓ Séance liée — date du log synchronisée au ${plannedFormatted}`;
+        }
       }
+
+      closeModal('planned-session-picker-modal');
+      notify(successMessage);
     });
     document.getElementById('planned-picker-close')?.addEventListener('click', () => closeModal('planned-session-picker-modal'));
     overlay.addEventListener('click', (event) => {
@@ -1239,8 +1281,29 @@ function renderPlannedSessionPickerList(dateKey) {
   const applyBtn = document.getElementById('planned-picker-apply');
   if (!listEl) return;
 
+  const selectedId = Number.parseInt(plannedSessionPickerState.selectedSessionId, 10);
   const sessions = (Array.isArray(plannedSessionsForLogs) ? plannedSessionsForLogs : [])
-    .filter((item) => normalizeDateForStorage(item.sessionDate) === dateKey);
+    .filter((item) => normalizeDateForStorage(item.sessionDate) === dateKey)
+    .sort((a, b) => {
+      const aId = Number.parseInt(a?.id, 10);
+      const bId = Number.parseInt(b?.id, 10);
+      const aSelected = Number.isFinite(selectedId) && aId === selectedId;
+      const bSelected = Number.isFinite(selectedId) && bId === selectedId;
+      if (aSelected && !bSelected) return -1;
+      if (!aSelected && bSelected) return 1;
+
+      const aPos = Number.parseInt(a?.position, 10);
+      const bPos = Number.parseInt(b?.position, 10);
+      if (Number.isFinite(aPos) && Number.isFinite(bPos) && aPos !== bPos) return aPos - bPos;
+      if (Number.isFinite(aPos) && !Number.isFinite(bPos)) return -1;
+      if (!Number.isFinite(aPos) && Number.isFinite(bPos)) return 1;
+
+      return String(a?.format || '').localeCompare(String(b?.format || ''), 'fr', { sensitivity: 'base' });
+    });
+
+  if (sessions.length > 0 && !Number.isFinite(Number.parseInt(plannedSessionPickerState.selectedSessionId, 10))) {
+    plannedSessionPickerState.selectedSessionId = sessions[0].id;
+  }
 
   const hasSelectedInList = sessions.some((item) => Number(item.id) === Number(plannedSessionPickerState.selectedSessionId));
   if (!hasSelectedInList) {
@@ -1338,6 +1401,7 @@ function renderPlannedSessionPicker() {
 
     dayBtn.addEventListener('click', () => {
       plannedSessionPickerState.selectedDateKey = dateKey;
+      plannedSessionPickerState.selectedSessionId = count > 0 ? sessions[0].id : null;
       renderPlannedSessionPicker();
       renderPlannedSessionPickerList(dateKey);
     });
@@ -3131,6 +3195,7 @@ function plannedSessionLabel(item) {
 function setLogEntryMode(mode, options = {}) {
   const nextMode = mode === 'calendar' ? 'calendar' : 'manual';
   const shouldClearCalendarSelection = options.clearCalendarSelection !== false;
+  const shouldOpenCalendarPicker = options.openCalendarPicker === true;
   logEntryMode = nextMode;
 
   const manualBtn = document.getElementById('log-entry-mode-manual');
@@ -3155,6 +3220,9 @@ function setLogEntryMode(mode, options = {}) {
 
   if (nextMode === 'calendar') {
     suggestPlannedSessionByDate('log-date', 'log-planned-session-text', 'log-planned-session-id');
+    if (shouldOpenCalendarPicker) {
+      openPlannedSessionCalendarPicker('log-date', 'log-planned-session-text', 'log-planned-session-id');
+    }
   }
 }
 globalThis.setLogEntryMode = setLogEntryMode;
@@ -3658,6 +3726,8 @@ async function deleteRace(id,name) {
 // INIT
 // ============================================================
 async function initApp() {
+  setupMobileHeaderNav();
+
     // Pré-remplissage du formulaire de log si paramètres dans l’URL
     const urlParams = new URLSearchParams(globalThis.location.search);
     const plannedSessionId = urlParams.get('plannedSessionId');

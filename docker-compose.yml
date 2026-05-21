@@ -60,13 +60,9 @@ services:
       JWT_PASSPHRASE: adae0244853d5730e87d0a180763eed5
       JWT_TTL: ${JWT_TTL:-604800}
       CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-'^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$'}
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_FROM: ${SMTP_FROM:-no-reply@runtracker.local}
-      SMTP_TLS: ${SMTP_TLS:-on}
-      SMTP_STARTTLS: ${SMTP_STARTTLS:-on}
+      BREVO_SMTP_LOGIN: ${BREVO_SMTP_LOGIN:-}
+      BREVO_SMTP_KEY: ${BREVO_SMTP_KEY:-}
+      MAILER_FROM: ${MAILER_FROM:-no-reply@running-dashboard.app}
       
     volumes:
       - jwt_keys:/app/config/jwt

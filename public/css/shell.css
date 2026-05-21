@@ -1,6 +1,6 @@
 /* Shell layout: header, nav, theme toggle, and footer */
 
-header {
+.app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -29,9 +29,9 @@ header {
 
 .logo span { color: var(--text-muted); }
 
-nav { display: flex; gap: 4px; }
+.app-header nav { display: flex; gap: 4px; }
 
-nav button {
+.app-header nav button {
   background: none;
   border: 1px solid transparent;
   color: var(--text-muted);
@@ -44,7 +44,7 @@ nav button {
   transition: all 0.2s;
 }
 
-nav .nav-link {
+.app-header nav .nav-link {
   display: inline-block;
   background: none;
   border: 1px solid transparent;
@@ -59,10 +59,32 @@ nav .nav-link {
   text-decoration: none;
 }
 
-nav button:hover { color: var(--text); border-color: var(--border); }
-nav button.active { background: var(--accent); color: #000; border-color: var(--accent); }
-nav .nav-link:hover { color: var(--text); border-color: var(--border); }
-nav .nav-link.active { background: var(--accent); color: #000; border-color: var(--accent); }
+.app-header nav button:hover { color: var(--text); border-color: var(--border); }
+.app-header nav button.active { background: var(--accent); color: #000; border-color: var(--accent); }
+.app-header nav .nav-link:hover { color: var(--text); border-color: var(--border); }
+.app-header nav .nav-link.active { background: var(--accent); color: #000; border-color: var(--accent); }
+
+.mobile-nav-toggle {
+  display: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  padding: 9px 8px;
+  cursor: pointer;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mobile-nav-toggle-bar {
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+}
 
 .theme-toggle {
   background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 90%, #ffffff 10%), var(--surface2));
@@ -276,24 +298,82 @@ nav .nav-link.active { background: var(--accent); color: #000; border-color: var
   opacity: 0.7;
 }
 
-[data-theme="light"] header {
+[data-theme="light"] .app-header {
   border-bottom-color: var(--border);
   box-shadow: 0 1px 0 var(--border);
 }
 
-[data-theme="light"] nav button.active {
+[data-theme="light"] .app-header nav button.active {
   background: var(--accent);
   color: #f6fbff;
   border-color: var(--accent);
 }
 
-[data-theme="light"] nav .nav-link.active {
+[data-theme="light"] .app-header nav .nav-link.active {
   background: var(--accent);
   color: #f6fbff;
   border-color: var(--accent);
+}
+
+@media (max-width: 900px) {
+  .app-header {
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    flex-wrap: wrap;
+  }
+
+  .header-left {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .logo {
+    font-size: 12px;
+    letter-spacing: 3px;
+  }
+
+  .mobile-nav-toggle {
+    display: inline-flex;
+    order: 2;
+  }
+
+  .user-badge {
+    order: 3;
+    margin-left: auto;
+  }
+
+  .user-greeting,
+  .current-username {
+    display: none;
+  }
+
+  .app-header nav {
+    display: none;
+    order: 4;
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--surface2) 82%, var(--bg));
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .app-header.nav-open nav {
+    display: grid;
+  }
+
+  .app-header nav .nav-link {
+    text-align: center;
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
 }
 
 @media (max-width: 640px) {
-  header { padding: 14px 16px; }
-  nav button, nav .nav-link { padding: 6px 10px; font-size: 13px; }
+  .app-header nav {
+    grid-template-columns: 1fr;
+  }
 }

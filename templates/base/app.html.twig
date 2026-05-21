@@ -2,16 +2,16 @@
 {% block title %}Running Tracker{% endblock %}
 
 {% block stylesheets %}
-  <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260513-shell1">
+  <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
   <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
-  <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260513-split1">
+  <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260521-mobile4">
   <link rel="stylesheet" href="{{ asset('css/plans.css') }}?v=20260513-split1">
   <link rel="stylesheet" href="{{ asset('css/log.css') }}?v=20260513-split1">
   <link rel="stylesheet" href="{{ asset('css/courses.css') }}?v=20260513-split1">
 {% endblock %}
 
 {% block body %}
-<header>
+<header class="app-header">
   <div class="header-left">
     <div class="logo">RUN<span>/</span>TRACKER</div>
     {% include 'components/_theme_toggle.html.twig' with { with_onclick: true } %}
@@ -504,5 +504,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260520-nolog2"></script>
+<script src="{{ asset('js/app.js') }}?v=20260521-mobile1"></script>
 {% endblock %}

@@ -28,7 +28,7 @@ function getModeConfig(currentMode) {
       button: 'Envoyer le lien',
       toggle: 'Créer un compte',
       prefix: 'Pas encore de compte ? ',
-      showUsername: true,
+      showUsername: false,
       showEmail: true,
       showPassword: false,
       showForgot: false,
@@ -86,6 +86,8 @@ function renderAuthMode() {
   const passwordLabel = document.querySelector('label[for="auth-password"]');
   const forgotBtn = document.getElementById('forgot-password-btn');
   const backBtn = document.getElementById('back-to-login-btn');
+  const googleBtn = document.getElementById('google-login-btn');
+  const googleDivider = document.querySelector('.login-google-divider');
 
   document.getElementById('login-mode-label').textContent = config.label;
   document.getElementById('auth-btn').textContent = config.button;
@@ -98,6 +100,10 @@ function renderAuthMode() {
   if (backBtn) backBtn.hidden = !config.showBack;
   if (passwordLabel) passwordLabel.textContent = config.passwordLabel;
   if (passwordInput) passwordInput.autocomplete = getPasswordAutocomplete(mode);
+  // Show Google button only on login screen
+  const showGoogle = mode === 'login';
+  if (googleBtn) googleBtn.hidden = !showGoogle;
+  if (googleDivider) googleDivider.hidden = !showGoogle;
   setFeedback('', '');
 }
 
@@ -151,7 +157,7 @@ async function parseApiError(response, fallbackMessage) {
 }
 
 function hasRequiredFields(modeName, username, email, password) {
-  const requiresUsername = modeName === 'register' || modeName === 'forgot';
+  const requiresUsername = modeName === 'register';
   const requiresEmail = modeName === 'register' || modeName === 'forgot';
   const requiresPassword = modeName === 'login' || modeName === 'register' || modeName === 'reset';
 
@@ -175,11 +181,11 @@ async function handleRegister(username, email, password) {
   }
 }
 
-async function handleForgot(username, email) {
+async function handleForgot(email) {
   const resetResponse = await fetch(API + '/auth/reset-password/request', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, email }),
+    body: JSON.stringify({ email }),
   });
 
   if (!resetResponse.ok) {
@@ -255,7 +261,7 @@ async function submitAuth() {
     }
 
     if (mode === 'forgot') {
-      await handleForgot(username, email);
+      await handleForgot(email);
       return;
     }
 
@@ -335,6 +341,31 @@ async function redirectIfAlreadyLoggedIn() {
 
 function initLoginPage() {
   const params = new URLSearchParams(globalThis.location.search);
+
+  // Handle Google OAuth callback
+  const googleToken = params.get('google_token');
+  if (googleToken) {
+    const auth = getAuthHelper();
+    if (auth?.setToken) {
+      auth.setToken(googleToken);
+    } else {
+      localStorage.setItem('rt_token', googleToken);
+    }
+    globalThis.location.replace('/');
+    return;
+  }
+
+  const googleError = params.get('google_error');
+  if (googleError) {
+    if (typeof globalThis.applyTheme === 'function') {
+      globalThis.applyTheme(localStorage.getItem('rt_theme') || 'dark');
+    }
+    bindLoginEvents();
+    renderAuthMode();
+    setFeedback('Connexion Google échouée : ' + googleError, '');
+    return;
+  }
+
   const token = params.get('resetToken');
   if (token) {
     resetTokenFromUrl = token;

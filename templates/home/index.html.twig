@@ -2,9 +2,9 @@
 {% block title %}Accueil - Running Tracker{% endblock %}
 
 {% block stylesheets %}
-<link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260513-shell1">
+<link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
-<link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260520-colcal1">
+<link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260521-mobile9">
 <link rel="stylesheet" href="{{ asset('css/home.css') }}?v=20260518-home1">
 {% endblock %}
 
@@ -57,10 +57,12 @@
           <button class="plan-calendar-nav-btn" id="plan-calendar-next" type="button" aria-label="Mois suivant">›</button>
         </div>
       </div>
-      <div class="plan-calendar-weekdays" aria-hidden="true">
-        <span>Lun</span><span>Mar</span><span>Mer</span><span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span>
+      <div class="plan-calendar-scroll">
+        <div class="plan-calendar-weekdays" aria-hidden="true">
+          <span>Lun</span><span>Mar</span><span>Mer</span><span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span>
+        </div>
+        <div class="plan-calendar-grid" id="plan-calendar-grid"></div>
       </div>
-      <div class="plan-calendar-grid" id="plan-calendar-grid"></div>
       <div class="plan-calendar-empty" id="plan-calendar-empty"></div>
     </div>
 
@@ -102,5 +104,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260520-colcal1"></script>
+<script src="{{ asset('js/app.js') }}?v=20260521-mobile1"></script>
 {% endblock %}

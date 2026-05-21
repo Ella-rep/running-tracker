@@ -116,6 +116,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(options: ['default' => false])]
     private bool $dashboardEfBpmVisible = false;
 
+    #[ORM\Column(length: 128, nullable: true, unique: true)]
+    private ?string $googleId = null;
+
     #[ORM\OneToMany(targetEntity: RunLog::class, mappedBy: 'user', cascade: ['remove'])]
     private Collection $runLogs;
 
@@ -170,6 +173,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function isDashboardEfBpmVisible(): bool { return $this->dashboardEfBpmVisible; }
     public function setDashboardEfBpmVisible(bool $visible): static { $this->dashboardEfBpmVisible = $visible; return $this; }
+
+    public function getGoogleId(): ?string { return $this->googleId; }
+    public function setGoogleId(?string $googleId): static { $this->googleId = $googleId; return $this; }
 
     /** @return array<string, bool> */
     public function getDashboardWidgetVisibilityMap(): array

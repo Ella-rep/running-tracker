@@ -208,7 +208,9 @@
 }
 
 .planned-picker-day.is-selected {
-  background: color-mix(in srgb, var(--accent2) 16%, var(--surface));
+  background: color-mix(in srgb, var(--z3) 26%, var(--surface));
+  border-color: color-mix(in srgb, var(--z3) 82%, white);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--z3) 58%, transparent), 0 0 0 1px color-mix(in srgb, var(--z3) 34%, transparent);
 }
 
 .planned-picker-day small {
@@ -260,5 +262,266 @@
   .field-actions-inline {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+
+@media (max-width: 640px) {
+  .planned-picker-modal {
+    width: min(96vw, 420px);
+    max-height: 86vh;
+    border-radius: 20px;
+    padding: 14px;
+    display: grid;
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    overflow: hidden;
+  }
+
+  .planned-picker-toolbar {
+    margin-bottom: 10px;
+  }
+
+  .planned-picker-month {
+    font-size: 1.05rem;
+  }
+
+  .planned-picker-grid {
+    gap: .3rem;
+    margin-bottom: .55rem;
+  }
+
+  .planned-picker-day {
+    min-height: 50px;
+    padding: .28rem .34rem;
+    border-radius: 9px;
+    gap: .12rem;
+  }
+
+  .planned-picker-day-num {
+    font-size: .95rem;
+  }
+
+  .planned-picker-day-count {
+    font-size: .62rem;
+    line-height: 1;
+    color: var(--text);
+    background: color-mix(in srgb, var(--accent2) 18%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--accent2) 45%, var(--border));
+    border-radius: 999px;
+    padding: 2px 6px;
+  }
+
+  .planned-picker-day-preview {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 6px;
+  }
+
+  .planned-picker-day-session {
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent2) 75%, white);
+    font-size: 0;
+    line-height: 0;
+    overflow: hidden;
+    text-indent: -9999px;
+  }
+
+  .planned-picker-day-session:nth-child(n+4) {
+    display: none;
+  }
+
+  .planned-picker-list-title {
+    font-size: .8rem;
+  }
+
+  .planned-picker-list {
+    min-height: 0;
+    gap: .3rem;
+    overflow-y: auto;
+    padding-bottom: 0;
+  }
+
+  .planned-picker-session-btn {
+    padding: .45rem .55rem;
+    border-radius: 9px;
+    font-size: .84rem;
+    line-height: 1.2;
+  }
+
+  .planned-picker-modal .modal-actions {
+    position: static;
+    z-index: 2;
+    margin-top: 10px;
+    padding-top: 0;
+    padding-bottom: 0;
+    background: transparent;
+    border-top: 0;
+    box-shadow: none;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .planned-picker-modal .modal-actions .btn {
+    min-height: 38px;
+    padding: 7px 10px;
+    border-radius: 12px;
+    font-size: 13px;
+  }
+
+  .filter-bar {
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .filter-btn {
+    font-size: 11px;
+    padding: 6px 10px;
+    border-radius: 8px;
+  }
+
+  .table-wrap {
+    border-radius: 14px;
+    padding: 8px;
+    background: transparent;
+    border: 0;
+  }
+
+  .table-wrap table,
+  .table-wrap thead,
+  .table-wrap tbody,
+  .table-wrap tr,
+  .table-wrap th,
+  .table-wrap td {
+    display: block;
+    width: 100%;
+  }
+
+  .table-wrap thead {
+    display: none;
+  }
+
+  .table-wrap tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .table-wrap tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px;
+  }
+
+  .table-wrap td {
+    grid-column: 1 / -1;
+    border-bottom: 0;
+    padding: 5px 0;
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    gap: 10px;
+    align-items: baseline;
+    font-size: 13px;
+  }
+
+  .table-wrap td::before {
+    font-size: 10px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  .table-wrap td:nth-child(1)::before { content: 'Date'; }
+  .table-wrap td:nth-child(2)::before { content: 'Km'; }
+  .table-wrap td:nth-child(3)::before { content: 'Durée'; }
+  .table-wrap td:nth-child(4)::before { content: 'Allure'; }
+  .table-wrap td:nth-child(5)::before { content: 'GAP'; }
+  .table-wrap td:nth-child(6)::before { content: 'D+'; }
+  .table-wrap td:nth-child(7)::before { content: 'BPM'; }
+  .table-wrap td:nth-child(8)::before { content: 'Type'; }
+  .table-wrap td:nth-child(9)::before { content: 'Séance'; }
+  .table-wrap td:nth-child(10)::before { content: 'Notes'; }
+  .table-wrap td:nth-child(11)::before { content: 'Actions'; }
+
+  .table-wrap td:nth-child(5),
+  .table-wrap td:nth-child(6),
+  .table-wrap td:nth-child(7),
+  .table-wrap td:nth-child(8) {
+    grid-column: auto;
+    width: auto;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface2);
+    grid-template-columns: 44px 1fr;
+    gap: 6px;
+  }
+
+  .table-wrap td:nth-child(8) .badge {
+    justify-self: start;
+  }
+
+  .table-wrap td .action-btns {
+    opacity: 1;
+  }
+
+  .log-date {
+    white-space: nowrap;
+  }
+
+  .log-planned,
+  .notes-cell {
+    max-width: none;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: break-word;
+  }
+}
+
+@media (max-width: 390px) {
+  .planned-picker-modal {
+    width: min(96vw, 360px);
+    padding: 12px;
+  }
+
+  .planned-picker-day {
+    min-height: 46px;
+    padding: .24rem .3rem;
+  }
+
+  .planned-picker-day-num {
+    font-size: .88rem;
+  }
+
+  .planned-picker-modal .modal-actions .btn {
+    min-height: 34px;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .table-wrap td {
+    grid-template-columns: 80px 1fr;
+    gap: 8px;
+  }
+
+  .table-wrap td:nth-child(5),
+  .table-wrap td:nth-child(6),
+  .table-wrap td:nth-child(7),
+  .table-wrap td:nth-child(8) {
+    grid-template-columns: 40px 1fr;
+    padding: 5px 7px;
+    gap: 5px;
+  }
+
+  .filter-btn {
+    font-size: 10px;
+    padding: 5px 8px;
   }
 }

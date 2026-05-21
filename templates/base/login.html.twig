@@ -2,8 +2,8 @@
 {% block title %}Running Tracker — Connexion{% endblock %}
 
 {% block stylesheets %}
-  <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260513-shell1">
-  <link rel="stylesheet" href="{{ asset('css/login.css') }}?v=20260518-login4">
+  <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
+  <link rel="stylesheet" href="{{ asset('css/login.css') }}?v=20260521-login7">
 {% endblock %}
 
 {% block body %}
@@ -32,6 +32,13 @@
 
     <button class="btn login-submit-btn" id="auth-btn">Se connecter</button>
 
+    <div class="login-google-divider"><span>ou</span></div>
+
+    <a href="/connect/google" class="btn login-google-btn" id="google-login-btn" aria-label="Connexion Gmail">
+      <span class="login-gmail-icon" aria-hidden="true">&#9993;</span>
+      <span class="login-gmail-label">Continuer avec Gmail</span>
+    </a>
+
     <div class="login-actions">
       <button type="button" id="forgot-password-btn" class="login-toggle">Mot de passe oublié ?</button>
       <button type="button" id="back-to-login-btn" class="login-toggle" hidden>Retour à la connexion</button>
@@ -46,5 +53,5 @@
 {% endblock %}
 
 {% block javascripts %}
-  <script src="{{ asset('js/login.js') }}?v=20260518-login5" defer></script>
+  <script src="{{ asset('js/login.js') }}?v=20260521-login8" defer></script>
 {% endblock %}

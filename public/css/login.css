@@ -78,16 +78,6 @@ body {
 .login-submit-btn {
   width: 100%;
 }
-/* Forgot Password Link Styles */
-.forgot-password-link {
-    color: #7b7bff;
-    text-decoration: underline;
-    cursor: pointer;
-    margin-bottom: 1rem;
-    display: block;
-    text-align: center;
-    font-size: 0.95rem;
-}
 
 .login-actions {
   margin-top: 12px;
@@ -133,4 +123,88 @@ body {
 }
 [data-theme="light"] .forgot-password-link {
     color: #1f6fc9;
+}
+
+/* Google OAuth button */
+.login-google-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-family: 'Space Mono', monospace;
+}
+.login-google-divider::before,
+.login-google-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.login-google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 16px;
+  background: #ffffff;
+  border: 1px solid #cfd3da;
+  border-radius: 4px;
+  color: #1a1f2b;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+}
+.login-google-btn:hover {
+  background: #f8f9fb;
+  border-color: #b8bec9;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.login-gmail-icon {
+  position: absolute;
+  left: 12px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid #ead7d5;
+  background: #ffffff;
+  color: #c5221f;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.login-gmail-label {
+  letter-spacing: 0.1px;
+}
+
+[data-theme="dark"] .login-google-btn {
+  background: #1f2430;
+  border-color: #3b4357;
+  color: #e9edf7;
+}
+
+[data-theme="dark"] .login-google-btn:hover {
+  background: #262c3b;
+  border-color: #55607a;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
+}
+
+[data-theme="dark"] .login-gmail-icon {
+  background: #151a24;
+  border-color: #5a3a3a;
+  color: #ff6f61;
 }

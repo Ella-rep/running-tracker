@@ -1,1 +1,5 @@
-# Mailer désactivé: envoi géré via la fonction mail() native dans PasswordResetController.
+framework:
+  mailer:
+    dsn: '%env(MAILER_DSN)%'
+    envelope:
+      sender: '%env(MAILER_FROM)%'

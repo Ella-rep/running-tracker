@@ -187,7 +187,8 @@ Si vous déployez l'image sans Docker Compose, il faut fournir explicitement les
 Variables optionnelles:
 
 - `APP_DEBUG` (0/1)
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_TLS`, `SMTP_STARTTLS`
+- `MAILER_DSN`, `MAILER_FROM` (recommandé avec Symfony Mailer/Brevo)
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_TLS`, `SMTP_STARTTLS` (mode legacy msmtp)
 
 ### Exemple kubectl: ConfigMap + Secret
 

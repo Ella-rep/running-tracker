@@ -21,3 +21,5 @@
 /.phpunit.cache/
 /coverage/
 ###< phpunit/phpunit ###
+./runnning-tracker-db
+

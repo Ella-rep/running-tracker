@@ -2,9 +2,9 @@
 {% block title %}Log - Running Tracker{% endblock %}
 
 {% block stylesheets %}
-<link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260513-shell1">
+<link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
-<link rel="stylesheet" href="{{ asset('css/log.css') }}?v=20260520-logplan3">
+<link rel="stylesheet" href="{{ asset('css/log.css') }}?v=20260521-log-mobile9">
 {% endblock %}
 
 {% block body %}
@@ -20,7 +20,7 @@
         <fieldset class="log-entry-mode-switch">
           <legend class="sr-only">Mode de saisie</legend>
           <button type="button" id="log-entry-mode-manual" class="log-entry-mode-btn active" aria-pressed="true" onclick="setLogEntryMode('manual')">Ajouter manuellement</button>
-          <button type="button" id="log-entry-mode-calendar" class="log-entry-mode-btn" aria-pressed="false" onclick="setLogEntryMode('calendar')">Choisir sur le calendrier</button>
+          <button type="button" id="log-entry-mode-calendar" class="log-entry-mode-btn" aria-pressed="false" onclick="setLogEntryMode('calendar', { openCalendarPicker: true })">Choisir sur le calendrier</button>
         </fieldset>
       </div>
       <div class="form-grid">
@@ -46,7 +46,6 @@
           <label for="log-planned-session-text">Séance prévue</label>
           <div class="field-actions-inline">
             <input type="text" id="log-planned-session-text" placeholder="Aucune séance sélectionnée" readonly onclick="openPlannedSessionCalendarPicker('log-date','log-planned-session-text','log-planned-session-id')">
-            <button type="button" class="btn btn-ghost btn-sm" onclick="openPlannedSessionCalendarPicker('log-date','log-planned-session-text','log-planned-session-id')">Choisir sur le calendrier</button>
           </div>
           <input type="hidden" id="log-planned-session-id">
         </div>
@@ -148,5 +147,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260520-colcal1"></script>
+<script src="{{ asset('js/app.js') }}?v=20260521-mobile5"></script>
 {% endblock %}
