@@ -126,15 +126,28 @@ function clearResetTokenFromUrl() {
   globalThis.history.replaceState({}, document.title, url.pathname + url.search);
 }
 
-async function parseApiError(response, fallbackMessage) {
-  let data = null;
-  try {
-    data = await response.json();
-  } catch {
-    data = null;
-  }
+async function readJsonSafely(response, fallbackMessage) {
+  const raw = await response.text();
+  const trimmed = String(raw || '').trim();
+  if (!trimmed) return null;
 
-  return data?.message || data?.['hydra:description'] || data?.detail || fallbackMessage;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    if (trimmed.startsWith('<')) {
+      throw new Error(fallbackMessage || 'Le serveur a renvoye du HTML au lieu de JSON.');
+    }
+    throw new Error(fallbackMessage || 'Reponse JSON invalide.');
+  }
+}
+
+async function parseApiError(response, fallbackMessage) {
+  try {
+    const data = await readJsonSafely(response, fallbackMessage);
+    return data?.message || data?.['hydra:description'] || data?.detail || fallbackMessage;
+  } catch {
+    return fallbackMessage;
+  }
 }
 
 function hasRequiredFields(modeName, username, email, password) {
@@ -173,7 +186,7 @@ async function handleForgot(username, email) {
     throw new Error(await parseApiError(resetResponse, 'Erreur réinitialisation'));
   }
 
-  const resetData = await resetResponse.json();
+  const resetData = await readJsonSafely(resetResponse, 'Reponse invalide lors de la reinitialisation.') || {};
   setFeedback('', resetData.message || 'Si les informations sont correctes, un email a été envoyé.');
   backToLoginMode();
 }
@@ -189,7 +202,7 @@ async function handleReset(password) {
     throw new Error(await parseApiError(confirmResponse, 'Erreur réinitialisation'));
   }
 
-  const confirmData = await confirmResponse.json();
+  const confirmData = await readJsonSafely(confirmResponse, 'Reponse invalide lors de la confirmation.') || {};
   setFeedback('', confirmData.message || 'Mot de passe réinitialisé. Tu peux te connecter.');
   clearResetTokenFromUrl();
   resetTokenFromUrl = null;
@@ -208,7 +221,11 @@ async function handleLogin(email, password) {
     throw new Error(await parseApiError(loginResponse, 'Erreur de connexion'));
   }
 
-  const { token } = await loginResponse.json();
+  const data = await readJsonSafely(loginResponse, 'Reponse invalide lors de la connexion.') || {};
+  const token = String(data.token || '').trim();
+  if (!token) {
+    throw new Error('Token manquant dans la reponse de connexion.');
+  }
   const auth = getAuthHelper();
   if (auth?.setToken) {
     auth.setToken(token);

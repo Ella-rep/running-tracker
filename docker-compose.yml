@@ -25,6 +25,11 @@ services:
       args:
         HTTP_PROXY: ${HTTP_PROXY:-}
         HTTPS_PROXY: ${HTTPS_PROXY:-}
+        APT_HTTP_PROXY: ${APT_HTTP_PROXY:-${HTTP_PROXY:-}}
+        APT_HTTPS_PROXY: ${APT_HTTPS_PROXY:-${HTTPS_PROXY:-${HTTP_PROXY:-}}}
+        APT_PROXY_MACHINE: ${APT_PROXY_MACHINE:-}
+        APT_PROXY_USERNAME: ${APT_PROXY_USERNAME:-}
+        APT_PROXY_PASSWORD: ${APT_PROXY_PASSWORD:-}
         NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,db}
         INSTALL_REMOTE_PROJECT: ${INSTALL_REMOTE_PROJECT:-false}
         branch_project_name: ${branch_project_name:-main}

@@ -6,6 +6,7 @@ use ApiPlatform\Symfony\EventListener\EventPriorities;
 use App\Entity\Plan;
 use App\Entity\Race;
 use App\Entity\RunLog;
+use App\Entity\User;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\Request;
@@ -27,12 +28,14 @@ final class SetOwnerListener
         }
 
         $user = $this->security->getUser();
-        if (!$user) {
+        if (!$user instanceof User) {
             return;
         }
 
         if ($object instanceof RunLog || $object instanceof Race || $object instanceof \App\Entity\PlanDetails || $object instanceof Plan) {
             $object->setUser($user);
         }
+
+        // RunLog-specific domain logic is handled in RunLogProcessor.
     }
 }

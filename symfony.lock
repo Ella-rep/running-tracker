@@ -164,7 +164,7 @@
         }
     },
     "symfony/monolog-bundle": {
-        "version": "3.11",
+        "version": "3.10",
         "recipe": {
             "repo": "github.com/symfony/recipes",
             "branch": "main",

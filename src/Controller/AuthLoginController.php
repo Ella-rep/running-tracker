@@ -9,11 +9,10 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-use Symfony\Component\Routing\Attribute\Route;
 
 final class AuthLoginController extends AbstractController
 {
-    #[Route('/api/auth/login', name: 'api_auth_login', methods: ['POST'])]
+    
     public function __invoke(
         Request $request,
         UserRepository $users,
@@ -23,7 +22,6 @@ final class AuthLoginController extends AbstractController
     ): JsonResponse {
         $status = 200;
         $payload = [];
-
         try {
             $data = json_decode($request->getContent(), true, 512, \JSON_THROW_ON_ERROR);
             $email = strtolower(trim((string) ($data['email'] ?? '')));

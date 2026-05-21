@@ -51,6 +51,7 @@ final class PlanProcessor implements ProcessorInterface
                 $detail->setSem($this->resolveSem($session, $sessionDate, $planStartMonday));
                 $detail->setSessionDate($sessionDate);
                 $detail->setFormat($session['format']);
+                $detail->setSessionType($session['sessionType'] ?? null);
                 $detail->setPe($session['pe']);
                 $detail->setTotalMin($session['totalMin']);
                 $detail->setIsOptional($session['isOptional']);
@@ -63,7 +64,7 @@ final class PlanProcessor implements ProcessorInterface
         return $data;
     }
 
-    /** @return array<int, array{sem:int, date:?string, format:string, pe:?string, totalMin:?int, isOptional:bool}> */
+    /** @return array<int, array{sem:int, date:?string, format:string, sessionType:?string, pe:?string, totalMin:?int, isOptional:bool}> */
     private function sessionsForPlan(Plan $plan): array
     {
         return $this->planSessionService->getSessionsForPlan($plan);
@@ -82,7 +83,7 @@ final class PlanProcessor implements ProcessorInterface
         }
     }
 
-    /** @param array<int, array{sem:int, date:?string, format:string, pe:?string, totalMin:?int, isOptional:bool}> $sessions */
+    /** @param array<int, array{sem:int, date:?string, format:string, sessionType:?string, pe:?string, totalMin:?int, isOptional:bool}> $sessions */
     private function getPlanStartMonday(array $sessions): ?\DateTimeImmutable
     {
         $firstDate = null;
@@ -102,7 +103,7 @@ final class PlanProcessor implements ProcessorInterface
     }
 
     /**
-     * @param array{sem:int, date:?string, format:string, pe:?string, totalMin:?int, isOptional:bool} $session
+    * @param array{sem:int, date:?string, format:string, sessionType:?string, pe:?string, totalMin:?int, isOptional:bool} $session
      */
     private function resolveSem(array $session, ?\DateTimeImmutable $sessionDate, ?\DateTimeImmutable $planStartMonday): ?int
     {

@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use ApiPlatform\Metadata\Put;
 use App\Repository\PlanRepository;
@@ -25,14 +26,25 @@ use Symfony\Component\Validator\Constraints as Assert;
     operations: [
         new GetCollection(uriTemplate: '/plans'),
         new Post(uriTemplate: '/plans', processor: 'App\\State\\PlanProcessor'),
-        new Get(uriTemplate: '/plans/{id}', security: 'object.getUser() == user'),
-        new Put(uriTemplate: '/plans/{id}', security: 'object.getUser() == user'),
-        new Delete(uriTemplate: '/plans/{id}', security: 'object.getUser() == user'),
+        new Get(uriTemplate: self::PLAN_ITEM_URI, security: self::OWNER_SECURITY),
+        new Put(uriTemplate: self::PLAN_ITEM_URI, security: self::OWNER_SECURITY),
+        new Patch(
+            uriTemplate: '/plans/{id}/sessions',
+            input: 'App\\ApiResource\\PlanSessionsReplaceInput',
+            processor: 'App\\State\\PlanSessionsReplaceProcessor',
+            read: false,
+            deserialize: true,
+            security: 'is_granted("ROLE_USER")'
+        ),
+        new Delete(uriTemplate: self::PLAN_ITEM_URI, security: self::OWNER_SECURITY),
     ]
 )]
 #[ApiFilter(SearchFilter::class, properties: ['name' => 'exact'])]
 class Plan
 {
+    private const PLAN_ITEM_URI = '/plans/{id}';
+    private const OWNER_SECURITY = 'object.getUser() == user';
+
     #[ORM\Id, ORM\GeneratedValue, ORM\Column]
     #[Groups(['plan:read', 'plan_details:read'])]
     private ?int $id = null;

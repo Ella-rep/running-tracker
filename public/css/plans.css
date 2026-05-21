@@ -289,3 +289,14 @@
 
 .pm-opt { accent-color: var(--accent2); }
 .pm-opt-label { color: var(--text); }
+
+.session-type-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: var(--z2);
+  background: color-mix(in srgb, var(--z2) 14%, var(--surface2));
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+}

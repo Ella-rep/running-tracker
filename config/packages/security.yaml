@@ -16,7 +16,7 @@ security:
             security: false
 
         api_public_auth:
-            pattern: ^/api/auth/(login|register|reset-password/request|reset-password/confirm)$
+            pattern: ^/api/(login|auth/(login|register|reset-password/request|reset-password/confirm))$
             stateless: true
             security: false
 
@@ -31,8 +31,10 @@ security:
             security: false
 
     access_control:
+        - { path: ^/api/login$,         roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/login,    roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/(login|register|reset-password/request|reset-password/confirm)$, roles: PUBLIC_ACCESS }
         - { path: ^/api/docs,          roles: PUBLIC_ACCESS }
+        - { path: ^/api/user/preferences, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api,               roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/,                  roles: PUBLIC_ACCESS }

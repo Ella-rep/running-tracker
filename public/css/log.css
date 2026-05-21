@@ -46,3 +46,219 @@
   font-size: 12px;
   color: var(--text-muted);
 }
+
+.log-planned {
+  font-size: 11px;
+  max-width: 240px;
+  color: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.field-actions-inline {
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+}
+
+.field-actions-inline > input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.field-actions-inline .btn {
+  white-space: nowrap;
+}
+
+.form-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.form-card-head h3 {
+  margin-bottom: 0;
+}
+
+.log-entry-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  background: color-mix(in srgb, var(--surface) 85%, var(--surface2));
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: .25rem;
+  margin: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.log-entry-mode-btn {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 12px;
+  padding: .5rem .85rem;
+  font-size: .86rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .2s ease;
+}
+
+.log-entry-mode-btn:hover {
+  color: var(--text);
+}
+
+.log-entry-mode-btn.active {
+  border-color: color-mix(in srgb, var(--accent2) 50%, var(--border));
+  background: color-mix(in srgb, var(--accent2) 14%, var(--surface));
+  color: var(--text);
+}
+
+.log-calendar-choice {
+  margin: -4px 0 16px;
+}
+
+.planned-picker-modal {
+  width: min(760px, 94vw);
+}
+
+.planned-picker-toolbar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: .75rem;
+}
+
+.planned-picker-month {
+  text-align: center;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.planned-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: .35rem;
+  margin-bottom: .75rem;
+}
+
+.planned-picker-day {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 10px;
+  min-height: 68px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: .2rem;
+  padding: .45rem .5rem;
+  cursor: pointer;
+}
+
+.planned-picker-day-num {
+  font-weight: 700;
+  line-height: 1;
+}
+
+.planned-picker-day-count {
+  font-size: .68rem;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+.planned-picker-day-preview {
+  display: grid;
+  gap: .12rem;
+  width: 100%;
+}
+
+.planned-picker-day-session {
+  display: block;
+  font-size: .62rem;
+  color: var(--text-muted);
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.planned-picker-day.is-outside {
+  opacity: .5;
+}
+
+.planned-picker-day.has-sessions {
+  border-color: var(--accent2);
+}
+
+.planned-picker-day.is-selected {
+  background: color-mix(in srgb, var(--accent2) 16%, var(--surface));
+}
+
+.planned-picker-day small {
+  font-size: .7rem;
+  color: var(--text-muted);
+}
+
+.planned-picker-list {
+  min-height: 68px;
+  display: grid;
+  gap: .4rem;
+}
+
+.planned-picker-list-title {
+  font-size: .85rem;
+  color: var(--text-muted);
+}
+
+.planned-picker-session-btn {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  padding: .55rem .7rem;
+  cursor: pointer;
+}
+
+.planned-picker-session-btn:hover {
+  border-color: var(--accent2);
+}
+
+.planned-picker-session-btn.is-selected {
+  border-color: var(--accent2);
+  background: color-mix(in srgb, var(--accent2) 14%, var(--surface));
+}
+
+@media (max-width: 860px) {
+  .log-entry-mode-switch {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .log-entry-mode-btn {
+    flex: 1 1 50%;
+    text-align: center;
+  }
+
+  .field-actions-inline {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

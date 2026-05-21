@@ -5,9 +5,17 @@ services:
         autowire: true
         autoconfigure: true
 
+    App\Controller\:
+        resource: '../src/Controller/'
+
+    App\Service\:
+        resource: '../src/Service/'
+
     App\:
         resource: '../src/'
         exclude:
             - '../src/DependencyInjection/'
+            - '../src/Controller/'
+            - '../src/Service/'
             - '../src/Entity/'
             - '../src/Kernel.php'

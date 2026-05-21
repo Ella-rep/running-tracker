@@ -5,6 +5,8 @@ namespace App\Entity;
 use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\Post;
+use App\Entity\DashboardWidgetKeys;
+use App\Controller\AuthLoginController;
 use App\Controller\AuthMeController;
 use App\Repository\UserRepository;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -28,6 +30,31 @@ use Symfony\Component\Validator\Constraints as Assert;
             read: false,
             security: 'is_granted("ROLE_USER")',
             normalizationContext: ['groups' => ['user:read']]
+        ),
+        new Post(
+            uriTemplate: '/auth/login',
+            controller: AuthLoginController::class,
+            read: false,
+            deserialize: false,
+            openapiContext: [
+                'summary' => 'Connexion utilisateur',
+                'description' => 'Authentifie un utilisateur avec email et mot de passe puis retourne un JWT.',
+                'requestBody' => [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => [
+                                'type' => 'object',
+                                'required' => ['email', 'password'],
+                                'properties' => [
+                                    'email' => ['type' => 'string', 'format' => 'email', 'example' => 'user@example.com'],
+                                    'password' => ['type' => 'string', 'example' => 'secret123'],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ]
         ),
         new Post(uriTemplate: '/auth/register', normalizationContext: ['groups' => ['user:read']], denormalizationContext: ['groups' => ['user:write']], security: 'not is_granted("ROLE_USER")'),
     ]
@@ -71,6 +98,24 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $resetPasswordExpiresAt = null;
 
+    #[ORM\Column(options: ['default' => false])]
+    private bool $dashboardProjectionsVisible = false;
+
+    #[ORM\Column(options: ['default' => false])]
+    private bool $dashboardPlanProgressVisible = false;
+
+    #[ORM\Column(options: ['default' => false])]
+    private bool $dashboardTrainingLoadVisible = false;
+
+    #[ORM\Column(options: ['default' => true])]
+    private bool $dashboardMonthlyLoadVisible = true;
+
+    #[ORM\Column(options: ['default' => false])]
+    private bool $dashboardCoherenceVisible = false;
+
+    #[ORM\Column(options: ['default' => false])]
+    private bool $dashboardEfBpmVisible = false;
+
     #[ORM\OneToMany(targetEntity: RunLog::class, mappedBy: 'user', cascade: ['remove'])]
     private Collection $runLogs;
 
@@ -107,4 +152,63 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setResetPasswordTokenHash(?string $hash): static { $this->resetPasswordTokenHash = $hash; return $this; }
     public function getResetPasswordExpiresAt(): ?\DateTimeImmutable { return $this->resetPasswordExpiresAt; }
     public function setResetPasswordExpiresAt(?\DateTimeImmutable $expiresAt): static { $this->resetPasswordExpiresAt = $expiresAt; return $this; }
+
+    public function isDashboardProjectionsVisible(): bool { return $this->dashboardProjectionsVisible; }
+    public function setDashboardProjectionsVisible(bool $visible): static { $this->dashboardProjectionsVisible = $visible; return $this; }
+
+    public function isDashboardPlanProgressVisible(): bool { return $this->dashboardPlanProgressVisible; }
+    public function setDashboardPlanProgressVisible(bool $visible): static { $this->dashboardPlanProgressVisible = $visible; return $this; }
+
+    public function isDashboardTrainingLoadVisible(): bool { return $this->dashboardTrainingLoadVisible; }
+    public function setDashboardTrainingLoadVisible(bool $visible): static { $this->dashboardTrainingLoadVisible = $visible; return $this; }
+
+    public function isDashboardMonthlyLoadVisible(): bool { return $this->dashboardMonthlyLoadVisible; }
+    public function setDashboardMonthlyLoadVisible(bool $visible): static { $this->dashboardMonthlyLoadVisible = $visible; return $this; }
+
+    public function isDashboardCoherenceVisible(): bool { return $this->dashboardCoherenceVisible; }
+    public function setDashboardCoherenceVisible(bool $visible): static { $this->dashboardCoherenceVisible = $visible; return $this; }
+
+    public function isDashboardEfBpmVisible(): bool { return $this->dashboardEfBpmVisible; }
+    public function setDashboardEfBpmVisible(bool $visible): static { $this->dashboardEfBpmVisible = $visible; return $this; }
+
+    /** @return array<string, bool> */
+    public function getDashboardWidgetVisibilityMap(): array
+    {
+        return [
+            DashboardWidgetKeys::PROJECTIONS => $this->dashboardProjectionsVisible,
+            DashboardWidgetKeys::PLAN_PROGRESS => $this->dashboardPlanProgressVisible,
+            DashboardWidgetKeys::TRAINING_LOAD => $this->dashboardTrainingLoadVisible,
+            DashboardWidgetKeys::MONTHLY_LOAD => $this->dashboardMonthlyLoadVisible,
+            DashboardWidgetKeys::COHERENCE => $this->dashboardCoherenceVisible,
+            DashboardWidgetKeys::EF_BPM => $this->dashboardEfBpmVisible,
+        ];
+    }
+
+    public function setDashboardWidgetVisible(string $widgetKey, bool $visible): static
+    {
+        switch ($widgetKey) {
+            case DashboardWidgetKeys::PROJECTIONS:
+                $this->dashboardProjectionsVisible = $visible;
+                break;
+            case DashboardWidgetKeys::PLAN_PROGRESS:
+                $this->dashboardPlanProgressVisible = $visible;
+                break;
+            case DashboardWidgetKeys::TRAINING_LOAD:
+                $this->dashboardTrainingLoadVisible = $visible;
+                break;
+            case DashboardWidgetKeys::MONTHLY_LOAD:
+                $this->dashboardMonthlyLoadVisible = $visible;
+                break;
+            case DashboardWidgetKeys::COHERENCE:
+                $this->dashboardCoherenceVisible = $visible;
+                break;
+            case DashboardWidgetKeys::EF_BPM:
+                $this->dashboardEfBpmVisible = $visible;
+                break;
+            default:
+                break;
+        }
+
+        return $this;
+    }
 }

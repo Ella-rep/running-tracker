@@ -4,8 +4,17 @@ Application de suivi running avec :
 - **Backend** : Symfony 7 + API Platform 3 (REST auto-généré, doc Swagger)
 - **Auth** : JWT via LexikJWTAuthenticationBundle
 - **BDD** : PostgreSQL 15 + Doctrine ORM + migrations automatiques
-- **Frontend** : Twig (pages) + JS vanilla (interactions via API)
+- **Frontend** : Twig (pages) + JS vanilla (interactions via API + widgets dashboard)
 - **Déploiement** : Docker Compose (Debian + PHP 8.4-FPM + Nginx + PostgreSQL)
+
+## 🆕 Nouveautés récentes (mai 2026)
+
+- Dashboard modulaire avec widgets activables/désactivables par utilisateur
+- Carte **Temps projetés** (5/10/21/42 km) avec couleurs différenciées
+- Bloc **Charge d'entraînement** (7j/base/écart) avec indicateurs visuels
+- Calendrier mensuel enrichi (séances, courses, événements perso)
+- Correctifs UI sur le calendrier (pas de débordement entre cases, détails plus compacts)
+- Chargement initial optimisé : rendu plus rapide, widgets lourds chargés en différé
 
 ## ✨ Fonctionnalités
 
@@ -14,12 +23,14 @@ Application de suivi running avec :
 - Calcul automatique du rythme (min/km) et de la vitesse (km/h)
 - Historique complet des performances avec graphiques d'évolution
 - Statistiques mensuelles/annuelles (distance totale, temps cumulé, nombre de sorties)
+- Projections de temps (5 km, 10 km, semi, marathon) basées sur les dernières sorties
 
 ### 🎯 Plans d'entraînement
 - Création de plans personnalisés avec objectifs de course
 - Suivi des séances d'entraînement (fractionné, endurance, récupération)
 - Coche automatique des séances réalisées
 - Progression visualisée avec indicateurs de réalisation
+- Vue calendrier mensuelle des séances prévues et réalisées
 
 ### 🏁 Gestion des courses
 - Enregistrement des courses passées et futures
@@ -32,6 +43,7 @@ Application de suivi running avec :
 - Recommandations de récupération selon l'intensité des séances
 - Alertes sur la surcharge d'entraînement
 - Suggestions d'amélioration du rythme et de la forme physique
+- Conseils météo contextuels (ville personnalisable)
 
 ### 🔐 Sécurité et confidentialité
 - Comptes utilisateurs isolés avec authentification JWT
@@ -44,7 +56,7 @@ Application de suivi running avec :
 
 
 ```
-running-symfony/
+running-tracker/
 ├── bin/console
 ├── config/
 │   ├── packages/          # framework, doctrine, security, api_platform, jwt, cors, twig
@@ -54,8 +66,12 @@ running-symfony/
 │   └── Version20260325000001.php   # schéma initial
 ├── public/
 │   ├── index.php
-│   ├── css/app.css        # palette Forest + tous les styles
-│   └── js/app.js          # logique SPA + appels API Platform (JSON-LD)
+│   ├── css/
+│   │   ├── app.css        # styles globaux + thèmes
+│   │   ├── dashboard.css  # styles dashboard/calendrier/widgets
+│   │   ├── components.css # modales, notifications, composants
+│   │   └── shell.css      # header/navigation
+│   └── js/app.js          # logique UI + appels API Platform (JSON-LD)
 ├── src/
 │   ├── Controller/
 │   │   └── PageController.php      # routes Twig (/, /app)
@@ -71,10 +87,14 @@ running-symfony/
 │   └── State/
 │       └── PlanCheckProcessor.php  # upsert plan_checks
 ├── templates/
-│   └── base/
-│       ├── layout.html.twig
-│       ├── login.html.twig         # page de connexion / inscription
-│       └── app.html.twig           # shell SPA principal
+│   ├── base/
+│   │   ├── layout.html.twig
+│   │   └── login.html.twig
+│   ├── dashboard/
+│   │   └── index.html.twig         # page dashboard principale
+│   ├── log/
+│   ├── plans/
+│   └── courses/
 ├── Dockerfile
 ├── docker-compose.yml
 └── .env
@@ -141,6 +161,89 @@ exec nginx -g "daemon off;"
 
 ---
 
+## ☸️ Déploiement sans Docker Compose (Kubernetes / kubectl)
+
+Si vous déployez l'image sans Docker Compose, il faut fournir explicitement les variables d'environnement Symfony/Doctrine/JWT.
+
+### Variables requises
+
+| Variable | Requis | Type recommandé | Rôle |
+|---------|--------|-----------------|------|
+| `APP_ENV` | Oui | ConfigMap | Environnement Symfony (`prod`, `dev`) |
+| `APP_SECRET` | Oui | Secret | Secret applicatif Symfony |
+| `DATABASE_HOST` | Oui | ConfigMap | Hôte PostgreSQL |
+| `DATABASE_PORT` | Oui | ConfigMap | Port PostgreSQL |
+| `DATABASE_NAME` | Oui | ConfigMap | Nom de la base |
+| `DATABASE_USER` | Oui | Secret | Utilisateur PostgreSQL |
+| `DATABASE_PASSWORD` | Oui | Secret | Mot de passe PostgreSQL |
+| `DATABASE_VERSION` | Oui | ConfigMap | Version serveur PostgreSQL (ex: `15`) |
+| `DEFAULT_URI` | Oui | ConfigMap | URL de base utilisée par le router Symfony |
+| `JWT_SECRET_KEY` | Oui | ConfigMap | Chemin vers la clé privée JWT dans le conteneur |
+| `JWT_PUBLIC_KEY` | Oui | ConfigMap | Chemin vers la clé publique JWT dans le conteneur |
+| `JWT_PASSPHRASE` | Oui | Secret | Passphrase de la clé privée JWT |
+| `JWT_TTL` | Oui | ConfigMap | Durée de vie du token JWT (secondes) |
+| `CORS_ALLOW_ORIGIN` | Oui | ConfigMap | Regex d'origine autorisée CORS |
+
+Variables optionnelles:
+
+- `APP_DEBUG` (0/1)
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_TLS`, `SMTP_STARTTLS`
+
+### Exemple kubectl: ConfigMap + Secret
+
+```bash
+# Config non sensible
+kubectl create configmap runtracker-config \
+  --from-literal=APP_ENV=prod \
+  --from-literal=DATABASE_HOST=postgres-service \
+  --from-literal=DATABASE_PORT=5432 \
+  --from-literal=DATABASE_NAME=running_tracker_db \
+  --from-literal=DATABASE_VERSION=15 \
+  --from-literal=DEFAULT_URI=https://running.example.com \
+  --from-literal=JWT_SECRET_KEY=/app/config/jwt/private.pem \
+  --from-literal=JWT_PUBLIC_KEY=/app/config/jwt/public.pem \
+  --from-literal=JWT_TTL=604800 \
+  --from-literal=CORS_ALLOW_ORIGIN='^https://running\\.example\\.com$'
+
+# Secrets applicatifs
+kubectl create secret generic runtracker-secrets \
+  --from-literal=APP_SECRET='<genere_avec_openssl_rand_hex_32>' \
+  --from-literal=DATABASE_USER='runner' \
+  --from-literal=DATABASE_PASSWORD='<mot_de_passe_db>' \
+  --from-literal=JWT_PASSPHRASE='<passphrase_jwt>'
+
+# Clés JWT montées en fichiers
+kubectl create secret generic runtracker-jwt-keys \
+  --from-file=private.pem=./config/jwt/private.pem \
+  --from-file=public.pem=./config/jwt/public.pem
+```
+
+### Exemple minimal de montage dans un Deployment
+
+```yaml
+envFrom:
+  - configMapRef:
+      name: runtracker-config
+  - secretRef:
+      name: runtracker-secrets
+volumeMounts:
+  - name: jwt-keys
+    mountPath: /app/config/jwt
+    readOnly: true
+volumes:
+  - name: jwt-keys
+    secret:
+      secretName: runtracker-jwt-keys
+```
+
+Notes importantes:
+
+- L'entrypoint attend PostgreSQL en se basant sur `DATABASE_HOST` / `DATABASE_PORT`.
+- Si les clés JWT ne sont pas montées, l'entrypoint peut les générer dans `/app/config/jwt` (selon permissions du volume).
+- En production, privilégier un Secret pour toutes les variables sensibles (`APP_SECRET`, credentials DB, `JWT_PASSPHRASE`, SMTP).
+
+---
+
 ## 🔑 Premier compte
 
 Va sur `http://localhost:8080` → "Créer un compte".
@@ -174,6 +277,12 @@ Tous les endpoints sont documentés sur `/api/docs` (Swagger UI interactif).
 | `DELETE` | `/api/races/{id}` | Supprimer |
 | `GET` | `/api/plan_checks` | État des coches de plan |
 | `POST` | `/api/plan_checks` | Cocher/décocher (upsert) |
+| `GET` | `/api/dashboard/metrics` | KPIs + projections + charge + calendrier + cohérence |
+| `GET` | `/api/dashboard/advice` | Conseils dashboard (incluant météo) |
+| `GET` | `/api/calendar/events` | Événements calendrier personnels |
+| `POST` | `/api/calendar/events` | Créer un événement perso |
+| `PATCH` | `/api/user/preferences/dashboard-widgets` | Sauvegarder visibilité des widgets |
+| `GET` | `/api/user/preferences/dashboard-widgets` | Lire visibilité des widgets |
 
 Tous les endpoints `/api/*` (sauf login et register) nécessitent le header :
 ```
@@ -288,6 +397,18 @@ php -S localhost:8000 -t public/
 ```
 
 La doc API est sur : **http://localhost:8000/api/docs**
+
+---
+
+## ⚡ Performance (frontend)
+
+- Le dashboard utilise un chargement en 2 phases :
+  - phase 1 : rendu rapide des données cœur
+  - phase 2 : chargement différé des widgets lourds (métriques avancées, conseils, etc.)
+- En cas de lenteur perçue, vérifier en priorité :
+  - temps de réponse de `/api/dashboard/metrics`
+  - taille des tables (`run_logs`, `plan_details`, `calendar_events`)
+  - latence réseau entre app et base PostgreSQL
 
 ---
 

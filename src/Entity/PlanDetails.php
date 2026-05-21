@@ -8,6 +8,7 @@ use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Delete;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
+use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use ApiPlatform\Metadata\Put;
 use App\Repository\PlanDetailsRepository;
@@ -25,14 +26,17 @@ use Symfony\Component\Validator\Constraints as Assert;
     operations: [
         new GetCollection(uriTemplate: '/plan_details'),
         new Post(uriTemplate: '/plan_details'),
-        new Get(uriTemplate: '/plan_details/{id}', security: 'object.getUser() == user'),
-        new Put(uriTemplate: '/plan_details/{id}', security: 'object.getUser() == user'),
-        new Delete(uriTemplate: '/plan_details/{id}', security: 'object.getUser() == user'),
+        new Get(uriTemplate: self::ITEM_URI, security: self::OWNER_SECURITY),
+        new Put(uriTemplate: self::ITEM_URI, security: self::OWNER_SECURITY),
+        new Patch(uriTemplate: self::ITEM_URI, security: self::OWNER_SECURITY),
+        new Delete(uriTemplate: self::ITEM_URI, security: self::OWNER_SECURITY),
     ]
 )]
 #[ApiFilter(SearchFilter::class, properties: ['plan' => 'exact', 'position' => 'exact'])]
 class PlanDetails
 {
+    private const ITEM_URI = '/plan_details/{id}';
+    private const OWNER_SECURITY = 'object.getUser() == user';
     #[ORM\Id, ORM\GeneratedValue, ORM\Column]
     #[Groups(['plan_details:read'])]
     private ?int $id = null;
@@ -63,6 +67,10 @@ class PlanDetails
     #[Assert\NotBlank]
     #[Groups(['plan_details:read', 'plan_details:write'])]
     private string $format = '';
+
+    #[ORM\Column(length: 16, nullable: true)]
+    #[Groups(['plan_details:read', 'plan_details:write'])]
+    private ?string $sessionType = null;
 
     #[ORM\Column(length: 10, nullable: true)]
     #[Groups(['plan_details:read', 'plan_details:write'])]
@@ -95,6 +103,8 @@ class PlanDetails
     public function setSessionDate(?\DateTimeInterface $sessionDate): static { $this->sessionDate = $sessionDate; return $this; }
     public function getFormat(): string { return $this->format; }
     public function setFormat(string $format): static { $this->format = $format; return $this; }
+    public function getSessionType(): ?string { return $this->sessionType; }
+    public function setSessionType(?string $sessionType): static { $this->sessionType = $sessionType; return $this; }
     public function getPe(): ?string { return $this->pe; }
     public function setPe(?string $pe): static { $this->pe = $pe; return $this; }
     public function getTotalMin(): ?int { return $this->totalMin; }

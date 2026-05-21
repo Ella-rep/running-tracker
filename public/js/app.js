@@ -5,7 +5,10 @@ const API = '/api';
 let authToken = globalThis.rtAuth?.getToken?.() || localStorage.getItem('rt_token') || null;
 
 async function apiFetch(path, options = {}) {
-  const headers = { 'Content-Type': 'application/json' };
+  const method = String(options.method || 'GET').toUpperCase();
+  const headers = {
+    'Content-Type': method === 'PATCH' ? 'application/merge-patch+json' : 'application/json',
+  };
   if (options.headers) Object.assign(headers, options.headers);
   if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
@@ -60,6 +63,20 @@ let dashboardMetrics = null;
 let calendarEventsData = [];
 let state     = { doneByKey: {}, planMeta: {}, extraPlans: [] };
 const WEATHER_CITY_STORAGE_KEY = 'rt_weather_city';
+const DASHBOARD_WIDGET_PRESET_KEY = 'rt_dashboard_widgets_preset_v2';
+let dashboardWidgetPrefsHydrated = false;
+
+function setDashboardLoadingState(isLoading) {
+  const on = !!isLoading;
+  const kpiGrid = document.getElementById('kpi-grid');
+  if (kpiGrid) {
+    kpiGrid.classList.toggle('is-loading', on);
+  }
+
+  document.querySelectorAll('[data-widget]').forEach((el) => {
+    el.classList.toggle('is-loading', on);
+  });
+}
 
 function isExamplePlanName(name) {
   const normalized = String(name || '').trim().toLowerCase();
@@ -128,6 +145,39 @@ function formatDisplayName(value) {
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
+const SESSION_TYPE_OPTIONS = [
+  { value: 'EF', label: 'EF' },
+  { value: 'FC', label: 'FC' },
+  { value: 'FL', label: 'FL' },
+  { value: 'T', label: 'T' },
+  { value: 'Race', label: 'Race' },
+];
+
+function normalizeSessionType(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+
+  // Accept both short codes and legacy long labels (with or without accents).
+  const compact = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (compact === 'EF' || compact.includes('ENDURANCE FONDAMENTALE')) return 'EF';
+  if (compact === 'FC' || compact.includes('FRACTIONNE COURT')) return 'FC';
+  if (compact === 'FL' || compact.includes('SORTIE LONGUE')) return 'FL';
+  if (compact === 'T' || compact.includes('TEMPO')) return 'T';
+  if (compact === 'RACE' || compact.includes('COURSE')) return 'Race';
+
+  const codePrefix = /^(EF|FC|FL|T|RACE)\b/.exec(compact);
+  if (codePrefix) return codePrefix[1] === 'RACE' ? 'Race' : codePrefix[1];
+
+  // Keep non-empty unknown values instead of silently dropping them.
+  return raw;
+}
+
 function normalizePlan(r) {
   return {
     id: iriToId(r['@id']) ?? r.id,
@@ -170,72 +220,22 @@ async function fetchPlanSessionsByPlanId(planId) {
 }
 
 async function replacePlanSessionsInDb(planId, sessions, doneMap = {}) {
-  const existing = await fetchPlanSessionsByPlanId(planId);
-  const sharedCount = Math.min(existing.length, sessions.length);
+  const payloadSessions = (Array.isArray(sessions) ? sessions : []).map((session) => ({
+    // Keep both keys for API compatibility across serializer/config variants.
+    session_type: normalizeSessionType(session?.sessionType ?? session?.session_type ?? session?.type),
+    sem: session?.sem ?? null,
+    date: normalizeDateForStorage(session?.date) || null,
+    format: session?.format || "45'@Z2",
+    sessionType: normalizeSessionType(session?.sessionType ?? session?.session_type ?? session?.type),
+    pe: session?.pe || null,
+    total: session?.total ?? null,
+    opt: !!session?.opt,
+  }));
 
-  const buildPayload = (session, idx) => ({
-    plan: `/api/plans/${planId}`,
-    position: idx + 1,
-    sem: session.sem ?? null,
-    sessionDate: normalizeDateForStorage(session.date) || null,
-    format: session.format || "45'@Z2",
-    pe: session.pe || null,
-    totalMin: session.total ?? null,
-    isOptional: !!session.opt,
-    isDone: !!doneMap[idx],
+  await apiFetch(`/plans/${Number(planId)}/sessions`, {
+    method: 'PATCH',
+    body: JSON.stringify({ sessions: payloadSessions, doneMap: doneMap || {} }),
   });
-
-  for (let i = 0; i < sharedCount; i += 1) {
-    const path = planDetailApiPath(existing[i]);
-    if (!path) continue;
-    await apiFetch(path, {
-      method: 'PUT',
-      body: JSON.stringify(buildPayload(sessions[i], i)),
-    });
-  }
-
-  for (let i = sessions.length; i < existing.length; i += 1) {
-    const path = planDetailApiPath(existing[i]);
-    if (!path) continue;
-    await apiFetch(path, { method: 'DELETE' });
-  }
-
-  for (let i = sharedCount; i < sessions.length; i += 1) {
-    const payload = {
-      plan: `/api/plans/${planId}`,
-      position: i + 1,
-      sem: sessions[i].sem ?? null,
-      sessionDate: normalizeDateForStorage(sessions[i].date) || null,
-      format: sessions[i].format || "45'@Z2",
-      pe: sessions[i].pe || null,
-      totalMin: sessions[i].total ?? null,
-      isOptional: !!sessions[i].opt,
-      isDone: !!doneMap[i],
-    };
-
-    let retries = 2;
-    while (retries > 0) {
-      try {
-        await apiFetch('/plan_details', { method: 'POST', body: JSON.stringify(payload) });
-        break;
-      } catch (e) {
-        if (!String(e.message || '').includes('uniq_plan_details_user_plan_pos')) throw e;
-        retries--;
-        if (retries === 0) throw e;
-        const refreshed = await fetchPlanSessionsByPlanId(planId);
-        const rowAtPos = refreshed.find(r => Number(r.position) === i + 1);
-        if (rowAtPos) {
-          const path = planDetailApiPath(rowAtPos);
-          if (!path) throw e;
-          await apiFetch(path, {
-            method: 'PUT',
-            body: JSON.stringify(payload),
-          });
-          break;
-        }
-      }
-    }
-  }
 }
 
 function mapDbRowsToPlans(rows, plans) {
@@ -271,6 +271,7 @@ function mapDbRowsToPlans(rows, plans) {
       sem: row.sem,
       date: normalizeDateForStorage(row.sessionDate),
       format: row.format,
+      sessionType: normalizeSessionType(row.sessionType ?? row.session_type ?? row.type),
       pe: row.pe,
       total: row.totalMin,
       opt: !!row.isOptional,
@@ -319,7 +320,8 @@ async function initializeStarterPlan() {
   }
 }
 
-async function loadAllData() {
+async function loadAllData(options = {}) {
+  const includeDashboardMetrics = options.includeDashboardMetrics !== false;
   const [logs, races, checks] = await Promise.all([
     apiFetch('/run_logs?order[date]=desc&pagination=false'),
     apiFetch('/races?order[date]=asc&pagination=false'),
@@ -339,7 +341,7 @@ async function loadAllData() {
     state.doneByKey[key][c.sessionIndex] = !!c.done;
   });
 
-  await loadCalendarEvents();
+  const calendarEventsPromise = loadCalendarEvents();
 
   try {
     await loadPlansFromDb();
@@ -354,10 +356,14 @@ async function loadAllData() {
     });
 
     await initializeStarterPlan();
-    await loadDashboardMetrics();
+    if (includeDashboardMetrics) {
+      await loadDashboardMetrics();
+    }
   } catch {
     // Keep app usable even if plans endpoints are temporarily unavailable.
     dashboardMetrics = null;
+  } finally {
+    await calendarEventsPromise;
   }
 }
 
@@ -397,6 +403,181 @@ async function loadDashboardMetrics() {
     dashboardMetrics = await apiFetch('/dashboard/metrics');
   } catch {
     dashboardMetrics = null;
+  }
+}
+function isWidgetEnabled(key) {
+  const input = document.querySelector(`[data-widget-toggle="${String(key)}"]`);
+  if (input) return !!input.checked;
+  return true;
+}
+
+function getWidgetPreferencePayload() {
+  const widgets = {};
+  document.querySelectorAll('[data-widget-toggle]').forEach((input) => {
+    widgets[input.dataset.widgetToggle] = !!input.checked;
+  });
+  return widgets;
+}
+
+function syncWidgetToggleState(key, visible) {
+  const input = document.querySelector(`[data-widget-toggle="${String(key)}"]`);
+  if (input) input.checked = !!visible;
+
+  const pickCard = document.querySelector(`[data-widget-pick="${String(key)}"]`);
+  if (pickCard) {
+    pickCard.classList.toggle('widget-pick-card--hidden', !!visible);
+  }
+}
+
+async function hydrateWidgetPreferencesFromApi() {
+  const toggles = document.querySelectorAll('[data-widget-toggle]');
+  if (!toggles.length) return false;
+
+  try {
+    const data = await apiFetch('/user/preferences/dashboard-widgets');
+    const widgets = data?.widgets;
+    if (!widgets || typeof widgets !== 'object') return false;
+
+    Object.entries(widgets).forEach(([key, visible]) => {
+      syncWidgetToggleState(key, !!visible);
+    });
+
+    dashboardWidgetPrefsHydrated = true;
+    localStorage.setItem(DASHBOARD_WIDGET_PRESET_KEY, '1');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function toggleWidget(key, visible) {
+  syncWidgetToggleState(key, visible);
+  renderDashboard();
+
+  try {
+    await apiFetch('/user/preferences/dashboard-widgets', {
+      method: 'PATCH',
+      body: JSON.stringify({ widgets: { [key]: !!visible } }),
+    });
+  } catch {
+    // Keep UI state responsive even if persistence fails temporarily.
+    notify('⚠ Préférence widget non sauvegardée pour le moment.');
+  }
+}
+
+function ensureWidgetPickerBindings() {
+  const wrap = document.getElementById('widget-picker-wrap');
+  const toggle = document.getElementById('widget-picker-toggle');
+  if (wrap && toggle && toggle.dataset.bound !== '1') {
+    toggle.addEventListener('click', () => {
+      const willExpand = wrap.classList.contains('is-collapsed');
+      wrap.classList.toggle('is-collapsed', !willExpand);
+      toggle.setAttribute('aria-expanded', willExpand ? 'true' : 'false');
+    });
+    toggle.dataset.bound = '1';
+  }
+
+  const picker = document.getElementById('widget-picker');
+  if (picker && picker.dataset.bound !== '1') {
+    picker.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-widget-pick]');
+      if (!button || !picker.contains(button)) return;
+      event.preventDefault();
+
+      const key = String(button.dataset.widgetPick || '').trim();
+      if (!key || isWidgetEnabled(key)) return;
+      button.disabled = true;
+      void toggleWidget(key, true).finally(() => {
+        button.disabled = false;
+      });
+    });
+    picker.dataset.bound = '1';
+  }
+
+  document.querySelectorAll('[data-widget]').forEach((panel) => {
+    const key = String(panel.dataset.widget || '').trim();
+    if (!key || key === 'monthly_load') return;
+    panel.classList.add('widget-trackable');
+    if (panel.querySelector('[data-widget-unfollow]')) return;
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'widget-unfollow-btn';
+    button.dataset.widgetUnfollow = key;
+    button.title = 'Ne plus suivre';
+    button.setAttribute('aria-label', 'Ne plus suivre');
+    button.textContent = 'Retirer';
+    button.addEventListener('click', () => {
+      void toggleWidget(key, false);
+    });
+    panel.prepend(button);
+  });
+}
+
+function refreshWidgetPickerUI() {
+  let availableCount = 0;
+  document.querySelectorAll('[data-widget-pick]').forEach((button) => {
+    const key = String(button.dataset.widgetPick || '').trim();
+    const visible = isWidgetEnabled(key);
+    button.classList.toggle('widget-pick-card--hidden', visible);
+    if (!visible) availableCount += 1;
+  });
+
+  document.querySelectorAll('[data-widget-unfollow]').forEach((button) => {
+    const key = String(button.dataset.widgetUnfollow || '').trim();
+    button.style.display = isWidgetEnabled(key) ? '' : 'none';
+  });
+
+  const wrap = document.getElementById('widget-picker-wrap');
+  const toggle = document.getElementById('widget-picker-toggle');
+  if (!wrap || !toggle) return;
+
+  const hasAvailable = availableCount > 0;
+  wrap.classList.toggle('widget-picker-wrap--empty', !hasAvailable);
+  if (!hasAvailable) {
+    wrap.classList.add('is-collapsed');
+    toggle.textContent = 'Tous les widgets sont affichés';
+    toggle.disabled = true;
+    toggle.setAttribute('aria-expanded', 'false');
+    return;
+  }
+
+  toggle.disabled = false;
+  toggle.textContent = '+ Ajouter des widgets';
+}
+
+async function applyDefaultWidgetPresetOnce() {
+  if (dashboardWidgetPrefsHydrated) return;
+  if (localStorage.getItem(DASHBOARD_WIDGET_PRESET_KEY) === '1') return;
+
+  const toggles = Array.from(document.querySelectorAll('[data-widget-toggle]'));
+  if (!toggles.length) return;
+
+  const widgets = {};
+  let changed = false;
+
+  toggles.forEach((input) => {
+    const key = String(input.dataset.widgetToggle || '').trim();
+    if (!key) return;
+    const target = key === 'monthly_load';
+    widgets[key] = target;
+    if (!!input.checked !== target) {
+      input.checked = target;
+      changed = true;
+    }
+  });
+
+  localStorage.setItem(DASHBOARD_WIDGET_PRESET_KEY, '1');
+
+  if (!changed) return;
+
+  try {
+    await apiFetch('/user/preferences/dashboard-widgets', {
+      method: 'PATCH',
+      body: JSON.stringify({ widgets }),
+    });
+  } catch {
+    // Keep client-side preset even if persistence fails temporarily.
   }
 }
 
@@ -830,6 +1011,10 @@ function iriToId(iri) {
 }
 
 function normalizeLog(r) {
+  const plannedSessionIri = typeof r.plannedSession === 'string'
+    ? r.plannedSession
+    : (r.plannedSession?.['@id'] || r.plannedSession?.id || null);
+  const plannedSessionId = Number.parseInt(r.plannedSessionId ?? iriToId(plannedSessionIri), 10);
   return {
     id:       iriToId(r['@id']) ?? r.id,
     date:     r.date,
@@ -841,6 +1026,8 @@ function normalizeLog(r) {
     bpm:      r.bpm,
     run_type: r.runType ?? r.run_type,
     notes:    r.notes,
+    plannedSessionId: Number.isFinite(plannedSessionId) ? plannedSessionId : null,
+    plannedSessionLabel: String(r.plannedSessionLabel || '').trim() || null,
   };
 }
 
@@ -932,6 +1119,256 @@ function notify(msg) {
   n.className = `notif notif-${kind} show`;
   setTimeout(()=>n.classList.remove('show'),2500);
 }
+
+const plannedSessionPickerState = {
+  dateInputId: 'log-date',
+  textInputId: 'log-planned-session-text',
+  hiddenInputId: 'log-planned-session-id',
+  monthStartKey: '',
+  selectedDateKey: '',
+  selectedSessionId: null,
+};
+
+function pickerMonthStartKey(dateKey) {
+  const d = dateKey ? new Date(`${dateKey}T00:00:00`) : new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}-01`;
+}
+
+function shiftPickerMonth(monthStartKey, delta) {
+  const base = new Date(`${monthStartKey}T00:00:00`);
+  base.setMonth(base.getMonth() + delta);
+  const year = base.getFullYear();
+  const month = String(base.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}-01`;
+}
+
+function ensurePlannedSessionPickerModal() {
+  let overlay = document.getElementById('planned-session-picker-modal');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'planned-session-picker-modal';
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal planned-picker-modal">
+        <div class="modal-title">Choisir une séance prévue</div>
+        <div class="planned-picker-toolbar">
+          <button type="button" class="btn btn-ghost" id="planned-picker-prev">◀</button>
+          <div class="planned-picker-month" id="planned-picker-month"></div>
+          <button type="button" class="btn btn-ghost" id="planned-picker-next">▶</button>
+        </div>
+        <div class="planned-picker-grid" id="planned-picker-grid"></div>
+        <div class="planned-picker-list" id="planned-picker-list"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="planned-picker-apply" disabled>Valider</button>
+          <button type="button" class="btn btn-ghost" id="planned-picker-close">Fermer</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    document.getElementById('planned-picker-prev')?.addEventListener('click', () => {
+      plannedSessionPickerState.monthStartKey = shiftPickerMonth(plannedSessionPickerState.monthStartKey, -1);
+      renderPlannedSessionPicker();
+    });
+    document.getElementById('planned-picker-next')?.addEventListener('click', () => {
+      plannedSessionPickerState.monthStartKey = shiftPickerMonth(plannedSessionPickerState.monthStartKey, 1);
+      renderPlannedSessionPicker();
+    });
+    document.getElementById('planned-picker-apply')?.addEventListener('click', () => {
+      const sessionId = Number.parseInt(plannedSessionPickerState.selectedSessionId, 10);
+      if (!Number.isFinite(sessionId)) {
+        notify('⚠ Sélectionne une séance puis valide');
+        return;
+      }
+
+      const session = (Array.isArray(plannedSessionsForLogs) ? plannedSessionsForLogs : []).find(
+        (item) => Number(item.id) === sessionId
+      );
+      if (!session) {
+        notify('⚠ Séance introuvable');
+        return;
+      }
+
+      setPlannedSessionSelection(
+        plannedSessionPickerState.textInputId,
+        plannedSessionPickerState.hiddenInputId,
+        session.id,
+      );
+
+      const dateInput = document.getElementById(plannedSessionPickerState.dateInputId);
+      const plannedDateStr = session.sessionDate ? normalizeDateForStorage(session.sessionDate) : null;
+
+      if (dateInput instanceof HTMLInputElement) {
+        const logDateStr = dateInput.value;
+        if (plannedDateStr && (!logDateStr || logDateStr === plannedDateStr)) {
+          // Pas de date saisie ou déjà cohérente → on pré-remplit avec la date planifiée
+          dateInput.value = plannedDateStr;
+          closeModal('planned-session-picker-modal');
+          notify('✓ Séance prévue liée au log');
+        } else if (plannedDateStr && logDateStr && logDateStr !== plannedDateStr) {
+          // Date du log différente de la date planifiée → on conserve la date réelle et on informe
+          const plannedFormatted = formatDate(plannedDateStr);
+          const realFormatted = formatDate(logDateStr);
+          closeModal('planned-session-picker-modal');
+          notify(`✓ Séance liée — prévue le ${plannedFormatted}, réalisée le ${realFormatted} (date mise à jour)`);
+        } else {
+          closeModal('planned-session-picker-modal');
+          notify('✓ Séance prévue liée au log');
+        }
+      } else {
+        closeModal('planned-session-picker-modal');
+        notify('✓ Séance prévue liée au log');
+      }
+    });
+    document.getElementById('planned-picker-close')?.addEventListener('click', () => closeModal('planned-session-picker-modal'));
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) closeModal('planned-session-picker-modal');
+    });
+  }
+
+  return {
+    monthEl: document.getElementById('planned-picker-month'),
+    gridEl: document.getElementById('planned-picker-grid'),
+    listEl: document.getElementById('planned-picker-list'),
+  };
+}
+
+function renderPlannedSessionPickerList(dateKey) {
+  const listEl = document.getElementById('planned-picker-list');
+  const applyBtn = document.getElementById('planned-picker-apply');
+  if (!listEl) return;
+
+  const sessions = (Array.isArray(plannedSessionsForLogs) ? plannedSessionsForLogs : [])
+    .filter((item) => normalizeDateForStorage(item.sessionDate) === dateKey);
+
+  const hasSelectedInList = sessions.some((item) => Number(item.id) === Number(plannedSessionPickerState.selectedSessionId));
+  if (!hasSelectedInList) {
+    plannedSessionPickerState.selectedSessionId = null;
+  }
+  if (applyBtn) applyBtn.disabled = !hasSelectedInList;
+
+  if (!dateKey || sessions.length === 0) {
+    listEl.textContent = 'Aucune séance prévue pour ce jour.';
+    if (applyBtn) applyBtn.disabled = true;
+    return;
+  }
+
+  const title = document.createElement('div');
+  title.className = 'planned-picker-list-title';
+  title.textContent = `Séances du ${formatDate(dateKey)}`;
+
+  const items = sessions.map((session) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'planned-picker-session-btn';
+    if (Number(plannedSessionPickerState.selectedSessionId) === Number(session.id)) {
+      btn.classList.add('is-selected');
+    }
+    btn.textContent = plannedSessionLabel(session);
+    btn.addEventListener('click', () => {
+      plannedSessionPickerState.selectedSessionId = session.id;
+      renderPlannedSessionPickerList(dateKey);
+    });
+    return btn;
+  });
+
+  listEl.replaceChildren(title, ...items);
+}
+
+function renderPlannedSessionPicker() {
+  const { monthEl, gridEl } = ensurePlannedSessionPickerModal();
+  if (!monthEl || !gridEl) return;
+
+  const monthStart = new Date(`${plannedSessionPickerState.monthStartKey}T00:00:00`);
+  monthEl.textContent = monthStart.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+
+  const firstOfMonth = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1);
+  const startOffset = (firstOfMonth.getDay() + 6) % 7;
+  const gridStart = new Date(firstOfMonth);
+  gridStart.setDate(firstOfMonth.getDate() - startOffset);
+
+  const sessionsByDate = new Map();
+  (Array.isArray(plannedSessionsForLogs) ? plannedSessionsForLogs : []).forEach((item) => {
+    const dayKey = normalizeDateForStorage(item.sessionDate);
+    if (!dayKey) return;
+    const current = sessionsByDate.get(dayKey) || [];
+    current.push(item);
+    sessionsByDate.set(dayKey, current);
+  });
+
+  const nodes = [];
+  for (let i = 0; i < 42; i += 1) {
+    const date = new Date(gridStart);
+    date.setDate(gridStart.getDate() + i);
+    const dateKey = normalizeDateForStorage(date);
+    const sessions = sessionsByDate.get(dateKey) || [];
+    const count = sessions.length;
+
+    const dayBtn = document.createElement('button');
+    dayBtn.type = 'button';
+    dayBtn.className = 'planned-picker-day';
+    if (date.getMonth() !== monthStart.getMonth()) dayBtn.classList.add('is-outside');
+    if (count > 0) dayBtn.classList.add('has-sessions');
+    if (plannedSessionPickerState.selectedDateKey === dateKey) dayBtn.classList.add('is-selected');
+    const dayNum = document.createElement('span');
+    dayNum.className = 'planned-picker-day-num';
+    dayNum.textContent = String(date.getDate());
+    dayBtn.appendChild(dayNum);
+
+    if (count > 0) {
+      const countEl = document.createElement('small');
+      countEl.className = 'planned-picker-day-count';
+      countEl.textContent = String(count);
+      dayBtn.appendChild(countEl);
+
+      const preview = document.createElement('div');
+      preview.className = 'planned-picker-day-preview';
+      sessions.slice(0, 2).forEach((session) => {
+        const line = document.createElement('small');
+        line.className = 'planned-picker-day-session';
+        const pos = Number.parseInt(session?.position, 10);
+        const sessionPrefix = Number.isFinite(pos) ? `S${pos}` : 'Séance';
+        const sessionType = normalizeSessionType(session?.sessionType ?? session?.session_type ?? session?.type) || '—';
+        line.textContent = `${sessionPrefix} · ${sessionType}`;
+        preview.appendChild(line);
+      });
+      dayBtn.appendChild(preview);
+    }
+
+    dayBtn.addEventListener('click', () => {
+      plannedSessionPickerState.selectedDateKey = dateKey;
+      renderPlannedSessionPicker();
+      renderPlannedSessionPickerList(dateKey);
+    });
+    nodes.push(dayBtn);
+  }
+
+  gridEl.replaceChildren(...nodes);
+  renderPlannedSessionPickerList(plannedSessionPickerState.selectedDateKey);
+}
+
+function openPlannedSessionCalendarPicker(dateInputId, textInputId, hiddenInputId) {
+  plannedSessionPickerState.dateInputId = dateInputId || 'log-date';
+  plannedSessionPickerState.textInputId = textInputId || 'log-planned-session-text';
+  plannedSessionPickerState.hiddenInputId = hiddenInputId || 'log-planned-session-id';
+
+  if (plannedSessionPickerState.hiddenInputId === 'log-planned-session-id') {
+    setLogEntryMode('calendar', { clearCalendarSelection: false });
+  }
+
+  const dateInput = document.getElementById(plannedSessionPickerState.dateInputId);
+  const hiddenInput = document.getElementById(plannedSessionPickerState.hiddenInputId);
+  const initialDate = dateInput instanceof HTMLInputElement ? normalizeDateForStorage(dateInput.value) : '';
+  const initialSessionId = Number.parseInt(hiddenInput instanceof HTMLInputElement ? hiddenInput.value : '', 10);
+  plannedSessionPickerState.selectedDateKey = initialDate;
+  plannedSessionPickerState.monthStartKey = pickerMonthStartKey(initialDate);
+  plannedSessionPickerState.selectedSessionId = Number.isFinite(initialSessionId) ? initialSessionId : null;
+
+  renderPlannedSessionPicker();
+  openModal('planned-session-picker-modal');
+}
+globalThis.openPlannedSessionCalendarPicker = openPlannedSessionCalendarPicker;
 function computeGAP(allureSec, km, dplus) {
   if (!dplus||dplus<=0||!km) return null;
   const g=dplus/(km*1000);
@@ -966,10 +1403,18 @@ function renderDashboard() {
   dashDateEl.textContent =
     'Mise à jour · ' + new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
   renderDashboardAdvice(metrics);
+  ensureWidgetPickerBindings();
+  refreshWidgetPickerUI();
   const kpisData = metrics.kpis || {};
 
+  // Helper: show/hide a widget wrapper by data-widget attribute
+  document.querySelectorAll('[data-widget]').forEach((el) => {
+    const key = el.dataset.widget;
+    el.style.display = isWidgetEnabled(key) ? '' : 'none';
+  });
+
   const kpiGrid = document.getElementById('kpi-grid');
-  if (kpiGrid) {
+  if (kpiGrid && isWidgetEnabled('kpis')) {
     const kpis = [
       { tone: 'green', label: 'Allure moy.', value: kpisData.avgAllure || '—', unit: 'min/km' },
       { tone: 'orange', label: 'Durée la plus longue', value: kpisData.longestDuration || '—', unit: 'hh:mm:ss' },
@@ -990,21 +1435,23 @@ function renderDashboard() {
     kpiGrid.replaceChildren(...kpiNodes);
   }
 
-  const progress = metrics.planProgress || { title: '', done: 0, total: 0, pct: 0 };
-  const labelEl = document.getElementById('progress-plan-label');
-  if (labelEl) labelEl.textContent = progress.title;
-  const tempoPctEl = document.getElementById('tempo-pct');
-  if (tempoPctEl) tempoPctEl.textContent = progress.pct + '%';
-  const tempoBarEl = document.getElementById('tempo-bar');
-  if (tempoBarEl) tempoBarEl.style.width = progress.pct + '%';
-  const tempoMetaEl = document.getElementById('tempo-meta');
-  if (tempoMetaEl) tempoMetaEl.textContent = `${progress.done} / ${progress.total} séances complétées`;
+  if (isWidgetEnabled('plan_progress')) {
+    const progress = metrics.planProgress || { title: '', done: 0, total: 0, pct: 0 };
+    const labelEl = document.getElementById('progress-plan-label');
+    if (labelEl) labelEl.textContent = progress.title;
+    const tempoPctEl = document.getElementById('tempo-pct');
+    if (tempoPctEl) tempoPctEl.textContent = progress.pct + '%';
+    const tempoBarEl = document.getElementById('tempo-bar');
+    if (tempoBarEl) tempoBarEl.style.width = progress.pct + '%';
+    const tempoMetaEl = document.getElementById('tempo-meta');
+    if (tempoMetaEl) tempoMetaEl.textContent = `${progress.done} / ${progress.total} séances complétées`;
+  }
 
-  renderPlanCalendar(metrics.planCalendar || null);
+  if (isWidgetEnabled('plan_calendar')) renderPlanCalendar(metrics.planCalendar || null);
 
   const barsSource = Array.isArray(metrics.monthlyBars) ? metrics.monthlyBars : [];
   const monthlyChart = document.getElementById('monthly-chart');
-  if (monthlyChart) {
+  if (monthlyChart && isWidgetEnabled('monthly_load')) {
     const barNodes = barsSource.map((bar, index) => {
       const km = Number(bar.km || 0);
       const h = Number(bar.height || 0);
@@ -1029,7 +1476,7 @@ function renderDashboard() {
   }
 
   const raceTbody = document.getElementById('race-tbody');
-  if (raceTbody) {
+  if (raceTbody && isWidgetEnabled('races_table')) {
     const rows = (Array.isArray(metrics.racesTable) ? metrics.racesTable : []).map((r) => {
       const row = cloneTemplate('dashboard-race-row-template') || document.createElement('tr');
       const nameEl = row.querySelector('.dashboard-race-name');
@@ -1057,65 +1504,9 @@ function renderDashboard() {
   renderEfBpmChart();
 }
 
-function renderPlanCalendar(calendar) {
-  const wrap = document.getElementById('plan-calendar-wrap');
-  const grid = document.getElementById('plan-calendar-grid');
-  const titleEl = document.getElementById('plan-calendar-title');
-  const monthEl = document.getElementById('plan-calendar-month');
-  const summaryEl = document.getElementById('plan-calendar-summary');
-  const emptyEl = document.getElementById('plan-calendar-empty');
-  if (!wrap || !grid || !titleEl || !monthEl || !summaryEl || !emptyEl) return;
-
-  const safeCalendar = calendar && typeof calendar === 'object' ? calendar : {
-    title: 'Calendrier des séances prévues',
-    monthLabel: new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
-    summary: 'Aucune séance programmée ce mois-ci',
-    emptyMessage: 'Ajoute un plan avec des dates de séances pour remplir ce calendrier.',
-    days: [],
-  };
-
-  titleEl.textContent = safeCalendar.title || 'Calendrier des séances prévues';
-  monthEl.textContent = safeCalendar.monthLabel || '—';
-  summaryEl.textContent = safeCalendar.summary || '—';
-  emptyEl.textContent = safeCalendar.emptyMessage || '';
-  emptyEl.style.display = safeCalendar.emptyMessage ? 'block' : 'none';
-
-  const racesByDate = new Map();
-  (Array.isArray(racesData) ? racesData : []).forEach((race) => {
-    const dateKey = normalizeDateForStorage(race?.date);
-    if (!dateKey) return;
-    const raceResult = String(race?.result || '').trim();
-    if (!racesByDate.has(dateKey)) racesByDate.set(dateKey, []);
-    racesByDate.get(dateKey).push({
-      kind: 'race',
-      raceId: Number.parseInt(race?.id, 10),
-      label: race?.name || 'Course',
-      format: race?.distance ? String(race.distance) : 'Course',
-      pe: race?.objective ? `Obj ${race.objective}` : null,
-      result: raceResult,
-      isDone: raceResult.length > 0,
-      isOptional: false,
-    });
-  });
-
-  const personalByDate = new Map();
-  (Array.isArray(calendarEventsData) ? calendarEventsData : []).forEach((evt) => {
-    if (!evt?.date) return;
-    if (!personalByDate.has(evt.date)) personalByDate.set(evt.date, []);
-    personalByDate.get(evt.date).push({
-      kind: 'personal',
-      personalId: evt.id,
-      date: evt.date,
-      label: 'Perso',
-      format: evt.title,
-      title: evt.title,
-      isDone: false,
-      isOptional: false,
-    });
-  });
-
-  const days = Array.isArray(safeCalendar.days) ? safeCalendar.days : [];
-  const nodes = days.map((day) => {
+function buildPlanCalendarDayNodes(days, racesByDate, personalByDate) {
+  const todayKey = normalizeDateForStorage(new Date().toISOString().slice(0, 10));
+  return days.map((day) => {
     const dayKey = normalizeDateForStorage(day?.date);
     const sessionItems = (Array.isArray(day?.items) ? day.items : []).map((sessionItem) => {
       const normalizedLabel = String(sessionItem?.label || '');
@@ -1171,6 +1562,10 @@ function renderPlanCalendar(calendar) {
       if (normalizedKind === 'personal') entry.classList.add('is-personal');
       if (item?.isDone) entry.classList.add('is-done');
       if (item?.isOptional) entry.classList.add('is-optional');
+      if (!item?.isDone && normalizedKind === 'session') {
+        if (dayKey && todayKey && dayKey < todayKey) entry.classList.add('is-past');
+        else if (dayKey && todayKey && dayKey > todayKey) entry.classList.add('is-future');
+      }
       entry.title = [item?.label, item?.format, item?.pe].filter(Boolean).join(' · ');
 
       const hasRaceRef = normalizedKind === 'race' && Number.isFinite(Number(item?.raceId));
@@ -1200,6 +1595,10 @@ function renderPlanCalendar(calendar) {
       const label = document.createElement('div');
       label.className = 'plan-calendar-item-label';
       let itemLabel = item?.label || 'Séance';
+      const itemSessionType = normalizeSessionType(item?.sessionType ?? item?.session_type ?? item?.type);
+      if (normalizedKind === 'session' && itemSessionType) {
+        itemLabel = `${itemLabel} · ${itemSessionType}`;
+      }
       if (normalizedKind === 'race') itemLabel = 'Course';
       if (normalizedKind === 'personal') itemLabel = 'Perso';
       label.textContent = itemLabel;
@@ -1209,19 +1608,231 @@ function renderPlanCalendar(calendar) {
       format.textContent = `${item?.format || '—'}${suffix}`;
 
       entry.append(label, format);
+
+      // Badge "sans log" : séance marquée done mais sans sortie enregistrée
+      if (item?.isDone && item?.hasLog === false) {
+        const badge = document.createElement('div');
+        badge.className = 'plan-calendar-item-no-log';
+        badge.title = 'Séance validée sans sortie enregistrée dans les logs';
+        badge.textContent = '! log';
+        entry.appendChild(badge);
+      }
+
       list.appendChild(entry);
     });
 
     cell.append(head, list);
     return cell;
   });
+}
 
-  grid.replaceChildren(...nodes);
+const PLAN_CALENDAR_MONTH_NAMES = ['janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin', 'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre'];
+
+function isPlanCalendarMonthKey(value) {
+  return /^\d{4}-\d{2}$/.test(String(value || ''));
+}
+
+function formatPlanCalendarMonthLabel(monthKey, fallback) {
+  const m = /^(\d{4})-(\d{2})$/.exec(monthKey);
+  if (!m) return fallback || '—';
+  const year = Number.parseInt(m[1], 10);
+  const month = Number.parseInt(m[2], 10);
+  const monthName = PLAN_CALENDAR_MONTH_NAMES[month - 1] || m[2];
+  return `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)} ${year}`;
+}
+
+function stepPlanCalendarMonthKey(monthKey, delta) {
+  const m = /^(\d{4})-(\d{2})$/.exec(monthKey);
+  if (!m) return monthKey;
+  const base = new Date(Number.parseInt(m[1], 10), Number.parseInt(m[2], 10) - 1, 1);
+  base.setMonth(base.getMonth() + delta);
+  const y = base.getFullYear();
+  const mo = String(base.getMonth() + 1).padStart(2, '0');
+  return `${y}-${mo}`;
+}
+
+function buildPlanCalendarDaysForMonth(monthKey, apiDays, baseMonthKey, itemsByDate, fallbackDaysBuilder) {
+  if (Array.isArray(apiDays) && apiDays.length && monthKey === baseMonthKey) {
+    return apiDays;
+  }
+
+  const m = /^(\d{4})-(\d{2})$/.exec(monthKey);
+  if (!m) return fallbackDaysBuilder();
+
+  const year = Number.parseInt(m[1], 10);
+  const monthIndex = Number.parseInt(m[2], 10) - 1;
+  const firstOfMonth = new Date(year, monthIndex, 1);
+  const startOffset = (firstOfMonth.getDay() + 6) % 7;
+  const gridStart = new Date(year, monthIndex, 1 - startOffset);
+  const todayKey = normalizeDateForStorage(new Date());
+  const days = [];
+
+  for (let i = 0; i < 42; i += 1) {
+    const d = new Date(gridStart);
+    d.setDate(gridStart.getDate() + i);
+    const dateKey = normalizeDateForStorage(d);
+    days.push({
+      date: dateKey,
+      day: d.getDate(),
+      inMonth: d.getMonth() === monthIndex,
+      isToday: dateKey === todayKey,
+      items: Array.isArray(itemsByDate[dateKey]) ? itemsByDate[dateKey] : [],
+    });
+  }
+
+  return days;
+}
+
+function renderPlanCalendar(calendar) {
+  const wrap = document.getElementById('plan-calendar-wrap');
+  const grid = document.getElementById('plan-calendar-grid');
+  const titleEl = document.getElementById('plan-calendar-title');
+  const monthEl = document.getElementById('plan-calendar-month');
+  const summaryEl = document.getElementById('plan-calendar-summary');
+  const emptyEl = document.getElementById('plan-calendar-empty');
+  const prevBtn = document.getElementById('plan-calendar-prev');
+  const nextBtn = document.getElementById('plan-calendar-next');
+  if (!wrap || !grid || !titleEl || !monthEl || !summaryEl || !emptyEl) return;
+
+  const safeCalendar = calendar && typeof calendar === 'object' ? calendar : {
+    title: 'Calendrier des séances prévues',
+    monthKey: normalizeDateForStorage(new Date()).slice(0, 7),
+    monthLabel: new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
+    summary: 'Aucune séance programmée ce mois-ci',
+    emptyMessage: 'Aucune séance planifiée. Utilise + pour ajouter un événement perso.',
+    itemsByDate: {},
+    days: [],
+  };
+
+  const buildFallbackCalendarDays = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const firstOfMonth = new Date(year, month, 1);
+    const startOffset = (firstOfMonth.getDay() + 6) % 7;
+    const gridStart = new Date(year, month, 1 - startOffset);
+    const todayKey = normalizeDateForStorage(now);
+    const days = [];
+
+    for (let i = 0; i < 42; i += 1) {
+      const date = new Date(gridStart);
+      date.setDate(gridStart.getDate() + i);
+      const dateKey = normalizeDateForStorage(date);
+      days.push({
+        date: dateKey,
+        day: date.getDate(),
+        inMonth: date.getMonth() === month,
+        isToday: dateKey === todayKey,
+        items: [],
+      });
+    }
+
+    return days;
+  };
+
+  titleEl.textContent = safeCalendar.title || 'Calendrier des séances prévues';
+  emptyEl.textContent = safeCalendar.emptyMessage || '';
+  emptyEl.style.display = safeCalendar.emptyMessage ? 'block' : 'none';
+
+
+  const racesByDate = new Map();
+  (Array.isArray(racesData) ? racesData : []).forEach((race) => {
+    const dateKey = normalizeDateForStorage(race?.date);
+    if (!dateKey) return;
+    const raceResult = String(race?.result || '').trim();
+    if (!racesByDate.has(dateKey)) racesByDate.set(dateKey, []);
+    racesByDate.get(dateKey).push({
+      kind: 'race',
+      raceId: Number.parseInt(race?.id, 10),
+      label: race?.name || 'Course',
+      format: race?.distance ? String(race.distance) : 'Course',
+      pe: race?.objective ? `Obj ${race.objective}` : null,
+      result: raceResult,
+      isDone: raceResult.length > 0,
+      isOptional: false,
+    });
+  });
+
+  const personalByDate = new Map();
+  (Array.isArray(calendarEventsData) ? calendarEventsData : []).forEach((evt) => {
+    if (!evt?.date) return;
+    if (!personalByDate.has(evt.date)) personalByDate.set(evt.date, []);
+    personalByDate.get(evt.date).push({
+      kind: 'personal',
+      personalId: evt.id,
+      date: evt.date,
+      label: 'Perso',
+      format: evt.title,
+      title: evt.title,
+      isDone: false,
+      isOptional: false,
+    });
+  });
+
+  const itemsByDate = safeCalendar.itemsByDate && typeof safeCalendar.itemsByDate === 'object'
+    ? safeCalendar.itemsByDate
+    : {};
+  const apiDays = Array.isArray(safeCalendar.days) ? safeCalendar.days : [];
+  const baseMonthKey = isPlanCalendarMonthKey(safeCalendar.monthKey)
+    ? String(safeCalendar.monthKey)
+    : (() => {
+        const inMonthDay = apiDays.find((d) => d?.inMonth && /^\d{4}-\d{2}-\d{2}$/.test(String(d?.date || '')));
+        return inMonthDay ? String(inMonthDay.date).slice(0, 7) : normalizeDateForStorage(new Date()).slice(0, 7);
+      })();
+
+  const signature = `${baseMonthKey}|${Object.keys(itemsByDate).length}`;
+  if (wrap.dataset.planCalSig !== signature || !isPlanCalendarMonthKey(wrap.dataset.planCalMonth)) {
+    wrap.dataset.planCalSig = signature;
+    wrap.dataset.planCalMonth = baseMonthKey;
+  }
+
+  const renderMonth = (monthKey) => {
+    const days = buildPlanCalendarDaysForMonth(monthKey, apiDays, baseMonthKey, itemsByDate, buildFallbackCalendarDays);
+    monthEl.textContent = formatPlanCalendarMonthLabel(monthKey, safeCalendar.monthLabel || '—');
+
+    const plannedCount = days
+      .filter((d) => d?.inMonth)
+      .reduce((acc, d) => acc + ((Array.isArray(d?.items) ? d.items : []).filter((it) => (it?.kind || 'session') === 'session').length), 0);
+    if (plannedCount > 0) {
+      const suffix = plannedCount > 1 ? 's' : '';
+      summaryEl.textContent = `${plannedCount} seance${suffix} programmee${suffix}`;
+    } else {
+      summaryEl.textContent = safeCalendar.summary || 'Aucune seance programmee ce mois-ci';
+    }
+
+    const nodes = buildPlanCalendarDayNodes(days, racesByDate, personalByDate);
+
+    grid.replaceChildren(...nodes);
+  };
+
+  if (prevBtn) {
+    prevBtn.onclick = () => {
+      const current = String(wrap.dataset.planCalMonth || baseMonthKey);
+      const next = stepPlanCalendarMonthKey(current, -1);
+      wrap.dataset.planCalMonth = next;
+      renderMonth(next);
+    };
+  }
+  if (nextBtn) {
+    nextBtn.onclick = () => {
+      const current = String(wrap.dataset.planCalMonth || baseMonthKey);
+      const next = stepPlanCalendarMonthKey(current, 1);
+      wrap.dataset.planCalMonth = next;
+      renderMonth(next);
+    };
+  }
+
+  renderMonth(String(wrap.dataset.planCalMonth || baseMonthKey));
 }
 
 function renderTrainingLoad() {
   const wrap = document.getElementById('training-load-wrap');
   if (!wrap) return;
+
+  if (!isWidgetEnabled('training_load')) {
+    wrap.style.display = 'none';
+    return;
+  }
 
   const load = dashboardMetrics?.trainingLoad || {};
   if (!load.hasData) {
@@ -1517,6 +2128,13 @@ function renderEF() {
 function renderEfBpmChart() {
   const container = document.getElementById('ef-bpm-chart-container');
   if (!container) return;
+  const wrap = document.getElementById('ef-bpm-wrap');
+
+  if (!isWidgetEnabled('ef_bpm')) {
+    container.style.display = 'none';
+    if (wrap) wrap.style.display = 'none';
+    return;
+  }
 
   const metrics = dashboardMetrics || {};
   const ef = metrics.ef || {};
@@ -1524,13 +2142,11 @@ function renderEfBpmChart() {
 
   if (trend.length < 2) {
     container.style.display = 'none';
-    const wrap = document.getElementById('ef-bpm-wrap');
     if (wrap) wrap.style.display = 'none';
     return;
   }
 
   container.style.display = '';
-  const wrap = document.getElementById('ef-bpm-wrap');
   if (wrap) wrap.style.display = '';
 
   const W = container.clientWidth || 600;
@@ -1657,6 +2273,9 @@ function renderProjections() {
   }
   const cards = projections.map((d)=>{
     const card = cloneTemplate('projection-card-template') || document.createElement('article');
+    if (card && typeof d?.color === 'string' && d.color.trim()) {
+      card.style.setProperty('--proj-tint', d.color.trim());
+    }
     const labelEl = card.querySelector('.proj-label');
     const timeEl = card.querySelector('.proj-time');
     const paceEl = card.querySelector('.proj-pace');
@@ -1877,7 +2496,7 @@ function addPlanSession(planId) {
     notify('⚠ Plan non trouvé');
     return;
   }
-  ep.sessions.push({ sem: 1, date: null, format: "45'@Z2", pe: '3/10', total: 45, opt: false });
+  ep.sessions.push({ sem: 1, date: null, format: "45'@Z2", sessionType: 'EF', pe: '3/10', total: 45, opt: false });
   replacePlanSessionsInDb(planId, ep.sessions, ep.done)
     .then(async () => {
       // Reload plans from DB to ensure sync
@@ -1975,6 +2594,7 @@ function renderPlan(containerId, data, stateKey) {
       const checkEl = row.querySelector('.session-check');
       const formatEl = row.querySelector('.session-format');
       const dateEl = row.querySelector('.session-date-badge');
+      const typeEl = row.querySelector('.session-type-badge');
       const peEl = row.querySelector('.pe-badge');
       const durEl = row.querySelector('.duration-badge');
       const optEl = row.querySelector('.optional-tag');
@@ -1988,6 +2608,11 @@ function renderPlan(containerId, data, stateKey) {
       if (dateEl) {
         dateEl.hidden = !s.date;
         dateEl.textContent = s.date ? formatDate(s.date) : '';
+      }
+      if (typeEl) {
+        const sessionType = normalizeSessionType(s.sessionType ?? s.session_type ?? s.type) || '';
+        typeEl.hidden = !sessionType;
+        typeEl.textContent = sessionType;
       }
       if (peEl) {
         peEl.hidden = !s.pe;
@@ -2066,6 +2691,7 @@ function openPlanEdit(stateKey, idx) {
   document.getElementById('pm-statekey').value = stateKey;
   document.getElementById('pm-idx').value = idx;
   document.getElementById('pm-format').value = s.format || '';
+  document.getElementById('pm-type').value = normalizeSessionType(s.sessionType ?? s.session_type ?? s.type) || '';
   document.getElementById('pm-date').value = normalizeDateForStorage(s.date);
   document.getElementById('pm-pe').value = s.pe || '';
   document.getElementById('pm-total').value = s.total || '';
@@ -2073,7 +2699,7 @@ function openPlanEdit(stateKey, idx) {
   openModal('plan-modal');
 }
 
-function savePlanEdit() {
+async function savePlanEdit() {
   const sk = document.getElementById('pm-statekey').value;
   const idx = Number.parseInt(document.getElementById('pm-idx').value, 10);
   const isExtra = sk.startsWith('extra:');
@@ -2082,6 +2708,7 @@ function savePlanEdit() {
   if (!d?.[idx]) return;
 
   d[idx].format = document.getElementById('pm-format').value;
+  d[idx].sessionType = normalizeSessionType(document.getElementById('pm-type').value);
   const dateInput = document.getElementById('pm-date').value;
   const isoDate = normalizeDateForStorage(dateInput);
   if (dateInput && !isoDate) {
@@ -2094,11 +2721,23 @@ function savePlanEdit() {
   d[idx].opt = document.getElementById('pm-opt').checked;
 
   if (isExtra) {
-    replacePlanSessionsInDb(planId, d, getExtraPlan(planId)?.done || {})
-      .catch((e) => notify(`⚠ ${e.message}`));
+    try {
+      await replacePlanSessionsInDb(planId, d, getExtraPlan(planId)?.done || {});
+      await loadPlansFromDb();
+      const reloadedPlan = getExtraPlan(planId);
+      if (reloadedPlan) {
+        renderPlan('plans-detail-weeks', reloadedPlan.sessions, sk);
+      } else {
+        renderPlan('plans-detail-weeks', d, sk);
+      }
+    } catch (e) {
+      notify(`⚠ ${e.message}`);
+      return;
+    }
+  } else {
+    renderPlan('plans-detail-weeks', d, sk);
   }
 
-  renderPlan('plans-detail-weeks', d, sk);
   renderPlansList();
   requestDashboardRefresh();
   closeModal('plan-modal');
@@ -2270,6 +2909,17 @@ function openCalendarActionModal(item) {
     modal.inputWrap.style.display = 'none';
     modal.input.value = '';
     if (item?.hasSessionRef) {
+      // Bouton pour sélectionner la séance prévue dans le formulaire de log
+      modal.buttons.appendChild(calendarActionButton('Sélectionner pour log', 'btn', () => {
+        // Redirige vers la page des logs avec les bons paramètres
+        const params = new URLSearchParams();
+        if (item.detailId) params.set('plannedSessionId', item.detailId);
+        if (item.date) params.set('date', item.date);
+        const sessionTypeForLog = normalizeSessionType(item?.sessionType ?? item?.session_type ?? item?.type);
+        if (sessionTypeForLog) params.set('sessionType', sessionTypeForLog);
+        globalThis.location.href = '/log?' + params.toString();
+      }));
+
       const nextDone = !item?.isDone;
       modal.buttons.appendChild(calendarActionButton(nextDone ? 'Valider la seance' : 'Retirer la validation', 'btn', () => {
         void toggleSessionDoneFromCalendar(item, nextDone);
@@ -2379,6 +3029,7 @@ async function toggleSessionDoneFromCalendar(item, nextDone) {
       sem: current?.sem ?? null,
       sessionDate: normalizeDateForStorage(current?.sessionDate) || null,
       format: current?.format || "45'@Z2",
+      sessionType: normalizeSessionType(current?.sessionType ?? current?.session_type ?? current?.type),
       pe: current?.pe || null,
       totalMin: current?.totalMin ?? null,
       isOptional: !!current?.isOptional,
@@ -2390,9 +3041,30 @@ async function toggleSessionDoneFromCalendar(item, nextDone) {
       body: JSON.stringify(payload),
     });
 
+    // Si on dévalide, supprimer les logs liés à cette séance
+    let deletedLogCount = 0;
+    if (!nextDone) {
+      const linkedLogs = (Array.isArray(logData) ? logData : []).filter(
+        (r) => Number(r.plannedSessionId) === detailId,
+      );
+      for (const log of linkedLogs) {
+        try {
+          await apiFetch(`/run_logs/${log.id}`, { method: 'DELETE' });
+          deletedLogCount++;
+        } catch {
+          // Suppression silencieuse en cas d'erreur individuelle
+        }
+      }
+      if (deletedLogCount > 0) {
+        logData = logData.filter((r) => Number(r.plannedSessionId) !== detailId);
+      }
+    }
+
     closeModal('calendar-action-modal');
     if (nextDone) {
       notify('✓ Seance validee');
+    } else if (deletedLogCount > 0) {
+      notify(`✓ Validation retiree — ${deletedLogCount} log(s) supprimé(s)`);
     } else {
       notify('✓ Validation retiree');
     }
@@ -2443,6 +3115,165 @@ async function saveRaceResultFromCalendar(item, rawResult) {
 // LOG
 // ============================================================
 let logFilter='all', logSortAsc=false;
+let logEntryMode='manual';
+let plannedSessionsForLogs = [];
+
+function plannedSessionLabel(item) {
+  const date = item?.sessionDate ? formatDate(item.sessionDate) : 'Sans date';
+  const planName = String(item?.planName || item?.plan?.name || '').trim() || 'Plan';
+  const pos = Number.parseInt(item?.position, 10);
+  const sessionLabel = Number.isFinite(pos) ? `Séance ${pos}` : 'Séance';
+  const format = String(item?.format || '').trim();
+  const suffix = format ? ` · ${format}` : '';
+  return `${date} · ${planName} · ${sessionLabel}${suffix}`;
+}
+
+function setLogEntryMode(mode, options = {}) {
+  const nextMode = mode === 'calendar' ? 'calendar' : 'manual';
+  const shouldClearCalendarSelection = options.clearCalendarSelection !== false;
+  logEntryMode = nextMode;
+
+  const manualBtn = document.getElementById('log-entry-mode-manual');
+  const calendarBtn = document.getElementById('log-entry-mode-calendar');
+  const calendarChoice = document.getElementById('log-calendar-choice');
+
+  if (manualBtn) {
+    manualBtn.classList.toggle('active', nextMode === 'manual');
+    manualBtn.setAttribute('aria-pressed', nextMode === 'manual' ? 'true' : 'false');
+  }
+  if (calendarBtn) {
+    calendarBtn.classList.toggle('active', nextMode === 'calendar');
+    calendarBtn.setAttribute('aria-pressed', nextMode === 'calendar' ? 'true' : 'false');
+  }
+  if (calendarChoice) {
+    calendarChoice.hidden = nextMode !== 'calendar';
+  }
+
+  if (nextMode === 'manual' && shouldClearCalendarSelection) {
+    setPlannedSessionSelection('log-planned-session-text', 'log-planned-session-id', null);
+  }
+
+  if (nextMode === 'calendar') {
+    suggestPlannedSessionByDate('log-date', 'log-planned-session-text', 'log-planned-session-id');
+  }
+}
+globalThis.setLogEntryMode = setLogEntryMode;
+
+function fillPlannedSessionDatalist() {
+  const datalist = document.getElementById('planned-session-list');
+  if (!(datalist instanceof HTMLDataListElement)) return;
+
+  const options = (Array.isArray(plannedSessionsForLogs) ? plannedSessionsForLogs : []).map((item) => {
+    const option = document.createElement('option');
+    option.value = plannedSessionLabel(item);
+    option.dataset.sessionId = String(item.id);
+    return option;
+  });
+  datalist.replaceChildren(...options);
+}
+
+function syncPlannedSessionHiddenId(textInputId, hiddenInputId) {
+  const textInput = document.getElementById(textInputId);
+  const hiddenInput = document.getElementById(hiddenInputId);
+  if (!(textInput instanceof HTMLInputElement) || !(hiddenInput instanceof HTMLInputElement)) return;
+
+  const selected = (Array.isArray(plannedSessionsForLogs) ? plannedSessionsForLogs : []).find(
+    (item) => plannedSessionLabel(item) === String(textInput.value || '').trim()
+  );
+  hiddenInput.value = selected ? String(selected.id) : '';
+}
+
+function setPlannedSessionSelection(textInputId, hiddenInputId, sessionId) {
+  const textInput = document.getElementById(textInputId);
+  const hiddenInput = document.getElementById(hiddenInputId);
+  if (!(textInput instanceof HTMLInputElement) || !(hiddenInput instanceof HTMLInputElement)) return;
+
+  const wantedId = Number.parseInt(sessionId, 10);
+  if (!Number.isFinite(wantedId)) {
+    textInput.value = '';
+    hiddenInput.value = '';
+    return;
+  }
+
+  const selected = (Array.isArray(plannedSessionsForLogs) ? plannedSessionsForLogs : []).find(
+    (item) => Number(item.id) === wantedId
+  );
+  if (!selected) {
+    textInput.value = '';
+    hiddenInput.value = '';
+    return;
+  }
+
+  textInput.value = plannedSessionLabel(selected);
+  hiddenInput.value = String(selected.id);
+}
+
+function suggestPlannedSessionByDate(dateInputId, textInputId, hiddenInputId) {
+  if (hiddenInputId === 'log-planned-session-id' && logEntryMode !== 'calendar') return;
+
+  const dateInput = document.getElementById(dateInputId);
+  const textInput = document.getElementById(textInputId);
+  const hiddenInput = document.getElementById(hiddenInputId);
+  if (!(dateInput instanceof HTMLInputElement) || !(textInput instanceof HTMLInputElement) || !(hiddenInput instanceof HTMLInputElement)) return;
+
+  const dateKey = normalizeDateForStorage(dateInput.value);
+  if (!dateKey || hiddenInput.value) return;
+
+  const candidate = (Array.isArray(plannedSessionsForLogs) ? plannedSessionsForLogs : []).find(
+    (item) => normalizeDateForStorage(item.sessionDate) === dateKey
+  );
+  if (!candidate) return;
+
+  textInput.value = plannedSessionLabel(candidate);
+  hiddenInput.value = String(candidate.id);
+}
+
+function ensurePlannedSessionBindings() {
+  const pairs = [
+    ['log-planned-session-text', 'log-planned-session-id', 'log-date'],
+    ['lm-planned-session-text', 'lm-planned-session-id', 'lm-date'],
+  ];
+
+  pairs.forEach(([textId, hiddenId, dateId]) => {
+    const textInput = document.getElementById(textId);
+    const hiddenInput = document.getElementById(hiddenId);
+    const dateInput = document.getElementById(dateId);
+    if (!(textInput instanceof HTMLInputElement) || !(hiddenInput instanceof HTMLInputElement) || !(dateInput instanceof HTMLInputElement)) return;
+    if (textInput.dataset.bound === '1') return;
+
+    textInput.addEventListener('input', () => syncPlannedSessionHiddenId(textId, hiddenId));
+    textInput.addEventListener('blur', () => syncPlannedSessionHiddenId(textId, hiddenId));
+    dateInput.addEventListener('change', () => suggestPlannedSessionByDate(dateId, textId, hiddenId));
+    textInput.dataset.bound = '1';
+  });
+}
+
+async function loadPlannedSessionsForLogs() {
+  try {
+    const data = await apiFetch('/plan_details?order[sessionDate]=asc&pagination=false');
+    const items = members(data);
+    plannedSessionsForLogs = items
+      .map((item) => {
+        const id = iriToId(item?.['@id']) ?? Number.parseInt(item?.id, 10);
+        if (!Number.isFinite(id)) return null;
+        return {
+          id,
+          planName: item?.planName,
+          position: item?.position,
+          sessionDate: normalizeDateForStorage(item?.sessionDate),
+          format: item?.format,
+          sessionType: normalizeSessionType(item?.sessionType ?? item?.session_type ?? item?.type),
+          isDone: !!item?.isDone,
+        };
+      })
+      .filter(Boolean);
+  } catch {
+    plannedSessionsForLogs = [];
+  }
+
+  fillPlannedSessionDatalist();
+  ensurePlannedSessionBindings();
+}
 
 function toggleSort(){
   logSortAsc=!logSortAsc;
@@ -2488,6 +3319,7 @@ function buildLogRow(r) {
   const dplusEl = row.querySelector('.log-dplus');
   const bpmEl = row.querySelector('.log-bpm');
   const typeEl = row.querySelector('.log-type');
+  const plannedEl = row.querySelector('.log-planned');
   const notesEl = row.querySelector('.log-notes');
   const editBtn = row.querySelector('.log-edit');
   const delBtn = row.querySelector('.log-delete');
@@ -2503,6 +3335,7 @@ function buildLogRow(r) {
   setLogMetricCell(dplusEl, r.dplus, 'metric-dplus', 'm');
   if (bpmEl) bpmEl.textContent = r.bpm || '—';
   setLogTypeCell(typeEl, r.run_type);
+  if (plannedEl) plannedEl.textContent = r.plannedSessionLabel || '—';
   if (notesEl) notesEl.textContent = r.notes || '—';
   if (editBtn) editBtn.addEventListener('click', () => openLogEdit(r.id));
   if (delBtn) delBtn.addEventListener('click', () => deleteLog(r.id, r.date));
@@ -2531,6 +3364,26 @@ function filterLog(type,btn){
   renderLog();
 }
 
+async function syncPlannedSessionDate(plannedSessionId, logDate) {
+  if (!Number.isFinite(plannedSessionId) || !logDate) return;
+  const sessions = Array.isArray(plannedSessionsForLogs) ? plannedSessionsForLogs : [];
+  const session = sessions.find((s) => Number(s.id) === plannedSessionId);
+  const plannedDate = session?.sessionDate ? normalizeDateForStorage(session.sessionDate) : null;
+  if (plannedDate && plannedDate !== logDate) {
+    try {
+      await apiFetch(`/plan_details/${plannedSessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/merge-patch+json' },
+        body: JSON.stringify({ sessionDate: logDate }),
+      });
+      // Met à jour le cache local pour éviter un rechargement complet
+      if (session) session.sessionDate = logDate;
+    } catch (e) {
+      // Echec silencieux — non bloquant
+    }
+  }
+}
+
 async function addLog() {
   const date=document.getElementById('log-date').value;
   const km=Number.parseFloat(document.getElementById('log-km').value);
@@ -2539,18 +3392,26 @@ async function addLog() {
   const bpm=Number.parseInt(document.getElementById('log-bpm').value, 10)||null;
   const runType=document.getElementById('log-type').value||null;
   const notes=document.getElementById('log-notes').value||null;
+  const plannedSessionIdRaw = document.getElementById('log-planned-session-id').value;
+  const plannedSessionId = Number.parseInt(plannedSessionIdRaw, 10);
+  const useCalendarSession = logEntryMode === 'calendar';
+  if (useCalendarSession && !Number.isFinite(plannedSessionId)) {
+    notify('⚠ Choisis une séance dans le calendrier ou repasse en mode manuel');
+    return;
+  }
+  const plannedSession = useCalendarSession && Number.isFinite(plannedSessionId) ? `/api/plan_details/${plannedSessionId}` : null;
   if(!date||!km||!dur){notify('⚠ Date, km et durée requis');return;}
-  const secs=durToSec(dur), allureSec=Math.round(secs/km);
-  const allure=secToDur(allureSec).slice(3);
-  const gap=computeGAP(allureSec,km,dplus);
   try {
     const created=await apiFetch('/run_logs',{method:'POST',body:JSON.stringify({
-      date,km,duration:dur,allure,gap,dplus,bpm,runType,notes
+      date,km,duration:dur,dplus,bpm,runType,notes,plannedSession
     })});
     logData.unshift(normalizeLog(created));
+    await syncPlannedSessionDate(plannedSessionId, date);
     renderLog(); requestDashboardRefresh();
     ['log-km','log-dur','log-dplus','log-bpm','log-notes'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('log-type').value='';
+    document.getElementById('log-planned-session-text').value='';
+    document.getElementById('log-planned-session-id').value='';
     notify('✓ Sortie enregistrée !');
   } catch(e){notify('⚠ '+e.message);}
 }
@@ -2565,6 +3426,7 @@ function openLogEdit(id) {
   document.getElementById('lm-bpm').value=r.bpm||'';
   document.getElementById('lm-type').value=r.run_type||'';
   document.getElementById('lm-notes').value=r.notes||'';
+  setPlannedSessionSelection('lm-planned-session-text', 'lm-planned-session-id', r.plannedSessionId);
   openModal('log-modal');
 }
 
@@ -2573,19 +3435,21 @@ async function saveLogEdit() {
   const dur=document.getElementById('lm-dur').value;
   const km=Number.parseFloat(document.getElementById('lm-km').value);
   const dplus=Number.parseInt(document.getElementById('lm-dplus').value, 10)||null;
-  const secs=durToSec(dur), allureSec=secs&&km?Math.round(secs/km):null;
-  const allure=allureSec?secToDur(allureSec).slice(3):logData.find(r=>r.id===id)?.allure;
-  const gap=allureSec?computeGAP(allureSec,km,dplus):null;
+  const plannedSessionIdRaw = document.getElementById('lm-planned-session-id').value;
+  const plannedSessionId = Number.parseInt(plannedSessionIdRaw, 10);
+  const plannedSession = Number.isFinite(plannedSessionId) ? `/api/plan_details/${plannedSessionId}` : null;
   try {
     const updated=await apiFetch(`/run_logs/${id}`,{method:'PUT',body:JSON.stringify({
       date:document.getElementById('lm-date').value,
-      km,duration:dur,allure,gap,dplus,
+      km,duration:dur,dplus,
       bpm:Number.parseInt(document.getElementById('lm-bpm').value, 10)||null,
       runType:document.getElementById('lm-type').value||null,
       notes:document.getElementById('lm-notes').value||null,
+      plannedSession,
     })});
     const idx=logData.findIndex(r=>r.id===id);
     if(idx>=0) logData[idx]=normalizeLog(updated);
+    await syncPlannedSessionDate(plannedSessionId, document.getElementById('lm-date').value);
     renderLog(); requestDashboardRefresh();
     closeModal('log-modal');
     notify('✓ Sortie modifiée !');
@@ -2595,10 +3459,24 @@ async function saveLogEdit() {
 async function deleteLog(id,dateStr) {
   askConfirm('Supprimer la sortie ?',formatDate(dateStr),async()=>{
     try {
+      const log = logData.find(r => r.id === id);
+      const linkedDetailId = log ? Number(log.plannedSessionId) : NaN;
       await apiFetch(`/run_logs/${id}`,{method:'DELETE'});
       logData=logData.filter(r=>r.id!==id);
+      // Dévalider la séance planifiée liée si elle existe
+      if (Number.isFinite(linkedDetailId)) {
+        try {
+          await apiFetch(`/plan_details/${linkedDetailId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/merge-patch+json' },
+            body: JSON.stringify({ isDone: false }),
+          });
+        } catch {
+          // Non bloquant
+        }
+      }
       renderLog(); requestDashboardRefresh();
-      notify('🗑 Sortie supprimée');
+      notify('🗑 Sortie supprimée' + (Number.isFinite(linkedDetailId) ? ' — séance dévalidée' : ''));
     } catch(e){notify('⚠ '+e.message);}
   });
 }
@@ -2780,6 +3658,35 @@ async function deleteRace(id,name) {
 // INIT
 // ============================================================
 async function initApp() {
+    // Pré-remplissage du formulaire de log si paramètres dans l’URL
+    const urlParams = new URLSearchParams(globalThis.location.search);
+    const plannedSessionId = urlParams.get('plannedSessionId');
+    const plannedDate = urlParams.get('date');
+    const plannedType = normalizeSessionType(urlParams.get('sessionType'));
+    if (plannedSessionId) {
+      setLogEntryMode('calendar', { clearCalendarSelection: false });
+      setTimeout(() => {
+        setPlannedSessionSelection('log-planned-session-text', 'log-planned-session-id', plannedSessionId);
+        const logInput = document.getElementById('log-planned-session-text');
+        if (logInput) {
+          logInput.focus();
+          logInput.classList.add('calendar-flash');
+          setTimeout(() => logInput.classList.remove('calendar-flash'), 800);
+        }
+      }, 400);
+    }
+    if (plannedDate) {
+      setTimeout(() => {
+        const logDateEl = document.getElementById('log-date');
+        if (logDateEl) logDateEl.value = plannedDate;
+      }, 400);
+    }
+    if (plannedType) {
+      setTimeout(() => {
+        const logTypeEl = document.getElementById('log-type');
+        if (logTypeEl instanceof HTMLSelectElement) logTypeEl.value = plannedType;
+      }, 400);
+    }
   if (!authToken) {
     globalThis.location.href = '/login';
     return;
@@ -2816,8 +3723,11 @@ async function initApp() {
     usernameEl.textContent = formatDisplayName(normalizedUsername);
   }
 
-  await loadAllData();
-  await loadDashboardAdvice();
+  // Phase 1: fast first paint (critical data + widget prefs in parallel)
+  await Promise.all([
+    hydrateWidgetPreferencesFromApi(),
+    loadAllData({ includeDashboardMetrics: false }),
+  ]);
 
   const safeRender = (fn, name) => {
     try {
@@ -2840,6 +3750,7 @@ async function initApp() {
   const today = new Date().toISOString().split('T')[0];
   const logDateEl = document.getElementById('log-date');
   if (logDateEl) logDateEl.value = today;
+  setLogEntryMode(plannedSessionId ? 'calendar' : 'manual', { clearCalendarSelection: false });
   const raceDateEl = document.getElementById('r-date');
   if (raceDateEl) raceDateEl.value = today;
 
@@ -2860,6 +3771,24 @@ async function initApp() {
         }
       });
     }
+  });
+
+  // Phase 2: deferred loads (non-critical for first paint)
+  setDashboardLoadingState(true);
+  void Promise.allSettled([
+    loadDashboardMetrics().then(() => {
+      safeRender(renderDashboard, 'dashboard-deferred-metrics');
+    }),
+    loadDashboardAdvice().then(() => {
+      safeRender(() => renderDashboardAdvice(dashboardMetrics || {}), 'dashboard-deferred-advice');
+    }),
+    loadPlannedSessionsForLogs(),
+    applyDefaultWidgetPresetOnce().then(() => {
+      safeRender(renderDashboard, 'dashboard-deferred-preset');
+    }),
+  ]).finally(() => {
+    setDashboardLoadingState(false);
+    safeRender(renderDashboard, 'dashboard-deferred-final');
   });
 }
 

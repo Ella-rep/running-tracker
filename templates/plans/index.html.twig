@@ -81,6 +81,7 @@
           <div class="session-format"></div>
           <div class="session-meta">
             <span class="session-date-badge" hidden></span>
+            <span class="session-type-badge" hidden></span>
             <span class="pe-badge" hidden></span>
             <span class="duration-badge" hidden></span>
             <span class="optional-tag" hidden>(optionnel)</span>
@@ -114,6 +115,16 @@
     <input type="hidden" id="pm-statekey"><input type="hidden" id="pm-idx">
     <div class="form-grid form-grid-single">
       <div class="field"><label for="pm-format">Format</label><input type="text" id="pm-format"></div>
+      <div class="field"><label for="pm-type">Type de séance</label>
+        <select id="pm-type">
+          <option value="">—</option>
+          <option value="EF">EF – Endurance fondamentale</option>
+          <option value="FC">FC – Fractionné court</option>
+          <option value="FL">FL – Sortie longue</option>
+          <option value="T">T – Tempo</option>
+          <option value="Race">🏁 Course</option>
+        </select>
+      </div>
       <div class="field"><label for="pm-date">Date</label><input type="date" id="pm-date" placeholder="jj/mm/yyyy" onclick="if(this.showPicker){this.showPicker();}"></div>
       <div class="field"><label for="pm-pe">PE</label><input type="text" id="pm-pe" placeholder="ex: 6/10"></div>
       <div class="field"><label for="pm-total">Durée totale (min)</label><input type="number" id="pm-total"></div>
@@ -161,5 +172,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260518-home2"></script>
+<script src="{{ asset('js/app.js') }}?v=20260520-colcal1"></script>
 {% endblock %}

@@ -4,7 +4,7 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260513-shell1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
-<link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260518-home10">
+<link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260521-perfstate1">
 {% endblock %}
 
 {% block body %}
@@ -12,7 +12,9 @@
 
 <main>
   <section id="dashboard" class="visible">
-    <div class="section-title">Vue d'ensemble 🏃</div>
+    <div class="section-title">
+      Vue d'ensemble 🏃
+    </div>
     <div class="section-sub" id="dash-date">Chargement…</div>
 
     <div class="kpi-grid" id="kpi-grid"></div>
@@ -23,7 +25,45 @@
         <div class="kpi-unit"></div>
       </article>
     </template>
-    <div class="chart-wrap" id="projections-wrap">
+
+    {% set dashboard_widget_definitions = dashboard_widget_definitions|default([]) %}
+    {% set dashboard_widget_state = dashboard_widget_state|default({}) %}
+    <div class="widget-picker-wrap is-collapsed" id="widget-picker-wrap">
+      <button type="button" class="widget-picker-toggle" id="widget-picker-toggle" aria-expanded="false" aria-controls="widget-picker">+ Ajouter des widgets</button>
+      <div class="widget-picker-title">Ajouter un suivi au dashboard</div>
+      <div class="widget-picker" id="widget-picker">
+        {% for widget in dashboard_widget_definitions %}
+          {% if widget.key != 'monthly_load' %}
+            {% set enabled = dashboard_widget_state[widget.key]|default(false) %}
+            <button
+              type="button"
+              class="widget-pick-card{% if enabled %} widget-pick-card--hidden{% endif %}"
+              data-widget-pick="{{ widget.key }}"
+              aria-label="Afficher {{ widget.label }}"
+              title="Afficher {{ widget.label }}"
+            >
+              <span class="widget-pick-chip">+ Ajouter</span>
+              <span class="widget-pick-label">{{ widget.label }}</span>
+              <span class="widget-pick-description">{{ widget.description }}</span>
+              <span class="widget-pick-cta">Cliquer pour afficher ce suivi</span>
+            </button>
+            <input
+              type="checkbox"
+              class="widget-toggle-checkbox-hidden"
+              data-widget-toggle="{{ widget.key }}"
+              {% if enabled %}checked{% endif %}
+            >
+          {% endif %}
+        {% endfor %}
+        <input
+          type="checkbox"
+          class="widget-toggle-checkbox-hidden"
+          data-widget-toggle="monthly_load"
+          {% if dashboard_widget_state['monthly_load']|default(true) %}checked{% endif %}
+        >
+      </div>
+    </div>
+    <div class="chart-wrap" id="projections-wrap" data-widget="projections">
       <div class="chart-title">Temps projetés — basé sur tes 5 dernières sorties</div>
       <div id="projections-grid" class="projections-grid"></div>
       <template id="projection-card-template">
@@ -38,12 +78,35 @@
       </template>
       <div id="projections-meta" class="meta-small"></div>
     </div>
-    <div class="chart-wrap" id="ef-bpm-wrap">
+    <div class="chart-wrap" id="ef-bpm-wrap" data-widget="ef_bpm">
       <div class="chart-title">Suivi BPM — Endurance Fondamentale</div>
       <div id="ef-bpm-chart-container" class="ef-bpm-chart-container"></div>
     </div>
-    <div class="chart-wrap" id="training-load-wrap">
+    <div class="chart-wrap" id="training-load-wrap" data-widget="training_load">
       <div class="chart-title">Charge d'entrainement</div>
+      <div class="training-load-head">
+        <span id="training-load-status" class="training-load-status">Initialisation</span>
+        <span id="training-load-ratio" class="training-load-ratio">Ratio —</span>
+      </div>
+      <div class="training-load-kpis">
+        <div class="training-load-kpi"><span>7 jours</span><strong id="training-load-acute">—</strong></div>
+        <div class="training-load-kpi"><span>Base 28j/4</span><strong id="training-load-chronic">—</strong></div>
+        <div class="training-load-kpi"><span>Ecart</span><strong id="training-load-delta">—</strong></div>
+      </div>
+      <div id="training-load-reco" class="training-load-reco"></div>
+      <div id="training-load-chart" class="training-load-chart"></div>
+    </div>
+    <div class="progress-section" data-widget="plan_progress">
+      <div class="progress-label">
+        <span id="progress-plan-label">Progression du plan</span>
+        <span id="tempo-pct">—</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="tempo-bar"></div></div>
+      <div class="progress-meta" id="tempo-meta"></div>
+    </div>
+
+    <div class="chart-wrap" data-widget="monthly_load">
+      <div class="chart-title">Kilométrage mensuel (2026)</div>
       <div class="bar-chart" id="monthly-chart"></div>
       <template id="monthly-bar-template">
         <article class="bar-col">
@@ -52,13 +115,15 @@
         </article>
       </template>
     </div>
-    <div id="coherence-section"></div>
+
+    <div id="coherence-section" data-widget="coherence"></div>
     <template id="coherence-alert-template">
       <div class="alert">
         <div class="alert-title"></div>
         <p class="alert-body"></p>
       </div>
     </template>
+
   </section>
 </main>
 
@@ -77,5 +142,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260518-home10"></script>
+<script src="{{ asset('js/app.js') }}?v=20260521-perfstate1"></script>
 {% endblock %}

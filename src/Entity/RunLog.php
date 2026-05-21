@@ -11,6 +11,7 @@ use ApiPlatform\Metadata\Post;
 use ApiPlatform\Metadata\Put;
 use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
+use App\Entity\PlanDetails;
 use App\Repository\RunLogRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Groups;
@@ -24,16 +25,18 @@ use Symfony\Component\Validator\Constraints as Assert;
     security: 'is_granted("ROLE_USER")',
     operations: [
         new GetCollection(),
-        new Post(),
-        new Get(security: 'object.getUser() == user'),
-        new Put(security: 'object.getUser() == user'),
-        new Delete(security: 'object.getUser() == user'),
+        new Post(processor: 'App\\State\\RunLogProcessor'),
+        new Get(security: self::OWNER_SECURITY),
+        new Put(security: self::OWNER_SECURITY, processor: 'App\\State\\RunLogProcessor'),
+        new Delete(security: self::OWNER_SECURITY),
     ]
 )]
 #[ApiFilter(OrderFilter::class, properties: ['date' => 'DESC'])]
 #[ApiFilter(SearchFilter::class, properties: ['runType' => 'exact'])]
 class RunLog
 {
+    private const OWNER_SECURITY = 'object.getUser() == user';
+
     #[ORM\Id, ORM\GeneratedValue, ORM\Column]
     #[Groups(['log:read'])]
     private ?int $id = null;
@@ -80,6 +83,11 @@ class RunLog
     #[Groups(['log:read', 'log:write'])]
     private ?string $notes = null;
 
+    #[ORM\ManyToOne(targetEntity: PlanDetails::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    #[Groups(['log:read', 'log:write'])]
+    private ?PlanDetails $plannedSession = null;
+
     #[ORM\Column]
     #[Groups(['log:read'])]
     private \DateTimeImmutable $createdAt;
@@ -107,5 +115,29 @@ class RunLog
     public function setRunType(?string $t): static { $this->runType = $t; return $this; }
     public function getNotes(): ?string { return $this->notes; }
     public function setNotes(?string $n): static { $this->notes = $n; return $this; }
+    public function getPlannedSession(): ?PlanDetails { return $this->plannedSession; }
+    public function setPlannedSession(?PlanDetails $plannedSession): static { $this->plannedSession = $plannedSession; return $this; }
+    #[Groups(['log:read'])]
+    public function getPlannedSessionId(): ?int { return $this->plannedSession?->getId(); }
+    #[Groups(['log:read'])]
+    public function getPlannedSessionLabel(): ?string
+    {
+        if (!$this->plannedSession) {
+            return null;
+        }
+
+        $date = $this->plannedSession->getSessionDate()?->format('Y-m-d');
+        $planName = $this->plannedSession->getPlanName();
+        $position = $this->plannedSession->getPosition();
+        $format = trim((string) $this->plannedSession->getFormat());
+
+        return trim(sprintf(
+            '%s · %s · Seance %d%s',
+            $date ?: 'Sans date',
+            $planName,
+            $position,
+            $format !== '' ? ' · ' . $format : ''
+        ));
+    }
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
 }

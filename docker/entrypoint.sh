@@ -2,10 +2,7 @@
 set -e
 
 cd /app
-
-echo "📚  Vérification des dépendances Composer..."
-if [ ! -f vendor/autoload.php ] || [ ! -d vendor/twig/extra-bundle ]; then
-    echo "➕  Installation des dépendances Composer (vendor manquant ou incomplet)"
+echo "➕  Installation des dépendances Composer"
     /usr/local/bin/composer install \
         --no-dev \
         --no-interaction \
@@ -13,18 +10,19 @@ if [ ! -f vendor/autoload.php ] || [ ! -d vendor/twig/extra-bundle ]; then
         --prefer-dist \
         --optimize-autoloader \
         --classmap-authoritative
-fi
 
-echo "⏳  Attente de PostgreSQL sur db:5432..."
-until nc -z db 5432; do
+
+DB_HOST="${DATABASE_HOST:-db}"
+DB_PORT="${DATABASE_PORT:-5432}"
+
+echo "⏳  Attente de PostgreSQL sur ${DB_HOST}:${DB_PORT}..."
+until nc -z "$DB_HOST" "$DB_PORT"; do
     printf "."
     sleep 2
 done
 echo ""
 echo "✅  PostgreSQL disponible"
 
-DB_HOST="${DATABASE_HOST:-db}"
-DB_PORT="${DATABASE_PORT:-5432}"
 DB_USER="${DATABASE_USER:-runner}"
 DB_PASS="${DATABASE_PASSWORD:-runner}"
 DB_NAME="${DATABASE_NAME:-postgres}"

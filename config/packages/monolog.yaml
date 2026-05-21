@@ -9,6 +9,6 @@ when@prod:
             nested:
                 type: rotating_file
                 path: "%kernel.logs_dir%/%kernel.environment%.log"
-                level: debug
+                level: error
                 max_files: 10
                 channels: ["!deprecation"]

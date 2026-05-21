@@ -6,14 +6,14 @@
     --border: #2b3240;
     --accent: #f2efeb;
     --accent2: #9a8cff;
-    --accent3: #ff8e8e;
+    --accent3: #ff8ebc;
     --text: #f4f6fb;
     --text-muted: #adb3bf;
     --z1: #8ac5ff;
     --z2: #8de1b8;
     --z3: #ffd27e;
     --z4: #b69aff;
-    --z5: #ff8e8e;
+    --z5: #ff8ebc;
     --header-bg: rgba(7,9,13,0.94);
     --overlay-bg: rgba(6,8,12,0.72);
     --overlay-bg2: rgba(6,8,12,0.80);
@@ -22,8 +22,8 @@
     --badge-future-bg: rgba(58,69,88,0.85);
     --badge-done-bg: rgba(141,225,184,0.14);
     --badge-next-bg: rgba(154,140,255,0.16);
-    --alert-bg: rgba(255,142,142,0.10);
-    --alert-border: rgba(255,142,142,0.28);
+    --alert-bg: rgba(255,142,188,0.10);
+    --alert-border: rgba(255,142,188,0.28);
     --alert-ok-bg: rgba(141,225,184,0.10);
     --alert-ok-border: rgba(141,225,184,0.25);
     --filter-active-bg: rgba(154,140,255,0.15);

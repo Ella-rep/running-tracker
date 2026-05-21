@@ -140,9 +140,11 @@ final class DashboardMetricsService
 
             return [
                 'title' => 'Calendrier des seances prevues',
+                'monthKey' => $monthStart->format('Y-m'),
                 'monthLabel' => sprintf('%s %s', ucfirst($monthNames[$monthNumber] ?? $monthStart->format('F')), $monthStart->format('Y')),
                 'summary' => $summary,
                 'emptyMessage' => $emptyMessage,
+                'itemsByDate' => $itemsByDate,
                 'days' => $days,
             ];
         };
@@ -170,7 +172,8 @@ final class DashboardMetricsService
 
         $rows = $this->planDetails->findBy(['user' => $user, 'plan' => $targetPlan], ['position' => 'ASC']);
         $total = count($rows);
-        $aggregates = array_reduce($rows, static function (array $carry, $row): array {
+        $loggedDetailIds = $this->runLogs->findLoggedDetailIds($user);
+        $aggregates = array_reduce($rows, static function (array $carry, $row) use ($loggedDetailIds): array {
             $carry['done'] += $row->isDone() ? 1 : 0;
 
             $date = $row->getSessionDate();
@@ -187,10 +190,12 @@ final class DashboardMetricsService
                 'kind' => 'session',
                 'detailId' => $row->getId(),
                 'planId' => $row->getPlan()->getId(),
+                'sessionType' => $row->getSessionType(),
                 'label' => sprintf('Seance %d', $row->getPosition()),
                 'format' => $row->getFormat(),
                 'pe' => $row->getPe(),
                 'isDone' => $row->isDone(),
+                'hasLog' => isset($loggedDetailIds[$row->getId()]),
                 'isOptional' => $row->isOptional(),
             ];
 
@@ -946,7 +951,7 @@ final class DashboardMetricsService
             ['label' => '21 km', 'dist' => 21.1],
             ['label' => '42 km', 'dist' => 42.2],
         ];
-        $colors = ['#d966e0', '#8b9cf4', '#e05580', '#4ade80'];
+            $colors = ['#e8c678', '#8b9cf4', '#e05580', '#4ade80'];
 
         $projections = [];
         foreach ($distances as $idx => $d) {

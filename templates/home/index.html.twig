@@ -4,7 +4,7 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260513-shell1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
-<link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260518-home12">
+<link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260520-colcal1">
 <link rel="stylesheet" href="{{ asset('css/home.css') }}?v=20260518-home1">
 {% endblock %}
 
@@ -47,11 +47,15 @@
 
     <div class="chart-wrap plan-calendar-wrap" id="plan-calendar-wrap">
       <div class="plan-calendar-head">
-        <div>
+        <div class="plan-calendar-topline">
           <div class="chart-title" id="plan-calendar-title">Calendrier des séances prévues</div>
-          <div class="plan-calendar-month" id="plan-calendar-month">—</div>
+          <div class="plan-calendar-summary" id="plan-calendar-summary">—</div>
         </div>
-        <div class="plan-calendar-summary" id="plan-calendar-summary">—</div>
+        <div class="plan-calendar-month-nav">
+          <button class="plan-calendar-nav-btn" id="plan-calendar-prev" type="button" aria-label="Mois précédent">‹</button>
+          <div class="plan-calendar-month" id="plan-calendar-month">—</div>
+          <button class="plan-calendar-nav-btn" id="plan-calendar-next" type="button" aria-label="Mois suivant">›</button>
+        </div>
       </div>
       <div class="plan-calendar-weekdays" aria-hidden="true">
         <span>Lun</span><span>Mar</span><span>Mer</span><span>Jeu</span><span>Ven</span><span>Sam</span><span>Dim</span>
@@ -98,5 +102,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260518-home11"></script>
+<script src="{{ asset('js/app.js') }}?v=20260520-colcal1"></script>
 {% endblock %}

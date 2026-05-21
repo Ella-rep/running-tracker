@@ -4,7 +4,7 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260513-shell1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
-<link rel="stylesheet" href="{{ asset('css/log.css') }}?v=20260513-split1">
+<link rel="stylesheet" href="{{ asset('css/log.css') }}?v=20260520-logplan3">
 {% endblock %}
 
 {% block body %}
@@ -15,7 +15,14 @@
     <div class="section-title">Journal de course</div>
     <div class="section-sub" id="log-sub">Chargement…</div>
     <div class="form-card">
-      <h3>➕ Ajouter une sortie</h3>
+      <div class="form-card-head">
+        <h3>➕ Ajouter une sortie</h3>
+        <fieldset class="log-entry-mode-switch">
+          <legend class="sr-only">Mode de saisie</legend>
+          <button type="button" id="log-entry-mode-manual" class="log-entry-mode-btn active" aria-pressed="true" onclick="setLogEntryMode('manual')">Ajouter manuellement</button>
+          <button type="button" id="log-entry-mode-calendar" class="log-entry-mode-btn" aria-pressed="false" onclick="setLogEntryMode('calendar')">Choisir sur le calendrier</button>
+        </fieldset>
+      </div>
       <div class="form-grid">
         <div class="field"><label for="log-date">Date</label><input type="date" id="log-date" placeholder="jj/mm/yyyy"></div>
         <div class="field"><label for="log-km">Distance (km)</label><input type="number" id="log-km" step="0.01" placeholder="5.00"></div>
@@ -34,6 +41,16 @@
         </div>
         <div class="field"><label for="log-notes">Notes</label><input type="text" id="log-notes" placeholder="…"></div>
       </div>
+      <div class="log-calendar-choice" id="log-calendar-choice" hidden>
+        <div class="field">
+          <label for="log-planned-session-text">Séance prévue</label>
+          <div class="field-actions-inline">
+            <input type="text" id="log-planned-session-text" placeholder="Aucune séance sélectionnée" readonly onclick="openPlannedSessionCalendarPicker('log-date','log-planned-session-text','log-planned-session-id')">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="openPlannedSessionCalendarPicker('log-date','log-planned-session-text','log-planned-session-id')">Choisir sur le calendrier</button>
+          </div>
+          <input type="hidden" id="log-planned-session-id">
+        </div>
+      </div>
       <button class="btn" onclick="addLog()">Enregistrer</button>
     </div>
     <div class="filter-bar">
@@ -47,7 +64,7 @@
       <table>
         <thead><tr>
           <th><button id="sort-date-btn" class="sort-date-btn" onclick="toggleSort()">Date <span id="sort-icon">↓</span></button></th>
-          <th>Km</th><th>Durée</th><th>Allure</th><th>GAP</th><th>D+</th><th>BPM</th><th>Type</th><th>Notes</th><th></th>
+          <th>Km</th><th>Durée</th><th>Allure</th><th>GAP</th><th>D+</th><th>BPM</th><th>Type</th><th>Séance prévue</th><th>Notes</th><th></th>
         </tr></thead>
         <tbody id="log-tbody"></tbody>
       </table>
@@ -61,6 +78,7 @@
           <td class="mono log-dplus"></td>
           <td class="mono log-bpm"></td>
           <td class="log-type"></td>
+          <td class="log-planned"></td>
           <td class="notes-cell log-notes"></td>
           <td>
             <div class="action-btns">
@@ -110,6 +128,14 @@
           <option value="Race">🏁 Course</option>
         </select>
       </div>
+      <div class="field">
+        <label for="lm-planned-session-text">Séance prévue (optionnel)</label>
+        <div class="field-actions-inline">
+          <input type="text" id="lm-planned-session-text" placeholder="Aucune séance sélectionnée" readonly onclick="openPlannedSessionCalendarPicker('lm-date','lm-planned-session-text','lm-planned-session-id')">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="openPlannedSessionCalendarPicker('lm-date','lm-planned-session-text','lm-planned-session-id')">Choisir sur le calendrier</button>
+        </div>
+        <input type="hidden" id="lm-planned-session-id">
+      </div>
       <div class="field"><label for="lm-notes">Notes</label><input type="text" id="lm-notes"></div>
     </div>
     <div class="modal-actions">
@@ -118,8 +144,9 @@
     </div>
   </div>
 </div>
+
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260518-home2"></script>
+<script src="{{ asset('js/app.js') }}?v=20260520-colcal1"></script>
 {% endblock %}
