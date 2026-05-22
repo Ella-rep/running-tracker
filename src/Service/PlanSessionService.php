@@ -4,9 +4,16 @@ namespace App\Service;
 
 use App\Entity\Plan;
 
+/**
+ * Provides canonical session templates for training plans.
+ */
 class PlanSessionService
 {
-    /** @return array<int, array{sem:int, date:?string, format:string, sessionType:?string, pe:?string, totalMin:?int, isOptional:bool}> */
+    /**
+     * Returns normalized sessions for the provided plan.
+     *
+     * @return array<int, array{sem:int, date:?string, format:string, sessionType:?string, pe:?string, totalMin:?int, isOptional:bool}>
+     */
     public function getSessionsForPlan(Plan $plan): array
     {
         $planName = strtolower(trim((string) $plan->getName()));

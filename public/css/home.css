@@ -96,6 +96,16 @@
   gap: 8px;
 }
 
+.weather-city-current-applied {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--text) 88%, var(--z2));
+  background: color-mix(in srgb, var(--z2) 12%, var(--surface2));
+  border: 1px solid color-mix(in srgb, var(--z2) 42%, var(--border));
+  border-radius: 999px;
+  padding: 6px 10px;
+  width: fit-content;
+}
+
 .weather-city-modal-form label {
   color: var(--text-muted);
   font-size: 12px;
@@ -110,6 +120,46 @@
   min-height: 38px;
 }
 
+.weather-city-suggestion {
+  margin-top: 6px;
+  display: grid;
+  gap: 6px;
+}
+
+.weather-city-suggestion[hidden] {
+  display: none !important;
+}
+
+.weather-city-suggestion-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.weather-city-detect-status {
+  font-size: 11px;
+  color: color-mix(in srgb, var(--text-muted) 90%, var(--z3));
+}
+
+.weather-city-detect-status.is-error {
+  color: color-mix(in srgb, var(--z3) 88%, var(--text));
+}
+
+.weather-city-use-detected {
+  justify-self: start;
+  border-color: color-mix(in srgb, var(--z3) 55%, var(--border));
+  color: color-mix(in srgb, var(--z3) 82%, var(--text));
+  background: color-mix(in srgb, var(--z3) 10%, var(--surface2));
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+}
+
+.weather-city-use-detected:hover {
+  border-color: color-mix(in srgb, var(--z2) 55%, var(--border));
+  color: var(--text);
+  background: color-mix(in srgb, var(--z2) 16%, var(--surface2));
+}
+
 .weather-city-modal-actions {
   justify-content: flex-end;
 }
@@ -121,7 +171,7 @@
 
 .advice-badge-action:hover,
 .advice-badge-action:focus-visible {
-  border-color: var(--accent2);
+  border-color: var(--z3);
   color: var(--text);
   outline: none;
 }
@@ -183,5 +233,80 @@
   .weather-city-open {
     grid-column: 2 / 3;
     justify-self: end;
+  }
+
+  #dashboard .table-wrap table {
+    table-layout: fixed;
+  }
+
+  #dashboard .table-wrap th {
+    padding: 9px 8px;
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+
+  #dashboard .table-wrap td {
+    padding: 9px 8px;
+    font-size: 12px;
+  }
+
+  #dashboard .table-wrap th:first-child,
+  #dashboard .table-wrap td:first-child {
+    width: 30%;
+  }
+}
+
+@media (max-width: 390px) {
+  #dashboard .table-wrap table {
+    table-layout: fixed;
+  }
+
+  #dashboard .table-wrap th {
+    padding: 8px 6px;
+    font-size: 8px;
+    letter-spacing: 0.6px;
+    white-space: nowrap;
+  }
+
+  #dashboard .table-wrap td {
+    padding: 8px 6px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  #dashboard .table-wrap th:nth-child(1),
+  #dashboard .table-wrap td:nth-child(1) {
+    width: 32%;
+  }
+
+  #dashboard .table-wrap th:nth-child(2),
+  #dashboard .table-wrap td:nth-child(2) {
+    width: 19%;
+  }
+
+  #dashboard .table-wrap th:nth-child(3),
+  #dashboard .table-wrap td:nth-child(3) {
+    width: 15%;
+  }
+
+  #dashboard .table-wrap th:nth-child(4),
+  #dashboard .table-wrap td:nth-child(4) {
+    width: 18%;
+  }
+
+  #dashboard .table-wrap th:nth-child(5),
+  #dashboard .table-wrap td:nth-child(5) {
+    width: 16%;
+  }
+
+  #dashboard .table-wrap td:first-child,
+  #dashboard .table-wrap .dashboard-race-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #dashboard .table-wrap .dashboard-race-status {
+    padding: 2px 6px;
+    font-size: 9px;
   }
 }

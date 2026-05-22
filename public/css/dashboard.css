@@ -17,16 +17,18 @@
   width: 26px;
   height: 26px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--accent2) 55%, var(--border));
-  background: color-mix(in srgb, var(--surface2) 78%, var(--surface));
-  color: var(--text);
+  border: 1px solid #b69aff;
+  background: color-mix(in srgb, var(--surface2) 90%, #20283a);
+  color: #ffffff;
   font-size: 16px;
   line-height: 1;
   cursor: pointer;
 }
 
 .plan-calendar-nav-btn:hover {
-  border-color: color-mix(in srgb, var(--accent2) 75%, var(--border));
+  border-color: #b69aff;
+  background: color-mix(in srgb, var(--z5) 12%, var(--surface2));
+  color: #ffffff;
 }
 
 .advice-card {
@@ -41,6 +43,64 @@
   padding: 12px 14px;
 }
 
+.advice-card.advice-skeleton {
+  border-left-color: color-mix(in srgb, var(--border) 65%, var(--z3));
+  position: relative;
+  overflow: hidden;
+}
+
+.advice-card.advice-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(110deg, transparent 0%, rgba(255,255,255,0.07) 40%, rgba(255,255,255,0.16) 52%, rgba(255,255,255,0.07) 64%, transparent 100%);
+  transform: translateX(-100%);
+  animation: adviceSkeletonShimmer 1.25s ease-in-out infinite;
+}
+
+.advice-card.advice-skeleton .advice-icon,
+.advice-card.advice-skeleton .advice-title,
+.advice-card.advice-skeleton .advice-badge,
+.advice-card.advice-skeleton .advice-text {
+  color: transparent;
+  background: color-mix(in srgb, var(--surface2) 72%, var(--border));
+  border-color: transparent;
+}
+
+.advice-card.advice-skeleton .advice-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+.advice-card.advice-skeleton .advice-title {
+  width: 64%;
+  height: 14px;
+  border-radius: 6px;
+  margin: 0 0 6px;
+}
+
+.advice-card.advice-skeleton .advice-badge {
+  width: 90px;
+  height: 18px;
+  border-radius: 999px;
+  padding: 0;
+}
+
+.advice-card.advice-skeleton .advice-text {
+  width: 100%;
+  height: 12px;
+  border-radius: 6px;
+  margin-top: 8px;
+}
+
+@keyframes adviceSkeletonShimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 .advice-icon { font-size: 20px; line-height: 1.2; }
 .advice-content h4 { font-size: 14px; margin: 0 0 4px 0; }
 .advice-content p { margin: 0; color: var(--text-muted); font-size: 13px; }
@@ -52,8 +112,8 @@
 .advice-badge {
   display: inline-flex;
   align-items: center;
-  border: 1px solid color-mix(in srgb, var(--accent2) 45%, var(--border));
-  color: var(--text-muted);
+  border: 1px solid color-mix(in srgb, var(--z3) 45%, var(--border));
+  color: color-mix(in srgb, var(--text) 86%, var(--z3));
   border-radius: 999px;
   font-size: 11px;
   padding: 2px 8px;
@@ -62,39 +122,41 @@
 
 .advice-action-btn {
   margin-top: 8px;
-  background: transparent;
-  border: 1px solid var(--accent2);
-  color: var(--accent2);
-  border-radius: 8px;
-  padding: 6px 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 999px;
+  min-height: 32px;
+  padding: 6px 12px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .advice-action-btn:hover {
-  background: color-mix(in srgb, var(--accent2) 15%, transparent);
+  border-color: var(--border);
+  background: var(--surface2);
   color: var(--text);
 }
 
-.advice-info { border-left-color: var(--accent2); }
+.advice-info { border-left-color: var(--z3); }
 .advice-warning { border-left-color: var(--z3); }
 .advice-success { border-left-color: var(--z1); }
 .advice-encourage { border-left-color: var(--accent); }
 
-/* Rose pastel en dark mode sur les advice cards et le bandeau charge */
-/* Advice cards : cycling colors (z1→z5) in dark mode */
+/* Advice cards in dark mode: keep warm yellow/green accents for readability */
 :root:not([data-theme="light"]) .advice-stack .advice-card:nth-child(1) { border-left-color: var(--z1); }
 :root:not([data-theme="light"]) .advice-stack .advice-card:nth-child(2) { border-left-color: var(--z3); }
-:root:not([data-theme="light"]) .advice-stack .advice-card:nth-child(3) { border-left-color: var(--z5); }
-:root:not([data-theme="light"]) .advice-stack .advice-card:nth-child(4) { border-left-color: var(--z4); }
+:root:not([data-theme="light"]) .advice-stack .advice-card:nth-child(3) { border-left-color: var(--z2); }
+:root:not([data-theme="light"]) .advice-stack .advice-card:nth-child(4) { border-left-color: var(--z3); }
 :root:not([data-theme="light"]) .advice-stack .advice-card:nth-child(5) { border-left-color: var(--z2); }
 :root:not([data-theme="light"]) .advice-stack .advice-card:nth-child(n+6) { border-left-color: var(--z1); }
 
 :root:not([data-theme="light"]) .training-load-status {
-  border-color: rgba(255,142,188,0.45);
-  color: #f0bdd6;
+  border-color: color-mix(in srgb, var(--z3) 55%, var(--border));
+  color: color-mix(in srgb, var(--z3) 88%, #ffffff 12%);
 }
 
 :root:not([data-theme="light"]) .training-load-kpi {
@@ -111,27 +173,27 @@
 :root:not([data-theme="light"]) .training-load-kpis .training-load-kpi:nth-child(n+6) { border-left-color: var(--z1); }
 
 .session-row-highlight {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent2) 55%, transparent);
-  background: color-mix(in srgb, var(--accent2) 14%, var(--surface2));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--z3) 55%, transparent);
+  background: color-mix(in srgb, var(--z3) 14%, var(--surface2));
 }
 
 .session-check-pulse {
   animation: sessionCheckPulse 0.8s ease-in-out 2;
-  border-color: var(--accent2);
+  border-color: var(--z3);
 }
 
 @keyframes sessionCheckPulse {
   0% {
     transform: scale(1);
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent2) 46%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--z3) 46%, transparent);
   }
   50% {
     transform: scale(1.08);
-    box-shadow: 0 0 0 7px color-mix(in srgb, var(--accent2) 0%, transparent);
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--z3) 0%, transparent);
   }
   100% {
     transform: scale(1);
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent2) 0%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--z3) 0%, transparent);
   }
 }
 
@@ -508,8 +570,9 @@
 
 .plan-calendar-month {
   margin-top: 0;
-  color: var(--text-muted);
-  font-size: 13px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 400;
 }
 
 .plan-calendar-summary {
@@ -562,8 +625,9 @@
   flex-direction: column;
   padding: 10px;
   border-radius: 16px;
-  border: 1px solid var(--border);
-  background: var(--surface2);
+  border: 1px solid color-mix(in srgb, var(--border) 86%, #91a4bf);
+  background: color-mix(in srgb, var(--surface2) 88%, #1e2534);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 7%, transparent);
   overflow: visible;
 }
 
@@ -572,12 +636,12 @@
 }
 
 .plan-calendar-day.is-today {
-  border-color: var(--accent2);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent2) 35%, transparent);
+  border-color: color-mix(in srgb, var(--z5) 72%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--z5) 40%, transparent);
 }
 
 .plan-calendar-day.has-items {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent2) 9%, var(--surface2)), var(--surface));
+  background: color-mix(in srgb, var(--surface2) 92%, #202838);
 }
 
 .plan-calendar-day-head {
@@ -591,26 +655,26 @@
   width: 24px;
   height: 24px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--accent2) 52%, var(--border));
-  background: color-mix(in srgb, var(--accent2) 14%, var(--surface));
-  color: color-mix(in srgb, white 92%, var(--accent2));
+  border: 1px solid #b69aff;
+  background: color-mix(in srgb, var(--surface2) 88%, #243044);
+  color: #ffffff;
   font-size: 16px;
   font-weight: 800;
   line-height: 1;
   cursor: pointer;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent2) 26%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #ffffff 18%, transparent);
   transition: transform 0.12s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
 }
 
 .plan-calendar-day-add:hover {
   transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--accent2) 82%, var(--border));
-  background: color-mix(in srgb, var(--accent2) 26%, var(--surface));
+  border-color: #ffffff;
+  background: color-mix(in srgb, var(--z5) 14%, var(--surface));
   color: #ffffff;
 }
 
 .plan-calendar-day-add:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent2) 76%, white);
+  outline: 2px solid color-mix(in srgb, var(--z5) 72%, white);
   outline-offset: 1px;
 }
 
@@ -630,8 +694,8 @@
 .plan-calendar-item {
   padding: 7px 8px;
   border-radius: 10px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  border-left: 3px solid var(--accent2);
+  background: color-mix(in srgb, var(--surface) 82%, #2a3446);
+  border-left: 3px solid var(--z1);
   overflow: visible;
 }
 
@@ -646,7 +710,7 @@
 }
 
 .plan-calendar-item.is-actionable:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent2) 72%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--z5) 72%, transparent);
   outline-offset: 1px;
 }
 
@@ -661,15 +725,15 @@
 }
 
 .plan-calendar-item.is-race {
-  border-left-color: var(--accent3);
-  background: color-mix(in srgb, var(--accent3) 20%, var(--surface));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent3) 30%, transparent);
+  border-left-color: var(--z5);
+  background: color-mix(in srgb, var(--z5) 14%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--z5) 24%, transparent);
 }
 
 .plan-calendar-item.is-personal {
-  border-left-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent);
+  border-left-color: var(--z3);
+  background: color-mix(in srgb, var(--z3) 12%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--z3) 24%, transparent);
 }
 
 .plan-calendar-item.is-race.is-done {
@@ -685,14 +749,14 @@
 
 /* Past sessions (not done) — yellow like km bars */
 .plan-calendar-item.is-past:not(.is-done) {
-  border-left-color: var(--z3);
-  background: color-mix(in srgb, var(--z3) 14%, var(--surface));
+  border-left-color: color-mix(in srgb, var(--z1) 68%, var(--z3));
+  background: color-mix(in srgb, var(--z1) 13%, var(--surface));
 }
 
-/* Future sessions (not done) — rose like km bars */
+/* Future sessions (not done) — soft green/yellow to avoid dark violet */
 .plan-calendar-item.is-future:not(.is-done) {
-  border-left-color: var(--z5);
-  background: color-mix(in srgb, var(--z5) 14%, var(--surface));
+  border-left-color: var(--z1);
+  background: color-mix(in srgb, var(--z1) 14%, var(--surface));
 }
 
 .plan-calendar-item-no-log {
@@ -1085,7 +1149,7 @@
     border-radius: 999px;
     border: 0;
     border-left-width: 0;
-    background: var(--accent2);
+    background: var(--z1);
     box-shadow: none;
   }
 
@@ -1102,11 +1166,11 @@
   }
 
   .plan-calendar-item.is-done { background: var(--z2); }
-  .plan-calendar-item.is-optional { background: var(--z3); }
-  .plan-calendar-item.is-race { background: var(--accent3); }
-  .plan-calendar-item.is-personal { background: var(--accent); }
-  .plan-calendar-item.is-past:not(.is-done) { background: var(--z3); }
-  .plan-calendar-item.is-future:not(.is-done) { background: var(--z5); }
+  .plan-calendar-item.is-optional { background: color-mix(in srgb, var(--z1) 70%, var(--z3)); }
+  .plan-calendar-item.is-race { background: var(--z5); }
+  .plan-calendar-item.is-personal { background: var(--z3); }
+  .plan-calendar-item.is-past:not(.is-done) { background: color-mix(in srgb, var(--z1) 70%, var(--z3)); }
+  .plan-calendar-item.is-future:not(.is-done) { background: var(--z1); }
 
   .plan-calendar-item-label {
     display: none;

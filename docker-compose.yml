@@ -54,7 +54,7 @@ services:
       DATABASE_PASSWORD: ${DATABASE_PASSWORD:-runner}
       DATABASE_NAME: ${DATABASE_NAME:-running_tracker_db}
       DATABASE_VERSION: ${DATABASE_VERSION:-15}
-      DEFAULT_URI: ${DEFAULT_URI:-http://localhost}
+      DEFAULT_URI: ${DEFAULT_URI:-http://localhost:8080}
       JWT_SECRET_KEY: /app/config/jwt/private.pem
       JWT_PUBLIC_KEY: /app/config/jwt/public.pem
       JWT_PASSPHRASE: adae0244853d5730e87d0a180763eed5

@@ -7,8 +7,14 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
+/**
+ * Handles Google OAuth entrypoint and callback routes.
+ */
 final class GoogleController extends AbstractController
 {
+    /**
+     * Starts Google OAuth by redirecting to Google's authorization page.
+     */
     #[Route('/connect/google', name: 'connect_google')]
     public function connectAction(ClientRegistry $clientRegistry): RedirectResponse
     {

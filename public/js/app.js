@@ -100,6 +100,11 @@ let dashboardMetrics = null;
 let calendarEventsData = [];
 let state     = { doneByKey: {}, planMeta: {}, extraPlans: [] };
 const WEATHER_CITY_STORAGE_KEY = 'rt_weather_city';
+const DASHBOARD_ADVICE_CACHE_KEY = 'rt_dashboard_advice_cache_v1';
+const DASHBOARD_ADVICE_CACHE_MAX_AGE_MS = 30 * 60 * 1000;
+let weatherDetectedCity = '';
+let weatherDetectedCityStatus = '';
+let weatherDetectedCityMessage = '';
 const DASHBOARD_WIDGET_PRESET_KEY = 'rt_dashboard_widgets_preset_v2';
 let dashboardWidgetPrefsHydrated = false;
 
@@ -113,11 +118,118 @@ function setDashboardLoadingState(isLoading) {
   document.querySelectorAll('[data-widget]').forEach((el) => {
     el.classList.toggle('is-loading', on);
   });
+
+  renderDashboardAdviceLoadingSkeleton(on);
+}
+
+function buildAdviceSkeletonCard() {
+  const card = document.createElement('article');
+  card.className = 'advice-card advice-skeleton';
+
+  const icon = document.createElement('div');
+  icon.className = 'advice-icon';
+
+  const content = document.createElement('div');
+  content.className = 'advice-content';
+
+  const title = document.createElement('h4');
+  title.className = 'advice-title';
+
+  const meta = document.createElement('div');
+  meta.className = 'advice-meta';
+
+  const badge = document.createElement('span');
+  badge.className = 'advice-badge';
+
+  const text = document.createElement('p');
+  text.className = 'advice-text';
+
+  meta.appendChild(badge);
+  content.appendChild(title);
+  content.appendChild(meta);
+  content.appendChild(text);
+  card.appendChild(icon);
+  card.appendChild(content);
+
+  return card;
+}
+
+function renderDashboardAdviceLoadingSkeleton(isLoading) {
+  const advice = document.getElementById('dashboard-advice');
+  const weather = document.getElementById('dashboard-weather');
+
+  if (!isLoading) {
+    advice?.querySelectorAll('[data-advice-skeleton="1"]').forEach((node) => node.remove());
+    weather?.querySelectorAll('[data-advice-skeleton="1"]').forEach((node) => node.remove());
+    return;
+  }
+
+  if (advice?.childElementCount === 0 && !advice?.querySelector('[data-advice-skeleton="1"]')) {
+    const stack = document.createElement('div');
+    stack.className = 'advice-stack';
+    stack.dataset.adviceSkeleton = '1';
+    stack.appendChild(buildAdviceSkeletonCard());
+    stack.appendChild(buildAdviceSkeletonCard());
+    advice.appendChild(stack);
+  }
+
+  if (weather?.childElementCount === 0 && !weather?.querySelector('[data-advice-skeleton="1"]')) {
+    const card = buildAdviceSkeletonCard();
+    card.dataset.adviceSkeleton = '1';
+    weather.appendChild(card);
+  }
 }
 
 function isExamplePlanName(name) {
   const normalized = String(name || '').trim().toLowerCase();
   return normalized === 'starter';
+}
+
+function getDashboardAdviceCacheCityKey() {
+  return String(localStorage.getItem(WEATHER_CITY_STORAGE_KEY) || '').trim().toLowerCase();
+}
+
+function hydrateDashboardAdviceFromCache() {
+  try {
+    const raw = localStorage.getItem(DASHBOARD_ADVICE_CACHE_KEY);
+    if (!raw) return false;
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return false;
+
+    const savedAt = Number(parsed.savedAt || 0);
+    const ageMs = Date.now() - savedAt;
+    if (!Number.isFinite(savedAt) || ageMs > DASHBOARD_ADVICE_CACHE_MAX_AGE_MS) {
+      localStorage.removeItem(DASHBOARD_ADVICE_CACHE_KEY);
+      return false;
+    }
+
+    const cityKey = String(parsed.cityKey || '').trim().toLowerCase();
+    if (cityKey !== getDashboardAdviceCacheCityKey()) {
+      return false;
+    }
+
+    const items = members(parsed.items || []);
+    if (!items.length) return false;
+
+    dashboardAdvice = items;
+    return true;
+  } catch {
+    localStorage.removeItem(DASHBOARD_ADVICE_CACHE_KEY);
+    return false;
+  }
+}
+
+function persistDashboardAdviceCache(items) {
+  try {
+    localStorage.setItem(DASHBOARD_ADVICE_CACHE_KEY, JSON.stringify({
+      savedAt: Date.now(),
+      cityKey: getDashboardAdviceCacheCityKey(),
+      items: Array.isArray(items) ? items : [],
+    }));
+  } catch {
+    // Non-blocking optimization only.
+  }
 }
 
 
@@ -410,9 +522,12 @@ async function loadDashboardAdvice() {
   try {
     const data = await apiFetch(path);
     dashboardAdvice = members(data?.items || []);
+    persistDashboardAdviceCache(dashboardAdvice);
     return true;
   } catch {
-    dashboardAdvice = [];
+    if (!Array.isArray(dashboardAdvice) || !dashboardAdvice.length) {
+      dashboardAdvice = [];
+    }
     return false;
   }
 }
@@ -433,6 +548,85 @@ function getWeatherCityFeedback() {
   if (!message) return null;
 
   return { message, status };
+}
+
+function extractWeatherItemFromItems(items) {
+  if (!Array.isArray(items)) return null;
+  const weatherItem = items.find((item) => String(item?.title || '').toLowerCase().includes('meteo'));
+  return weatherItem || null;
+}
+
+function getAppliedCityFromWeatherItem(item) {
+  if (!item) return '';
+  const applied = String(item?.appliedCity || item?.badge || '').trim();
+  return applied;
+}
+
+function getDetectedCityDetailsFromWeatherItem(item) {
+  if (!item) {
+    return { city: '', status: 'error', message: 'Echec API, saisissez une ville.' };
+  }
+
+  const city = String(item?.detectedCity || '').trim();
+  const status = String(item?.detectedCityStatus || '').trim() || (city ? 'ok' : 'error');
+  const defaultMessage = city ? `Ville detectee: ${city}` : 'Echec API, saisissez une ville.';
+  const message = String(item?.detectedCityMessage || '').trim() || defaultMessage;
+
+  return { city, status, message };
+}
+
+async function fetchDetectedWeatherCityFromApi() {
+  try {
+    const data = await apiFetch('/dashboard/advice');
+    const items = members(data?.items || []);
+    const weatherItem = extractWeatherItemFromItems(items);
+    return getDetectedCityDetailsFromWeatherItem(weatherItem);
+  } catch {
+    return { city: '', status: 'error', message: 'Echec API, saisissez une ville.' };
+  }
+}
+
+function setWeatherCitySuggestion(detectedCity, statusMessage = '', statusKind = '') {
+  const suggestion = document.getElementById('weather-city-suggestion');
+  const useDetectedBtn = document.getElementById('weather-city-use-detected');
+  const detectStatusEl = document.getElementById('weather-city-detect-status');
+  if (!suggestion || !useDetectedBtn || !detectStatusEl) return;
+
+  const city = String(detectedCity || '').trim();
+  const message = String(statusMessage || '').trim();
+  const kind = String(statusKind || '').trim();
+
+  detectStatusEl.textContent = message;
+  detectStatusEl.classList.toggle('is-error', kind === 'error');
+
+  if (!city) {
+    suggestion.hidden = true;
+    useDetectedBtn.textContent = '';
+    return;
+  }
+
+  useDetectedBtn.textContent = `Utiliser ${city}`;
+  suggestion.hidden = false;
+}
+
+async function refreshWeatherCitySuggestion() {
+  if (!weatherDetectedCity) {
+    const detected = await fetchDetectedWeatherCityFromApi();
+    weatherDetectedCity = detected.city;
+    weatherDetectedCityStatus = detected.status;
+    weatherDetectedCityMessage = detected.message;
+  }
+
+  setWeatherCitySuggestion(weatherDetectedCity, weatherDetectedCityMessage, weatherDetectedCityStatus);
+}
+
+function updateWeatherCityModalCurrentApplied() {
+  const currentAppliedEl = document.getElementById('weather-city-current-applied');
+  if (!currentAppliedEl) return;
+
+  const item = getWeatherAdviceItem();
+  const city = getAppliedCityFromWeatherItem(item);
+  currentAppliedEl.textContent = `Actuellement: ${city || 'Auto'}`;
 }
 
 async function loadDashboardMetrics() {
@@ -756,6 +950,7 @@ function setupWeatherCityControls() {
   const input = document.getElementById('weather-city-input');
   const applyBtn = document.getElementById('weather-city-apply');
   const resetBtn = document.getElementById('weather-city-reset');
+  const useDetectedBtn = document.getElementById('weather-city-use-detected');
   const openBtn = document.getElementById('weather-city-open');
   const closeBtn = document.getElementById('weather-city-close');
   const modal = document.getElementById('weather-city-modal');
@@ -764,6 +959,7 @@ function setupWeatherCityControls() {
   const saved = String(localStorage.getItem(WEATHER_CITY_STORAGE_KEY) || '').trim();
   input.value = saved;
   updateWeatherCitySummary();
+  setWeatherCitySuggestion('', '', '');
 
   const apply = async () => {
     const city = String(input.value || '').trim();
@@ -799,6 +995,14 @@ function setupWeatherCityControls() {
   applyBtn.addEventListener('click', () => {
     void apply();
   });
+
+  if (useDetectedBtn) {
+    useDetectedBtn.addEventListener('click', () => {
+      if (!weatherDetectedCity) return;
+      input.value = weatherDetectedCity;
+      void apply();
+    });
+  }
 
   resetBtn.addEventListener('click', () => {
     input.value = '';
@@ -853,7 +1057,19 @@ function openWeatherCityModal() {
   modal.classList.add('open');
   modal.setAttribute('aria-hidden', 'false');
   const saved = String(localStorage.getItem(WEATHER_CITY_STORAGE_KEY) || '').trim();
-  input.value = saved;
+  updateWeatherCityModalCurrentApplied();
+  void refreshWeatherCitySuggestion().then(() => {
+    const fallbackValue = weatherDetectedCity || '';
+    if (saved) {
+      input.value = saved;
+      return;
+    }
+
+    const currentValue = String(input.value || '').trim();
+    if (currentValue === '') {
+      input.value = fallbackValue;
+    }
+  });
   input.focus();
   input.select();
 }
@@ -1076,21 +1292,15 @@ function normalizeRace(r) {
     distance:  r.distance,
     objective: r.objective,
     result:    r.result,
+    statusClass: r.statusClass,
+    statusLabel: r.statusLabel,
+    resultDelta: r.resultDelta,
   };
 }
 
 // ============================================================
 // UTILS
 // ============================================================
-function durToSec(dur) {
-  if (!dur) return null;
-  const p = dur.split(':').map(Number);
-  return p.length === 3 ? p[0]*3600+p[1]*60+p[2] : p[0]*60+p[1];
-}
-function secToDur(s) {
-  const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=Math.floor(s%60);
-  return [h,m,sec].map(x=>String(x).padStart(2,'0')).join(':');
-}
 function allureClass(a) {
   if (!a) return '';
   const m = Number.parseInt(a, 10);
@@ -1101,10 +1311,6 @@ function allureClass(a) {
 function formatDate(d) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
-}
-function getDaysTo(ds) {
-  const n=new Date(); n.setHours(0,0,0,0);
-  return Math.round((new Date(ds)-n)/86400000);
 }
 function cloneTemplate(id) {
   const tpl = document.getElementById(id);
@@ -1433,12 +1639,6 @@ function openPlannedSessionCalendarPicker(dateInputId, textInputId, hiddenInputI
   openModal('planned-session-picker-modal');
 }
 globalThis.openPlannedSessionCalendarPicker = openPlannedSessionCalendarPicker;
-function computeGAP(allureSec, km, dplus) {
-  if (!dplus||dplus<=0||!km) return null;
-  const g=dplus/(km*1000);
-  const gapSec=Math.round(allureSec-(g*7.5*allureSec));
-  return gapSec>0?secToDur(gapSec).slice(3):null;
-}
 function showSection(id, btn) {
   if (id === 'plans' && currentPlanId) {
     backToPlansList();
@@ -3552,24 +3752,10 @@ async function deleteLog(id,dateStr) {
 // ============================================================
 // RACES
 // ============================================================
-function getRaceStatus(r) {
-  const days = getDaysTo(r.date);
-  if (r.result) return { statusClass: 'badge-done', statusText: '✓ Terminée' };
-  if (days < 0) return { statusClass: 'badge-future', statusText: 'Passée' };
-  if (days <= 10) return { statusClass: 'badge-next', statusText: `J-${days}` };
-  return { statusClass: 'badge-future', statusText: `S-${Math.round(days / 7)}` };
-}
-
-function getRaceDiff(r) {
-  if (!r.result || !r.objective) return '—';
-  const delta = durToSec(r.result) - durToSec(r.objective);
-  if (delta < 0) return `-${secToDur(-delta).slice(3)}`;
-  return `+${secToDur(delta).slice(3)}`;
-}
-
 function buildRaceRow(r) {
-  const { statusClass, statusText } = getRaceStatus(r);
-  const diff = getRaceDiff(r);
+  const statusClass = String(r?.statusClass || 'badge-future');
+  const statusText = String(r?.statusLabel || '—');
+  const diff = String(r?.resultDelta || '—');
   const row = cloneTemplate('races-row-template') || document.createElement('tr');
   const statusEl = row.querySelector('.races-status');
   const nameEl = row.querySelector('.races-name');
@@ -3798,6 +3984,9 @@ async function initApp() {
     hydrateWidgetPreferencesFromApi(),
     loadAllData({ includeDashboardMetrics: false }),
   ]);
+
+  // Render advice instantly when a fresh cache is available.
+  hydrateDashboardAdviceFromCache();
 
   const safeRender = (fn, name) => {
     try {

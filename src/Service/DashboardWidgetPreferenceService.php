@@ -4,10 +4,25 @@ namespace App\Service;
 
 use App\Entity\DashboardWidgetKeys;
 use App\Entity\User;
+use Doctrine\ORM\EntityManagerInterface;
 
+/**
+ * Handles dashboard widget preference definitions and persistence.
+ */
 class DashboardWidgetPreferenceService
 {
-    /** @return list<array{key: string, label: string, description: string}> */
+    /**
+     * @param EntityManagerInterface $entityManager Entity manager used to persist user preferences.
+     */
+    public function __construct(private EntityManagerInterface $entityManager)
+    {
+    }
+
+    /**
+     * Returns dashboard widget definitions displayed in settings UI.
+     *
+     * @return list<array{key: string, label: string, description: string}>
+     */
     public function definitions(): array
     {
         return [
@@ -44,7 +59,11 @@ class DashboardWidgetPreferenceService
         ];
     }
 
-    /** @return array<string, bool> */
+    /**
+     * Builds effective visibility map by applying defaults then user overrides.
+     *
+     * @return array<string, bool>
+     */
     public function visibilityMap(User $user): array
     {
         $map = [];
@@ -59,5 +78,27 @@ class DashboardWidgetPreferenceService
         }
 
         return $map;
+    }
+
+    /**
+     * Applies the provided widget visibility map and persists the updated user preferences.
+     *
+     * @param array<string,mixed> $widgets
+     */
+    public function applyVisibilityUpdates(User $user, array $widgets): void
+    {
+        $allowedKeys = array_flip(DashboardWidgetKeys::all());
+
+        foreach ($widgets as $key => $visible) {
+            $widgetKey = trim((string) $key);
+            if ($widgetKey === '' || !isset($allowedKeys[$widgetKey])) {
+                continue;
+            }
+
+            // Cast any truthy/falsy payload value into a strict boolean preference flag.
+            $user->setDashboardWidgetVisible($widgetKey, (bool) $visible);
+        }
+
+        $this->entityManager->flush();
     }
 }

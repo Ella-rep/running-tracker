@@ -33,6 +33,9 @@ use Symfony\Component\Validator\Constraints as Assert;
     ]
 )]
 #[ApiFilter(SearchFilter::class, properties: ['plan' => 'exact', 'position' => 'exact'])]
+/**
+ * Stores one scheduled session entry inside a training plan.
+ */
 class PlanDetails
 {
     private const ITEM_URI = '/plan_details/{id}';
@@ -88,29 +91,124 @@ class PlanDetails
     #[Groups(['plan_details:read', 'plan_details:write'])]
     private bool $isDone = false;
 
+    /**
+     * Returns session identifier.
+     */
     public function getId(): ?int { return $this->id; }
+
+    /**
+     * Returns owner user.
+     */
     public function getUser(): User { return $this->user; }
+
+    /**
+     * Sets owner user.
+     */
     public function setUser(User $user): static { $this->user = $user; return $this; }
+
+    /**
+     * Returns parent plan.
+     */
     public function getPlan(): Plan { return $this->plan; }
+
+    /**
+     * Sets parent plan.
+     */
     public function setPlan(Plan $plan): static { $this->plan = $plan; return $this; }
+
+    /**
+     * Returns parent plan name.
+     */
     #[Groups(['plan_details:read'])]
     public function getPlanName(): string { return $this->plan->getName(); }
+
+    /**
+     * Returns session order inside plan.
+     */
     public function getPosition(): int { return $this->position; }
+
+    /**
+     * Sets session order inside plan.
+     */
     public function setPosition(int $position): static { $this->position = $position; return $this; }
+
+    /**
+     * Returns training week index.
+     */
     public function getSem(): ?int { return $this->sem; }
+
+    /**
+     * Sets training week index.
+     */
     public function setSem(?int $sem): static { $this->sem = $sem; return $this; }
+
+    /**
+     * Returns planned session date.
+     */
     public function getSessionDate(): ?\DateTimeInterface { return $this->sessionDate; }
+
+    /**
+     * Sets planned session date.
+     */
     public function setSessionDate(?\DateTimeInterface $sessionDate): static { $this->sessionDate = $sessionDate; return $this; }
+
+    /**
+     * Returns session format text.
+     */
     public function getFormat(): string { return $this->format; }
+
+    /**
+     * Sets session format text.
+     */
     public function setFormat(string $format): static { $this->format = $format; return $this; }
+
+    /**
+     * Returns normalized session type.
+     */
     public function getSessionType(): ?string { return $this->sessionType; }
+
+    /**
+     * Sets normalized session type.
+     */
     public function setSessionType(?string $sessionType): static { $this->sessionType = $sessionType; return $this; }
+
+    /**
+     * Returns perceived effort marker.
+     */
     public function getPe(): ?string { return $this->pe; }
+
+    /**
+     * Sets perceived effort marker.
+     */
     public function setPe(?string $pe): static { $this->pe = $pe; return $this; }
+
+    /**
+     * Returns total session duration in minutes.
+     */
     public function getTotalMin(): ?int { return $this->totalMin; }
+
+    /**
+     * Sets total session duration in minutes.
+     */
     public function setTotalMin(?int $totalMin): static { $this->totalMin = $totalMin; return $this; }
+
+    /**
+     * Returns whether the session is optional.
+     */
     public function isOptional(): bool { return $this->isOptional; }
+
+    /**
+     * Sets optional flag.
+     */
     public function setIsOptional(bool $isOptional): static { $this->isOptional = $isOptional; return $this; }
+
+    /**
+     * Returns whether the session is completed.
+     */
     public function isDone(): bool { return $this->isDone; }
+
+    /**
+     * Sets completion flag.
+     */
     public function setIsDone(bool $isDone): static { $this->isDone = $isDone; return $this; }
 }

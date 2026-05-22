@@ -4,8 +4,8 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
-<link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260521-mobile9">
-<link rel="stylesheet" href="{{ asset('css/home.css') }}?v=20260518-home1">
+  <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260522-mobile24">
+<link rel="stylesheet" href="{{ asset('css/home.css') }}?v=20260522-home5">
 {% endblock %}
 
 {% block body %}
@@ -92,8 +92,14 @@
     <button class="modal-close" id="weather-city-close" type="button" aria-label="Fermer">✕</button>
     <div class="modal-title" id="weather-city-modal-title">Choisir la ville meteo</div>
     <div class="weather-city-modal-form">
+      <div class="weather-city-current-applied" id="weather-city-current-applied">Actuellement: Auto</div>
       <label for="weather-city-input">Ville</label>
       <input id="weather-city-input" type="text" placeholder="Ex: Lyon" maxlength="80">
+      <div class="weather-city-detect-status" id="weather-city-detect-status"></div>
+      <div class="weather-city-suggestion" id="weather-city-suggestion" hidden>
+        <span class="weather-city-suggestion-label">Ville detectee (IP)</span>
+        <button class="btn btn-ghost weather-city-use-detected" id="weather-city-use-detected" type="button"></button>
+      </div>
     </div>
     <div class="modal-actions weather-city-modal-actions">
       <button class="btn" id="weather-city-apply" type="button">Appliquer</button>
@@ -104,5 +110,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260521-mobile1"></script>
+<script src="{{ asset('js/app.js') }}?v=20260522-mobile6"></script>
 {% endblock %}
