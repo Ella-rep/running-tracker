@@ -23,3 +23,5 @@
 ###< phpunit/phpunit ###
 ./runnning-tracker-db
 
+/.github/
+
