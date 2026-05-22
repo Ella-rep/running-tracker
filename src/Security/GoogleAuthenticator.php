@@ -8,12 +8,13 @@ use Doctrine\ORM\EntityManagerInterface;
 use KnpU\OAuth2ClientBundle\Client\ClientRegistry;
 use KnpU\OAuth2ClientBundle\Security\Authenticator\OAuth2Authenticator;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\RouterInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
+use Symfony\Component\Security\Core\Exception\CustomUserMessageAuthenticationException;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
@@ -25,7 +26,7 @@ final class GoogleAuthenticator extends OAuth2Authenticator
         private readonly UserRepository $userRepository,
         private readonly EntityManagerInterface $em,
         private readonly JWTTokenManagerInterface $jwtManager,
-        private readonly RouterInterface $router,
+        private readonly LoggerInterface $logger,
     ) {}
 
     public function supports(Request $request): ?bool
@@ -39,40 +40,65 @@ final class GoogleAuthenticator extends OAuth2Authenticator
         $accessToken = $this->fetchAccessToken($client);
 
         return new SelfValidatingPassport(
-            new UserBadge($accessToken->getToken(), function () use ($accessToken, $client) {
-                /** @var \League\OAuth2\Client\Provider\GoogleUser $googleUser */
-                $googleUser = $client->fetchUserFromToken($accessToken);
-
-                $googleId = $googleUser->getId();
-                $email    = strtolower(trim($googleUser->getEmail() ?? ''));
-
-                // 1. Already linked by googleId
-                $user = $this->userRepository->findOneBy(['googleId' => $googleId]);
-                if ($user !== null) {
-                    return $user;
-                }
-
-                // 2. Existing account with same email → link it
-                if ($email !== '') {
-                    $user = $this->userRepository->findOneBy(['email' => $email]);
-                }
-
-                // 3. New user
-                if ($user === null) {
-                    $user = new User();
-                    $username = $this->buildUniqueUsername($googleUser->getName() ?? $email);
-                    $user->setUsername($username);
-                    $user->setEmail($email ?: null);
-                    $user->setPassword(''); // no password for OAuth users
-                }
-
-                $user->setGoogleId($googleId);
-                $this->em->persist($user);
-                $this->em->flush();
-
-                return $user;
-            })
+            new UserBadge($accessToken->getToken(), fn () => $this->resolveUserFromGoogleToken($client, $accessToken))
         );
+    }
+
+    private function resolveUserFromGoogleToken(object $client, object $accessToken): User
+    {
+        /** @var \League\OAuth2\Client\Provider\GoogleUser $googleUser */
+        $googleUser = $client->fetchUserFromToken($accessToken);
+
+        $googleId = $googleUser->getId();
+        $email    = strtolower(trim($googleUser->getEmail() ?? ''));
+
+        $user = $this->userRepository->findOneBy(['googleId' => $googleId]);
+        if ($user !== null) {
+            $this->logger->info('Google OAuth login: matched existing link by googleId.', [
+                'userId' => $user->getId(),
+                'email' => $user->getEmail(),
+            ]);
+
+            return $user;
+        }
+
+        if ($email !== '') {
+            $user = $this->userRepository->findOneByEmailInsensitive($email);
+            if ($user !== null && $user->getGoogleId() !== null && $user->getGoogleId() !== $googleId) {
+                $this->logger->warning('Google OAuth link refused: email already linked to another googleId.', [
+                    'userId' => $user->getId(),
+                    'email' => $user->getEmail(),
+                ]);
+
+                throw new CustomUserMessageAuthenticationException('Ce compte email est deja associe a un autre compte Google.');
+            }
+
+            if ($user !== null) {
+                $this->logger->info('Google OAuth login: linking existing account by email.', [
+                    'userId' => $user->getId(),
+                    'email' => $user->getEmail(),
+                ]);
+            }
+        }
+
+        if (!isset($user) || $user === null) {
+            $user = new User();
+            $username = $this->buildUniqueUsername($googleUser->getName() ?? $email);
+            $user->setUsername($username);
+            $user->setEmail($email ?: null);
+            $user->setPassword(''); // no password for OAuth users
+
+            $this->logger->info('Google OAuth login: creating new user account.', [
+                'username' => $username,
+                'email' => $email !== '' ? $email : null,
+            ]);
+        }
+
+        $user->setGoogleId($googleId);
+        $this->em->persist($user);
+        $this->em->flush();
+
+        return $user;
     }
 
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
@@ -87,6 +113,11 @@ final class GoogleAuthenticator extends OAuth2Authenticator
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
     {
         $message = strtr($exception->getMessageKey(), $exception->getMessageData());
+
+        $this->logger->warning('Google OAuth authentication failure.', [
+            'route' => $request->attributes->get('_route'),
+            'message' => $message,
+        ]);
 
         return new RedirectResponse('/login?google_error=' . urlencode($message));
     }

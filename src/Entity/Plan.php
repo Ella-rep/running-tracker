@@ -40,6 +40,9 @@ use Symfony\Component\Validator\Constraints as Assert;
     ]
 )]
 #[ApiFilter(SearchFilter::class, properties: ['name' => 'exact'])]
+/**
+ * Training plan owned by a user.
+ */
 class Plan
 {
     private const PLAN_ITEM_URI = '/plans/{id}';
@@ -58,9 +61,28 @@ class Plan
     #[Groups(['plan:read', 'plan:write', 'plan_details:read'])]
     private string $name = '';
 
+    /**
+     * Returns the plan identifier.
+     */
     public function getId(): ?int { return $this->id; }
+
+    /**
+     * Returns the owner of the plan.
+     */
     public function getUser(): User { return $this->user; }
+
+    /**
+     * Sets the owner of the plan.
+     */
     public function setUser(User $user): static { $this->user = $user; return $this; }
+
+    /**
+     * Returns the display name of the plan.
+     */
     public function getName(): string { return $this->name; }
+
+    /**
+     * Sets the display name of the plan.
+     */
     public function setName(string $name): static { $this->name = $name; return $this; }
 }

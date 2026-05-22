@@ -33,6 +33,9 @@ use Symfony\Component\Validator\Constraints as Assert;
 )]
 #[ApiFilter(OrderFilter::class, properties: ['date' => 'DESC'])]
 #[ApiFilter(SearchFilter::class, properties: ['runType' => 'exact'])]
+/**
+ * Stores a user running activity log entry.
+ */
 class RunLog
 {
     private const OWNER_SECURITY = 'object.getUser() == user';
@@ -92,33 +95,135 @@ class RunLog
     #[Groups(['log:read'])]
     private \DateTimeImmutable $createdAt;
 
+    /**
+     * Initializes immutable creation timestamp.
+     */
     public function __construct() { $this->createdAt = new \DateTimeImmutable(); }
 
+    /**
+     * Returns the log identifier.
+     */
     public function getId(): ?int { return $this->id; }
+
+    /**
+     * Returns the owner user.
+     */
     public function getUser(): User { return $this->user; }
+
+    /**
+     * Sets the owner user.
+     */
     public function setUser(User $u): static { $this->user = $u; return $this; }
+
+    /**
+     * Returns the run date (YYYY-MM-DD).
+     */
     public function getDate(): string { return $this->date; }
+
+    /**
+     * Sets the run date (YYYY-MM-DD).
+     */
     public function setDate(string $d): static { $this->date = $d; return $this; }
+
+    /**
+     * Returns the distance in kilometers.
+     */
     public function getKm(): ?float { return $this->km; }
+
+    /**
+     * Sets the distance in kilometers.
+     */
     public function setKm(?float $k): static { $this->km = $k; return $this; }
+
+    /**
+     * Returns the duration (HH:MM:SS).
+     */
     public function getDuration(): ?string { return $this->duration; }
+
+    /**
+     * Sets the duration (HH:MM:SS).
+     */
     public function setDuration(?string $d): static { $this->duration = $d; return $this; }
+
+    /**
+     * Returns the average pace string.
+     */
     public function getAllure(): ?string { return $this->allure; }
+
+    /**
+     * Sets the average pace string.
+     */
     public function setAllure(?string $a): static { $this->allure = $a; return $this; }
+
+    /**
+     * Returns the grade-adjusted pace.
+     */
     public function getGap(): ?string { return $this->gap; }
+
+    /**
+     * Sets the grade-adjusted pace.
+     */
     public function setGap(?string $g): static { $this->gap = $g; return $this; }
+
+    /**
+     * Returns elevation gain in meters.
+     */
     public function getDplus(): ?int { return $this->dplus; }
+
+    /**
+     * Sets elevation gain in meters.
+     */
     public function setDplus(?int $d): static { $this->dplus = $d; return $this; }
+
+    /**
+     * Returns average heart rate.
+     */
     public function getBpm(): ?int { return $this->bpm; }
+
+    /**
+     * Sets average heart rate.
+     */
     public function setBpm(?int $b): static { $this->bpm = $b; return $this; }
+
+    /**
+     * Returns run type identifier.
+     */
     public function getRunType(): ?string { return $this->runType; }
+
+    /**
+     * Sets run type identifier.
+     */
     public function setRunType(?string $t): static { $this->runType = $t; return $this; }
+
+    /**
+     * Returns free-form notes.
+     */
     public function getNotes(): ?string { return $this->notes; }
+
+    /**
+     * Sets free-form notes.
+     */
     public function setNotes(?string $n): static { $this->notes = $n; return $this; }
+
+    /**
+     * Returns the linked planned session.
+     */
     public function getPlannedSession(): ?PlanDetails { return $this->plannedSession; }
+
+    /**
+     * Sets the linked planned session.
+     */
     public function setPlannedSession(?PlanDetails $plannedSession): static { $this->plannedSession = $plannedSession; return $this; }
+
+    /**
+     * Returns linked planned session identifier.
+     */
     #[Groups(['log:read'])]
     public function getPlannedSessionId(): ?int { return $this->plannedSession?->getId(); }
+
+    /**
+     * Returns a human-readable label for linked planned session.
+     */
     #[Groups(['log:read'])]
     public function getPlannedSessionLabel(): ?string
     {
@@ -139,5 +244,9 @@ class RunLog
             $format !== '' ? ' · ' . $format : ''
         ));
     }
+
+    /**
+     * Returns entity creation timestamp.
+     */
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
 }

@@ -14,3 +14,13 @@
 	border-color: var(--z1);
 	color: var(--z1);
 }
+
+#courses .form-card .field input {
+	height: 48px;
+	line-height: 1.2;
+}
+
+#courses .form-card .field input[type="date"] {
+	padding-top: 10px;
+	padding-bottom: 10px;
+}

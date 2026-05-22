@@ -2,18 +2,22 @@
 
 namespace App\Controller;
 
-use App\Entity\DashboardWidgetKeys;
 use App\Entity\User;
 use App\Service\DashboardWidgetPreferenceService;
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
+/**
+ * Manages dashboard widget visibility preferences for the authenticated user.
+ */
 final class DashboardWidgetPreferencesController extends AbstractController
 {
+    /**
+     * Returns current dashboard widget visibility map for the user.
+     */
     #[Route('/api/user/preferences/dashboard-widgets', name: 'api_user_dashboard_widget_preferences_get', methods: ['GET'])]
     #[IsGranted('ROLE_USER')]
     public function getPreferences(DashboardWidgetPreferenceService $widgetPreferences): JsonResponse
@@ -28,11 +32,13 @@ final class DashboardWidgetPreferencesController extends AbstractController
         ]);
     }
 
+    /**
+     * Updates dashboard widget visibility preferences for the user.
+     */
     #[Route('/api/user/preferences/dashboard-widgets', name: 'api_user_dashboard_widget_preferences', methods: ['PATCH'])]
     #[IsGranted('ROLE_USER')]
     public function __invoke(
         Request $request,
-        EntityManagerInterface $entityManager,
         DashboardWidgetPreferenceService $widgetPreferences,
     ): JsonResponse {
         $user = $this->getUser();
@@ -57,16 +63,7 @@ final class DashboardWidgetPreferencesController extends AbstractController
             ], 400);
         }
 
-        $allowedKeys = array_flip(DashboardWidgetKeys::all());
-        foreach ($widgets as $key => $visible) {
-            $widgetKey = trim((string) $key);
-            if ($widgetKey === '' || !isset($allowedKeys[$widgetKey])) {
-                continue;
-            }
-            $user->setDashboardWidgetVisible($widgetKey, (bool) $visible);
-        }
-
-        $entityManager->flush();
+        $widgetPreferences->applyVisibilityUpdates($user, $widgets);
 
         return $this->json([
             'message' => 'Preferences widgets enregistrees.',

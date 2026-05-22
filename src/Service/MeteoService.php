@@ -5,6 +5,9 @@ namespace App\Service;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 
+/**
+ * Provides daily weather advice with city and IP-based geolocation fallback.
+ */
 final class MeteoService
 {
     private const TITLE = 'Conseil meteo du jour';
@@ -17,11 +20,16 @@ final class MeteoService
     private const DEFAULT_LON = 2.3522;
     private const DEFAULT_CITY_LABEL = 'Paris';
 
+    /**
+     * @param RequestStack $requestStack Request stack used to resolve client IP for geolocation.
+     */
     public function __construct(
         private RequestStack $requestStack,
     ) {}
 
     /**
+     * Builds the weather advice card for the requested or inferred location.
+     *
      * @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string}
      */
     public function buildDailyAdvice(?\DateTimeImmutable $date = null, ?string $city = null): array
@@ -32,7 +40,7 @@ final class MeteoService
 
         $liveAdvice = $this->buildLiveAdvice($resolved['lat'], $resolved['lon'], $resolved['label'], $errors);
         if ($liveAdvice !== null) {
-            return $this->withCityFeedback($liveAdvice, $requestedCity);
+            return $this->withCityFeedback($liveAdvice, $requestedCity, $resolved['source']);
         }
 
         $this->logFallbackErrors($errors, $city, $resolved['label']);
@@ -40,7 +48,8 @@ final class MeteoService
         $today = $date ?? new \DateTimeImmutable('today');
         return $this->withCityFeedback(
             $this->buildFallbackAdvice($today, self::DEFAULT_CITY_LABEL),
-            $requestedCity
+            $requestedCity,
+            $resolved['source']
         );
     }
 
@@ -157,7 +166,7 @@ final class MeteoService
         $url = 'https://api.open-meteo.com/v1/forecast?' . $query;
         $context = stream_context_create([
             'http' => [
-                'timeout' => 3,
+                'timeout' => 2,
                 'ignore_errors' => true,
             ],
         ]);
@@ -245,9 +254,9 @@ final class MeteoService
 
     /**
      * @param array{title:string,text:string,tone:string,icon:string,color:string,badge:string} $advice
-     * @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string,cityStatus:string,cityMessage:string,cityApplied:bool,requestedCity:?string,appliedCity:string}
+     * @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string,cityStatus:string,cityMessage:string,cityApplied:bool,requestedCity:?string,appliedCity:string,detectedCity:?string,detectedCityStatus:string,detectedCityMessage:string}
      */
-    private function withCityFeedback(array $advice, string $requestedCity): array
+    private function withCityFeedback(array $advice, string $requestedCity, string $locationSource): array
     {
         $appliedCity = trim((string) ($advice['badge'] ?? self::DEFAULT_CITY_LABEL));
         if ($appliedCity === '') {
@@ -260,10 +269,16 @@ final class MeteoService
             $advice['cityApplied'] = true;
             $advice['requestedCity'] = null;
             $advice['appliedCity'] = $appliedCity;
+            $advice['detectedCity'] = $locationSource === 'ip' ? $appliedCity : null;
+            $advice['detectedCityStatus'] = $locationSource === 'ip' ? 'ok' : 'error';
+            $advice['detectedCityMessage'] = $locationSource === 'ip'
+                ? 'Ville detectee: ' . $appliedCity
+                : 'Echec API, saisissez une ville.';
 
             return $advice;
         }
 
+        // Normalize both strings to compare city names despite accents or punctuation differences.
         $requestedAscii = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $requestedCity);
         $appliedAscii = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $appliedCity);
         $requested = trim((string) preg_replace('/[^a-z0-9]+/u', ' ', strtolower((string) ($requestedAscii !== false ? $requestedAscii : $requestedCity))));
@@ -279,6 +294,9 @@ final class MeteoService
         $advice['cityApplied'] = $applied;
         $advice['requestedCity'] = $requestedCity;
         $advice['appliedCity'] = $appliedCity;
+        $advice['detectedCity'] = null;
+        $advice['detectedCityStatus'] = 'manual';
+        $advice['detectedCityMessage'] = '';
 
         return $advice;
     }
@@ -306,13 +324,14 @@ final class MeteoService
         error_log('[MeteoService] ' . implode(' | ', $parts));
     }
 
-    /** @return array{lat:float,lon:float,label:string} */
+    /** @return array{lat:float,lon:float,label:string,source:string} */
     private function resolveLocation(?string $city, array &$errors): array
     {
         $cityName = trim((string) $city);
         if ($cityName !== '') {
             $byCity = $this->fetchGeoByCity($cityName);
             if ($byCity !== null) {
+                $byCity['source'] = 'city';
                 return $byCity;
             }
             $errors[] = 'E1: ville introuvable.';
@@ -320,6 +339,7 @@ final class MeteoService
 
         $byIp = $this->resolveCoordinatesFromClientIp();
         if ($byIp !== null) {
+            $byIp['source'] = 'ip';
             return $byIp;
         }
 
@@ -329,6 +349,7 @@ final class MeteoService
             'lat' => self::DEFAULT_LAT,
             'lon' => self::DEFAULT_LON,
             'label' => self::DEFAULT_CITY_LABEL,
+            'source' => 'default',
         ];
     }
 
@@ -350,33 +371,20 @@ final class MeteoService
 
     private function resolvePublicClientIp(Request $request): ?string
     {
-        $resolved = null;
-
+        $candidates = [];
         $xff = $request->headers->get('X-Forwarded-For');
         if (is_string($xff) && trim($xff) !== '') {
-            $chain = array_map('trim', explode(',', $xff));
-            $resolved = $this->firstPublicIpFromList($chain);
+            $candidates = array_merge($candidates, array_map('trim', explode(',', $xff)));
         }
 
-        if ($resolved === null) {
-            $ips = $request->getClientIps();
-            $resolved = $this->firstPublicIpFromList($ips);
+        $candidates = array_merge($candidates, $request->getClientIps());
+
+        $single = $request->getClientIp();
+        if (is_string($single) && trim($single) !== '') {
+            $candidates[] = $single;
         }
 
-        if ($resolved === null) {
-            $single = $request->getClientIp();
-            if ($this->isPublicIp($single)) {
-                $resolved = $single;
-            }
-        }
-
-        return $resolved;
-    }
-
-    /** @param array<int,string> $ips */
-    private function firstPublicIpFromList(array $ips): ?string
-    {
-        foreach ($ips as $candidate) {
+        foreach ($candidates as $candidate) {
             if ($this->isPublicIp($candidate)) {
                 return $candidate;
             }
@@ -405,7 +413,7 @@ final class MeteoService
         $url = 'https://ipapi.co/' . rawurlencode($ip) . '/json/';
         $context = stream_context_create([
             'http' => [
-                'timeout' => 2,
+                'timeout' => 1,
                 'ignore_errors' => true,
             ],
         ]);
@@ -438,7 +446,7 @@ final class MeteoService
         $url = 'https://geocoding-api.open-meteo.com/v1/search?' . $query;
         $context = stream_context_create([
             'http' => [
-                'timeout' => 3,
+                'timeout' => 2,
                 'ignore_errors' => true,
             ],
         ]);

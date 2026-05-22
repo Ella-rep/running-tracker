@@ -8,8 +8,15 @@ use App\Entity\User;
 use App\Repository\PlanDetailsRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
+/**
+ * Replaces persisted plan sessions with a normalized new set.
+ */
 final class PlanSessionReplaceService
 {
+    /**
+     * @param EntityManagerInterface $em Entity manager used for persistence operations.
+     * @param PlanDetailsRepository $planDetailsRepository Repository for plan detail records.
+     */
     public function __construct(
         private EntityManagerInterface $em,
         private PlanDetailsRepository $planDetailsRepository,
@@ -17,11 +24,14 @@ final class PlanSessionReplaceService
     }
 
     /**
+     * Replaces all sessions for a user/plan pair while preserving explicit done flags.
+     *
      * @param array<int, array<string, mixed>> $sessions
      * @param array<int|string, bool> $doneMap
      */
     public function replaceForPlan(Plan $plan, User $user, array $sessions, array $doneMap = []): void
     {
+        // Full replacement keeps ordering/index consistency when plan templates change.
         $qb = $this->planDetailsRepository->createQueryBuilder('d');
         $qb->delete()
             ->where('d.plan = :plan')

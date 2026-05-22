@@ -11,6 +11,9 @@ use App\Repository\PlanRepository;
 use App\Repository\RaceRepository;
 use App\Repository\RunLogRepository;
 
+/**
+ * Builds contextual running advice cards for the dashboard.
+ */
 final class DashboardAdviceService
 {
     private const COLOR_WARNING = '#f0c040';
@@ -20,6 +23,13 @@ final class DashboardAdviceService
     private const DIST_DEFAULT = 'ta course';
     private const PACE_DEFAULT = '--:--';
 
+    /**
+     * @param RunLogRepository $runLogs Repository for run logs.
+     * @param RaceRepository $races Repository for races.
+     * @param PlanRepository $plans Repository for plans.
+     * @param PlanDetailsRepository $planDetails Repository for plan sessions.
+     * @param MeteoService $meteo Weather advice provider.
+     */
     public function __construct(
         private RunLogRepository $runLogs,
         private RaceRepository $races,
@@ -29,6 +39,8 @@ final class DashboardAdviceService
     ) {}
 
     /**
+     * Resolves weather + training advice using deterministic priority rules.
+     *
      * @return array<int, array{title:string,text:string,tone:string,icon:string,color:string,badge:string}>
      */
     public function build(User $user, ?string $city = null): array
@@ -36,6 +48,7 @@ final class DashboardAdviceService
         $ctx = $this->buildContext($user);
         $weatherAdvice = $this->meteo->buildDailyAdvice(city: $city);
 
+        // Priority order keeps advice stable: plan constraints first, then races, then recent activity.
         $advice = $this->matchPlannedAdvice($ctx)
             ?? $this->matchRaceAdvice($ctx)
             ?? $this->matchRecentRunAdvice($ctx)
