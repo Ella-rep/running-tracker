@@ -1,13 +1,19 @@
 <?php
+
 namespace App\Repository;
+
 use App\Entity\User;
+use DateTimeImmutable;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
-use DateTimeImmutable;
-class UserRepository extends ServiceEntityRepository {
-    public function __construct(ManagerRegistry $r) { parent::__construct($r, User::class); }
 
-<<<<<<< HEAD
+class UserRepository extends ServiceEntityRepository
+{
+    public function __construct(ManagerRegistry $registry)
+    {
+        parent::__construct($registry, User::class);
+    }
+
     public function countCreatedSince(DateTimeImmutable $since): int
     {
         return (int) $this->createQueryBuilder('u')
@@ -16,11 +22,12 @@ class UserRepository extends ServiceEntityRepository {
             ->setParameter('since', $since)
             ->getQuery()
             ->getSingleScalarResult();
-=======
+    }
+
     public function findOneByEmailInsensitive(string $email): ?User
     {
         $normalized = strtolower(trim($email));
-        if ($normalized == '') {
+        if ($normalized === '') {
             return null;
         }
 
@@ -30,6 +37,5 @@ class UserRepository extends ServiceEntityRepository {
             ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
->>>>>>> origin/main
     }
 }
