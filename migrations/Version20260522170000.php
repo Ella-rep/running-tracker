@@ -11,7 +11,7 @@ final class Version20260522170000 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return 'Initial consolidated schema migration.';
+        return 'Initial consolidated schema migration including admin tables.';
     }
 
     public function up(Schema $schema): void
@@ -51,6 +51,19 @@ final class Version20260522170000 extends AbstractMigration
         $this->addSql("COMMENT ON COLUMN calendar_events.created_at IS '(DC2Type:datetime_immutable)'");
         $this->addSql("COMMENT ON COLUMN calendar_events.updated_at IS '(DC2Type:datetime_immutable)'");
 
+        $this->addSql('CREATE TABLE admin_audit_log (id SERIAL NOT NULL, admin_user_id INT DEFAULT NULL, admin_identifier VARCHAR(64) NOT NULL, target_user_id INT DEFAULT NULL, action VARCHAR(64) NOT NULL, details JSON NOT NULL, created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, PRIMARY KEY(id))');
+        $this->addSql('CREATE INDEX IDX_ADMIN_AUDIT_LOG_CREATED_AT ON admin_audit_log (created_at)');
+        $this->addSql('CREATE INDEX IDX_ADMIN_AUDIT_LOG_TARGET_USER ON admin_audit_log (target_user_id)');
+        $this->addSql("COMMENT ON COLUMN admin_audit_log.created_at IS '(DC2Type:datetime_immutable)'");
+
+        $this->addSql('CREATE TABLE admin_announcement (id SERIAL NOT NULL, message TEXT NOT NULL, level VARCHAR(16) NOT NULL, is_active BOOLEAN NOT NULL DEFAULT TRUE, starts_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, ends_at TIMESTAMP(0) WITHOUT TIME ZONE DEFAULT NULL, created_by_admin_id INT DEFAULT NULL, created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, PRIMARY KEY(id))');
+        $this->addSql('CREATE INDEX IDX_ADMIN_ANNOUNCEMENT_ACTIVE ON admin_announcement (is_active, starts_at, ends_at)');
+        $this->addSql('CREATE INDEX IDX_ADMIN_ANNOUNCEMENT_UPDATED ON admin_announcement (updated_at)');
+        $this->addSql("COMMENT ON COLUMN admin_announcement.starts_at IS '(DC2Type:datetime_immutable)'");
+        $this->addSql("COMMENT ON COLUMN admin_announcement.ends_at IS '(DC2Type:datetime_immutable)'");
+        $this->addSql("COMMENT ON COLUMN admin_announcement.created_at IS '(DC2Type:datetime_immutable)'");
+        $this->addSql("COMMENT ON COLUMN admin_announcement.updated_at IS '(DC2Type:datetime_immutable)'");
+
         $this->addSql('ALTER TABLE plans ADD CONSTRAINT FK_356798D1A76ED395 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE NOT DEFERRABLE INITIALLY IMMEDIATE');
         $this->addSql('ALTER TABLE plan_details ADD CONSTRAINT FK_CC994382A76ED395 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE NOT DEFERRABLE INITIALLY IMMEDIATE');
         $this->addSql('ALTER TABLE plan_details ADD CONSTRAINT FK_CC994382E899029B FOREIGN KEY (plan_id) REFERENCES plans (id) ON DELETE CASCADE NOT DEFERRABLE INITIALLY IMMEDIATE');
@@ -72,6 +85,8 @@ final class Version20260522170000 extends AbstractMigration
         $this->addSql('ALTER TABLE run_logs DROP CONSTRAINT FK_6C719978A76ED395');
         $this->addSql('ALTER TABLE run_logs DROP CONSTRAINT FK_RUN_LOGS_PLANNED_SESSION');
         $this->addSql('ALTER TABLE calendar_events DROP CONSTRAINT FK_D3F9298EA76ED395');
+        $this->addSql('DROP TABLE admin_announcement');
+        $this->addSql('DROP TABLE admin_audit_log');
         $this->addSql('DROP TABLE calendar_events');
         $this->addSql('DROP TABLE run_logs');
         $this->addSql('DROP TABLE races');
