@@ -21,6 +21,9 @@
     <a href="{{ path('app_plans') }}" class="nav-link{{ current_page == 'plans' ? ' active' : '' }}">Plans</a>
     <a href="{{ path('app_log') }}" class="nav-link{{ current_page == 'log' ? ' active' : '' }}">Log</a>
     <a href="{{ path('app_courses') }}" class="nav-link{{ current_page == 'courses' ? ' active' : '' }}">Courses</a>
+    {% if is_granted('ROLE_ADMIN') %}
+      <a href="{{ path('app_admin_users') }}" class="nav-link{{ current_page == 'admin_users' ? ' active' : '' }}">Admin</a>
+    {% endif %}
   </nav>
   <div class="user-badge">
     <span class="user-greeting">Bienvenue,</span>
@@ -30,3 +33,16 @@
     </button>
   </div>
 </header>
+
+{% set announcement = active_admin_announcement() %}
+{% if announcement %}
+  <output class="global-announcement announcement-{{ announcement.level|default('info') }}" aria-live="polite">
+    <div class="global-announcement-inner">
+      <span class="global-announcement-label">Annonce</span>
+      <span>{{ announcement.message }}</span>
+      {% if announcement.endsAt %}
+        <span class="global-announcement-expiry">Jusqu'au {{ announcement.endsAt }}</span>
+      {% endif %}
+    </div>
+  </output>
+{% endif %}

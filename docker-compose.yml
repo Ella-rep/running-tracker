@@ -63,6 +63,8 @@ services:
       BREVO_SMTP_LOGIN: ${BREVO_SMTP_LOGIN:-}
       BREVO_SMTP_KEY: ${BREVO_SMTP_KEY:-}
       MAILER_FROM: ${MAILER_FROM:-no-reply@running-dashboard.app}
+      HTTP_PROXY: http://vip-users.proxy.edf.fr:3131
+      HTTPS_PROXY: http://vip-users.proxy.edf.fr:3131
       
     volumes:
       - jwt_keys:/app/config/jwt

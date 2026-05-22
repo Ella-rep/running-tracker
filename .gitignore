@@ -11,7 +11,7 @@
 /seed*
 /Dockerfile.loc
 ###< symfony/framework-bundle ###
-
+/github/
 ###> lexik/jwt-authentication-bundle ###
 /config/jwt/
 ###< lexik/jwt-authentication-bundle ###

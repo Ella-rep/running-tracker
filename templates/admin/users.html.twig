@@ -1,0 +1,269 @@
+{% extends 'base/layout.html.twig' %}
+{% block title %}Admin - Utilisateurs{% endblock %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
+<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
+<link rel="stylesheet" href="{{ asset('css/admin.css') }}?v=20260522-admin1">
+{% endblock %}
+
+{% block body %}
+{% include 'components/_app_header.html.twig' with { current_page: current_page, username: username } %}
+
+<main>
+  <section class="admin-users-page visible">
+    <div class="section-title">Administration utilisateurs</div>
+    <div class="section-sub">Gestion directe des comptes, supervision operationnelle, communication globale et securite des actions critiques.</div>
+
+    {% for label, messages in app.flashes %}
+      {% for message in messages %}
+        <div class="admin-flash admin-flash-{{ label == 'error' ? 'error' : 'success' }}">{{ message }}</div>
+      {% endfor %}
+    {% endfor %}
+
+    <div class="admin-kpi-grid">
+      <article class="chart-wrap admin-kpi-card">
+        <div class="chart-title">Utilisateurs totaux</div>
+        <div class="admin-kpi-value">{{ kpis.total_users }}</div>
+        <div class="admin-kpi-sub">+{{ kpis.new_users_7d }} sur 7 jours</div>
+      </article>
+      <article class="chart-wrap admin-kpi-card">
+        <div class="chart-title">Runners actifs (7j)</div>
+        <div class="admin-kpi-value">{{ kpis.active_runners_7d }}</div>
+        <div class="admin-kpi-sub">{{ kpis.run_logs_7d }} logs enregistres</div>
+      </article>
+      <article class="chart-wrap admin-kpi-card">
+        <div class="chart-title">Completion plans</div>
+        <div class="admin-kpi-value">{{ kpis.plan_rate }}%</div>
+        <div class="admin-kpi-sub">{{ kpis.plan_done }} / {{ kpis.plan_total }} seances cochees</div>
+      </article>
+    </div>
+
+    <div class="chart-wrap admin-alerts-card">
+      <div class="chart-title">Alertes operationnelles</div>
+      <div class="admin-alert-list">
+        {% for alert in alerts %}
+          <article class="admin-alert admin-alert-{{ alert.level }}">
+            <strong>{{ alert.title }}</strong>
+            <p>{{ alert.message }}</p>
+          </article>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="chart-wrap admin-announce-card">
+      <div class="chart-title">Centre de communication</div>
+      {% if latest_announcement %}
+        <p class="admin-announce-current">
+          Derniere annonce: <strong>{{ latest_announcement.message }}</strong>
+          (niveau {{ latest_announcement.level }},
+          {{ latest_announcement.isActive ? 'active' : 'inactive' }})
+        </p>
+      {% endif %}
+
+      <form method="post" action="{{ path('app_admin_announcement_upsert', { q: search_query, page: page }) }}" class="admin-announce-form">
+        <input type="hidden" name="_token" value="{{ csrf_token('admin_announcement_upsert') }}">
+        <label class="admin-field admin-announce-message">
+          <span>Message global</span>
+          <textarea name="message" minlength="6" maxlength="800" required>{{ latest_announcement ? latest_announcement.message : '' }}</textarea>
+        </label>
+        <label class="admin-field">
+          <span>Niveau</span>
+          <select name="level">
+            {% set selected_level = latest_announcement ? latest_announcement.level : 'info' %}
+            <option value="info" {{ selected_level == 'info' ? 'selected' : '' }}>Info</option>
+            <option value="warning" {{ selected_level == 'warning' ? 'selected' : '' }}>Warning</option>
+            <option value="critical" {{ selected_level == 'critical' ? 'selected' : '' }}>Critical</option>
+          </select>
+        </label>
+        <label class="admin-field">
+          <span>Debut (optionnel)</span>
+          <input type="datetime-local" name="starts_at" value="{{ latest_announcement and latest_announcement.startsAt ? latest_announcement.startsAt|date('Y-m-d\\TH:i') : '' }}">
+        </label>
+        <label class="admin-field">
+          <span>Fin (optionnel)</span>
+          <input type="datetime-local" name="ends_at" value="{{ latest_announcement and latest_announcement.endsAt ? latest_announcement.endsAt|date('Y-m-d\\TH:i') : '' }}">
+        </label>
+        <label class="admin-check">
+          <input type="checkbox" name="is_active" value="1" {{ latest_announcement is null or latest_announcement.isActive ? 'checked' : '' }}>
+          <span>Annonce active</span>
+        </label>
+        <button type="submit" class="btn">Enregistrer annonce</button>
+      </form>
+
+      <form method="post" action="{{ path('app_admin_announcement_deactivate', { q: search_query, page: page }) }}" class="admin-announce-off-form" onsubmit="return confirm('Desactiver la banniere globale ?');">
+        <input type="hidden" name="_token" value="{{ csrf_token('admin_announcement_deactivate') }}">
+        <button type="submit" class="btn btn-ghost">Desactiver annonce</button>
+      </form>
+    </div>
+
+    <div class="chart-wrap admin-create-card">
+      <div class="chart-title">Creer un utilisateur</div>
+      <form method="post" action="{{ path('app_admin_users_create', { q: search_query, page: page }) }}" class="admin-create-form">
+        <input type="hidden" name="_token" value="{{ csrf_token('admin_create_user') }}">
+        <label class="admin-field">
+          <span>Pseudo</span>
+          <input type="text" name="username" minlength="3" maxlength="64" required>
+        </label>
+        <label class="admin-field">
+          <span>Email</span>
+          <input type="email" name="email" required>
+        </label>
+        <label class="admin-field">
+          <span>Mot de passe</span>
+          <input type="password" name="password" minlength="6" required>
+        </label>
+        <label class="admin-check">
+          <input type="checkbox" name="is_admin" value="1">
+          <span>Donner role admin</span>
+        </label>
+        <button type="submit" class="btn">Creer</button>
+      </form>
+    </div>
+
+    <div class="chart-wrap admin-search-card">
+      <form method="get" action="{{ path('app_admin_users') }}" class="admin-search-form">
+        <label class="admin-field admin-search-field">
+          <span>Recherche (pseudo ou email)</span>
+          <input type="text" name="q" value="{{ search_query }}" placeholder="ex: alice ou gmail.com">
+        </label>
+        <button type="submit" class="btn">Rechercher</button>
+        <a class="btn btn-ghost" href="{{ path('app_admin_users') }}">Reset</a>
+      </form>
+    </div>
+
+    <div class="table-wrap admin-users-table-wrap">
+      <div class="table-header">Utilisateurs ({{ total_users }})</div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Pseudo</th>
+            <th>Email</th>
+            <th>Roles</th>
+            <th>Creation</th>
+            <th>Reset mot de passe</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for user in users %}
+          {% set is_admin = 'ROLE_ADMIN' in user.roles %}
+          <tr>
+            <td class="mono">{{ user.id }}</td>
+            <td>{{ user.userIdentifier }}</td>
+            <td>{{ user.email ?: '—' }}</td>
+            <td>
+              <span class="badge {{ is_admin ? 'admin-role' : 'user-role' }}">{{ is_admin ? 'ROLE_ADMIN' : 'ROLE_USER' }}</span>
+            </td>
+            <td class="mono">{{ user.createdAt|date('d/m/Y H:i') }}</td>
+            <td>
+              <form method="post" action="{{ path('app_admin_users_reset_password', { id: user.id, q: search_query, page: page }) }}" class="admin-reset-form" onsubmit="return confirm('Reset mot de passe de cet utilisateur ?');">
+                <input type="hidden" name="_token" value="{{ csrf_token('admin_reset_' ~ user.id) }}">
+                <input type="password" name="new_password" minlength="6" placeholder="Nouveau mdp" required>
+                <input type="text" name="confirm_phrase" minlength="9" maxlength="9" placeholder="{{ critical_confirm_phrase }}" required>
+                <button class="action-btn action-btn-text" type="submit">Reset</button>
+              </form>
+            </td>
+            <td>
+              <div class="action-btns admin-action-btns">
+                <form method="post" action="{{ path('app_admin_users_toggle_admin', { id: user.id, q: search_query, page: page }) }}">
+                  <input type="hidden" name="_token" value="{{ csrf_token('admin_toggle_' ~ user.id) }}">
+                  <input type="text" name="confirm_phrase" minlength="9" maxlength="9" placeholder="{{ critical_confirm_phrase }}" required>
+                  <button class="action-btn action-btn-text" type="submit">{{ is_admin ? 'Retirer admin' : 'Passer admin' }}</button>
+                </form>
+                <form method="post" action="{{ path('app_admin_users_delete', { id: user.id, q: search_query, page: page }) }}" onsubmit="return confirm('Supprimer cet utilisateur ?');">
+                  <input type="hidden" name="_token" value="{{ csrf_token('admin_delete_' ~ user.id) }}">
+                  <input type="text" name="confirm_phrase" minlength="9" maxlength="9" placeholder="{{ critical_confirm_phrase }}" required>
+                  <button class="action-btn action-btn-text del" type="submit">Supprimer</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="7" class="admin-empty">Aucun utilisateur.</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="admin-pagination">
+        {% set prev_page = page > 1 ? page - 1 : 1 %}
+        {% set next_page = page < total_pages ? page + 1 : total_pages %}
+        <a class="btn btn-ghost {{ page <= 1 ? 'is-disabled' : '' }}" href="{{ path('app_admin_users', { q: search_query, page: prev_page }) }}" aria-disabled="{{ page <= 1 ? 'true' : 'false' }}">← Prec</a>
+        <span>Page {{ page }} / {{ total_pages }}</span>
+        <a class="btn btn-ghost {{ page >= total_pages ? 'is-disabled' : '' }}" href="{{ path('app_admin_users', { q: search_query, page: next_page }) }}" aria-disabled="{{ page >= total_pages ? 'true' : 'false' }}">Suiv →</a>
+      </div>
+    </div>
+
+    <div class="table-wrap admin-audit-table-wrap">
+      <div class="table-header">Historique admin ({{ audit_total }})</div>
+
+      <form method="get" action="{{ path('app_admin_users') }}" class="admin-audit-search-form">
+        <input type="hidden" name="q" value="{{ search_query }}">
+        <input type="hidden" name="page" value="{{ page }}">
+        <label class="admin-field">
+          <span>Action</span>
+          <select name="audit_action">
+            <option value="">Toutes</option>
+            {% for action_name in audit_actions %}
+              <option value="{{ action_name }}" {{ audit_filters.action == action_name ? 'selected' : '' }}>{{ action_name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="admin-field">
+          <span>Admin</span>
+          <input type="text" name="audit_admin" value="{{ audit_filters.admin }}" placeholder="ex: alice">
+        </label>
+        <label class="admin-field">
+          <span>Depuis</span>
+          <input type="date" name="audit_from" value="{{ audit_filters.from }}">
+        </label>
+        <label class="admin-field">
+          <span>Jusqu a</span>
+          <input type="date" name="audit_to" value="{{ audit_filters.to }}">
+        </label>
+        <button class="btn" type="submit">Filtrer</button>
+        <a class="btn btn-ghost" href="{{ path('app_admin_users', { q: search_query, page: page }) }}">Reset</a>
+        <a class="btn btn-ghost" href="{{ path('app_admin_users_audit_export', { audit_action: audit_filters.action, audit_admin: audit_filters.admin, audit_from: audit_filters.from, audit_to: audit_filters.to }) }}">Export CSV</a>
+      </form>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Admin</th>
+            <th>Action</th>
+            <th>Cible user_id</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for log in audit_logs %}
+          <tr>
+            <td class="mono">{{ log.createdAt|date('d/m/Y H:i:s') }}</td>
+            <td>{{ log.adminIdentifier }}</td>
+            <td><span class="badge admin-action-badge">{{ log.action }}</span></td>
+            <td class="mono">{{ log.targetUserId ?: '—' }}</td>
+            <td class="mono admin-details-cell">{{ log.details|json_encode(constant('JSON_UNESCAPED_UNICODE')) }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="5" class="admin-empty">Aucun evenement audit.</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="admin-pagination">
+        {% set audit_prev_page = audit_page > 1 ? audit_page - 1 : 1 %}
+        {% set audit_next_page = audit_page < audit_total_pages ? audit_page + 1 : audit_total_pages %}
+        <a class="btn btn-ghost {{ audit_page <= 1 ? 'is-disabled' : '' }}" href="{{ path('app_admin_users', { q: search_query, page: page, audit_action: audit_filters.action, audit_admin: audit_filters.admin, audit_from: audit_filters.from, audit_to: audit_filters.to, audit_page: audit_prev_page }) }}" aria-disabled="{{ audit_page <= 1 ? 'true' : 'false' }}">← Prec</a>
+        <span>Audit page {{ audit_page }} / {{ audit_total_pages }}</span>
+        <a class="btn btn-ghost {{ audit_page >= audit_total_pages ? 'is-disabled' : '' }}" href="{{ path('app_admin_users', { q: search_query, page: page, audit_action: audit_filters.action, audit_admin: audit_filters.admin, audit_from: audit_filters.from, audit_to: audit_filters.to, audit_page: audit_next_page }) }}" aria-disabled="{{ audit_page >= audit_total_pages ? 'true' : 'false' }}">Suiv →</a>
+      </div>
+    </div>
+  </section>
+</main>
+{% endblock %}

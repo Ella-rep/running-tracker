@@ -4,6 +4,7 @@ use App\Entity\RunLog;
 use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use DateTimeImmutable;
 class RunLogRepository extends ServiceEntityRepository {
     public function __construct(ManagerRegistry $r) { parent::__construct($r, RunLog::class); }
 
@@ -29,5 +30,38 @@ class RunLogRepository extends ServiceEntityRepository {
             }
         }
         return $set;
+    }
+
+    public function countSinceDate(string $dateYmd): int
+    {
+        return (int) $this->createQueryBuilder('r')
+            ->select('COUNT(r.id)')
+            ->andWhere('r.date >= :dateYmd')
+            ->setParameter('dateYmd', $dateYmd)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    public function countDistinctUsersSinceDate(string $dateYmd): int
+    {
+        return (int) $this->createQueryBuilder('r')
+            ->select('COUNT(DISTINCT IDENTITY(r.user))')
+            ->andWhere('r.date >= :dateYmd')
+            ->setParameter('dateYmd', $dateYmd)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    public function hasAnyCreatedSince(DateTimeImmutable $since): bool
+    {
+        $result = (int) $this->createQueryBuilder('r')
+            ->select('COUNT(r.id)')
+            ->andWhere('r.createdAt >= :since')
+            ->setParameter('since', $since)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return $result > 0;
     }
 }
