@@ -203,15 +203,8 @@ final class MeteoService
 
         $url = 'https://api.open-meteo.com/v1/forecast?' . $query;
         error_log('[MeteoService] fetchWeather URL=' . $url);
-        
-        $context = stream_context_create([
-            'http' => [
-                'timeout' => 2,
-                'ignore_errors' => true,
-            ],
-        ]);
 
-        $raw = @file_get_contents($url, false, $context);
+        $raw = $this->fetchRawWithRetry($url, 3);
         if (!is_string($raw) || $raw === '') {
             error_log('[MeteoService] fetchWeather FAILED | raw empty or not string');
             $errors[] = 'E3: appel API meteo indisponible.';
@@ -414,15 +407,8 @@ final class MeteoService
 
         $url = 'https://geocoding-api.open-meteo.com/v1/search?' . $query;
         error_log('[MeteoService] fetchGeoByCity URL=' . $url);
-        
-        $context = stream_context_create([
-            'http' => [
-                'timeout' => 2,
-                'ignore_errors' => true,
-            ],
-        ]);
 
-        $raw = @file_get_contents($url, false, $context);
+        $raw = $this->fetchRawWithRetry($url, 3);
         error_log('[MeteoService] fetchGeoByCity response | raw=' . ($raw ? 'received (' . strlen($raw) . ' bytes)' : 'null/empty'));
         
         if (is_string($raw) && $raw !== '') {
@@ -457,6 +443,80 @@ final class MeteoService
             error_log('[MeteoService] fetchGeoByCity FAILED | no valid coords extracted');
         }
         return $coords;
+    }
+
+    private function fetchRawWithRetry(string $url, int $maxAttempts = 3): ?string
+    {
+        $attempts = max(1, $maxAttempts);
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            $context = $this->buildHttpContext();
+            $raw = @file_get_contents($url, false, $context);
+
+            if (is_string($raw) && $raw !== '' && !$this->looksLikeHtmlErrorPage($raw)) {
+                return $raw;
+            }
+
+            $first = is_string($raw) ? substr($raw, 0, 120) : 'null';
+            error_log('[MeteoService] HTTP attempt ' . $attempt . '/' . $attempts . ' failed | first chars=' . $first);
+            usleep(120000);
+        }
+
+        return null;
+    }
+
+    private function buildHttpContext()
+    {
+        $proxy = $this->resolveProxyUrl();
+        $http = [
+            'timeout' => 4,
+            'ignore_errors' => true,
+            'header' => "Accept: application/json\r\nUser-Agent: running-tracker/1.0\r\n",
+        ];
+
+        if ($proxy !== null) {
+            $http['proxy'] = $proxy;
+            $http['request_fulluri'] = true;
+        }
+
+        return stream_context_create([
+            'http' => $http,
+            'ssl' => [
+                'verify_peer' => true,
+                'verify_peer_name' => true,
+            ],
+        ]);
+    }
+
+    private function resolveProxyUrl(): ?string
+    {
+        $raw = trim((string) (getenv('HTTPS_PROXY') ?: getenv('https_proxy') ?: getenv('APT_HTTPS_PROXY') ?: ''));
+        if ($raw === '') {
+            $raw = trim((string) (getenv('HTTP_PROXY') ?: getenv('http_proxy') ?: getenv('APT_HTTP_PROXY') ?: ''));
+        }
+
+        if ($raw === '') {
+            return null;
+        }
+
+        if (str_starts_with($raw, 'tcp://')) {
+            return $raw;
+        }
+
+        if (str_starts_with($raw, 'http://')) {
+            return 'tcp://' . substr($raw, 7);
+        }
+
+        if (str_starts_with($raw, 'https://')) {
+            return 'tcp://' . substr($raw, 8);
+        }
+
+        return 'tcp://' . ltrim($raw, '/');
+    }
+
+    private function looksLikeHtmlErrorPage(string $raw): bool
+    {
+        $prefix = strtolower(substr(ltrim($raw), 0, 200));
+        return str_contains($prefix, '<html') || str_contains($prefix, '<!doctype html');
     }
 
 
