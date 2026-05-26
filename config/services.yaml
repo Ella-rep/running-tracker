@@ -1,9 +1,12 @@
 parameters:
+    geo_key:  '%env(GEO_KEY)%'
 
 services:
     _defaults:
         autowire: true
         autoconfigure: true
+        bind:
+            - geoKey: '%geo_key%'
 
     App\Controller\:
         resource: '../src/Controller/'
@@ -16,6 +19,10 @@ services:
         arguments:
             - '@App\OpenApi\PasswordResetOpenApiFactory.inner'
         autoconfigure: false
+
+    App\Service\LocService:
+        arguments:
+            - '%geo_key%'
 
     App\:
         resource: '../src/'

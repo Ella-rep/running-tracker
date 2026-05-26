@@ -97,9 +97,13 @@
 
 .admin-announce-form {
   display: grid;
-  grid-template-columns: 2fr repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
   gap: 12px;
   align-items: end;
+}
+
+.admin-announce-message {
+  grid-column: 1 / -1;
 }
 
 .admin-announce-message textarea {
@@ -107,8 +111,9 @@
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 9px 10px;
-  min-height: 74px;
+  padding: 10px 12px;
+  min-height: 48px;
+  line-height: 1.35;
   resize: vertical;
 }
 
@@ -178,18 +183,51 @@
   overflow-x: auto;
 }
 
+.admin-users-table {
+  width: 100%;
+  min-width: 1180px;
+  table-layout: fixed;
+}
+
+.admin-users-table th,
+.admin-users-table td {
+  vertical-align: top;
+}
+
+.admin-users-table th:nth-child(1),
+.admin-users-table td:nth-child(1) { width: 56px; }
+
+.admin-users-table th:nth-child(2),
+.admin-users-table td:nth-child(2) { width: 150px; }
+
+.admin-users-table th:nth-child(3),
+.admin-users-table td:nth-child(3) { width: 220px; word-break: break-word; }
+
+.admin-users-table th:nth-child(4),
+.admin-users-table td:nth-child(4) { width: 98px; }
+
+.admin-users-table th:nth-child(5),
+.admin-users-table td:nth-child(5) { width: 118px; }
+
+.admin-users-table th:nth-child(6),
+.admin-users-table td:nth-child(6) { width: 300px; }
+
+.admin-users-table th:nth-child(7),
+.admin-users-table td:nth-child(7) { width: 240px; }
+
 .admin-audit-table-wrap {
   overflow-x: auto;
 }
 
 .admin-reset-form {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) auto;
   gap: 8px;
   align-items: center;
 }
 
 .admin-reset-form input {
-  width: 128px;
+  width: 100%;
   background: var(--surface2);
   color: var(--text);
   border: 1px solid var(--border);
@@ -197,21 +235,42 @@
   padding: 7px 8px;
 }
 
-.admin-action-btns form {
-  display: flex;
+.admin-action-btns form,
+.admin-action-form {
+  display: grid;
+  grid-template-columns: auto;
   gap: 8px;
   align-items: center;
 }
 
 .admin-action-btns input,
 .admin-reset-form input[name="confirm_phrase"] {
-  width: 96px;
+  width: 100%;
   background: var(--surface2);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 7px 8px;
   text-transform: uppercase;
+}
+
+.admin-action-btns input[name="confirm_phrase"],
+.admin-reset-form input[name="confirm_phrase"] {
+  display: none;
+}
+
+.admin-action-label {
+  display: block;
+  grid-column: 1 / -1;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.admin-action-stack {
+  display: grid;
+  gap: 10px;
 }
 
 .admin-audit-search-form {
@@ -281,6 +340,10 @@
     grid-template-columns: 1fr 1fr;
   }
 
+  .admin-announce-message {
+    grid-column: 1 / -1;
+  }
+
   .admin-audit-search-form {
     grid-template-columns: 1fr 1fr;
   }
@@ -302,7 +365,7 @@
   }
 
   .admin-reset-form {
-    flex-direction: column;
+    grid-template-columns: 1fr;
     align-items: stretch;
   }
 
@@ -310,8 +373,9 @@
     width: 100%;
   }
 
-  .admin-action-btns form {
-    flex-direction: column;
+  .admin-action-btns form,
+  .admin-action-form {
+    grid-template-columns: 1fr;
     align-items: stretch;
   }
 }

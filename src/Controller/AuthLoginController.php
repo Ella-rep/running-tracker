@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -26,7 +27,26 @@ final class AuthLoginController extends AbstractController
             $email = strtolower(trim((string) ($data['email'] ?? '')));
             $password = (string) ($data['password'] ?? '');
             $result = $authLoginService->authenticate($email, $password);
-            return $this->json($result['payload'], $result['status']);
+            $response = $this->json($result['payload'], $result['status']);
+
+            if ($result['status'] === 200 && isset($result['payload']['token'])) {
+                $token = trim((string) $result['payload']['token']);
+                if ($token !== '') {
+                    $response->headers->setCookie(new Cookie(
+                        'BEARER',
+                        $token,
+                        new \DateTimeImmutable('+7 days'),
+                        '/',
+                        null,
+                        $request->isSecure(),
+                        false,
+                        false,
+                        Cookie::SAMESITE_LAX
+                    ));
+                }
+            }
+
+            return $response;
         } catch (\JsonException) {
             return $this->json([
                 'code' => 'invalid_payload',

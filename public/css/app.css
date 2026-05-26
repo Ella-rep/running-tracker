@@ -84,6 +84,35 @@
     color: var(--text);
   }
 
+  .announcement-success {
+    border-top-color: #badbcc;
+    border-bottom-color: #badbcc;
+    background: #d1e7dd;
+    color: #0f5132;
+  }
+
+  .announcement-info {
+    border-top-color: #b6effb;
+    border-bottom-color: #b6effb;
+    background: #cff4fc;
+    color: #055160;
+  }
+
+  .announcement-warning {
+    border-top-color: #ffecb5;
+    border-bottom-color: #ffecb5;
+    background: #fff3cd;
+    color: #664d03;
+  }
+
+  .announcement-danger,
+  .announcement-critical {
+    border-top-color: #f5c2c7;
+    border-bottom-color: #f5c2c7;
+    background: #f8d7da;
+    color: #842029;
+  }
+
   .global-announcement-inner {
     max-width: 1200px;
     margin: 0 auto;
@@ -96,7 +125,8 @@
   }
 
   .global-announcement-label {
-    font-size: 10px;
+    font-size: 11px;
+    font-weight: 700;
     letter-spacing: 1px;
     text-transform: uppercase;
     padding: 2px 7px;
@@ -107,25 +137,33 @@
   .global-announcement-expiry {
     margin-left: auto;
     font-size: 12px;
-    color: var(--text-muted);
+    color: currentColor;
+    opacity: 0.9;
+  }
+
+  .announcement-success .global-announcement-label {
+    color: #0f5132;
+    border-color: #75b798;
+    background: #bfdccc;
   }
 
   .announcement-info .global-announcement-label {
-    color: var(--accent);
-    border-color: var(--border);
-    background: var(--surface2);
+    color: #055160;
+    border-color: #6edff6;
+    background: #b9edf7;
   }
 
   .announcement-warning .global-announcement-label {
-    color: #8f5f07;
-    border-color: rgba(215, 163, 68, 0.42);
-    background: rgba(215, 163, 68, 0.16);
+    color: #664d03;
+    border-color: #ffda6a;
+    background: #ffe9a6;
   }
 
+  .announcement-danger .global-announcement-label,
   .announcement-critical .global-announcement-label {
-    color: #b63c46;
-    border-color: rgba(217, 106, 116, 0.5);
-    background: rgba(217, 106, 116, 0.14);
+    color: #842029;
+    border-color: #ea868f;
+    background: #f1c2c7;
   }
 
   /* MAIN */

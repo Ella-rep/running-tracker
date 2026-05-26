@@ -224,8 +224,13 @@ final class DashboardAdvancedMetricsService
         $datedMonthKeys = array_values(array_unique(array_map(static fn (\DateTimeImmutable $sessionDate): string => $sessionDate->format('Y-m'), $datedRows)));
         $futureDates = array_values(array_filter($datedRows, static fn (\DateTimeImmutable $sessionDate): bool => $sessionDate >= $today));
         $visibleMonthKey = $currentMonthKey;
-        if (!in_array($currentMonthKey, $datedMonthKeys, true)) {
-            $visibleMonthKey = $futureDates[0]->format('Y-m') ?? ($datedMonthKeys[0] ?? $currentMonthKey);
+
+        if (!in_array($currentMonthKey, $datedMonthKeys, true)) {            
+            if(!empty($futureDates)){
+                $visibleMonthKey = $futureDates[0]->format('Y-m');
+            } elseif(!empty($datedMonthKeys)){
+                $visibleMonthKey = $datedMonthKeys[0];
+            }else{$visibleMonthKey=$currentMonthKey;}
         }
         return $visibleMonthKey === $currentMonthKey ? $monthStart : new \DateTimeImmutable($visibleMonthKey . '-01');
     }

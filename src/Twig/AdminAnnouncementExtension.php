@@ -3,6 +3,7 @@
 namespace App\Twig;
 
 use App\Repository\AdminAnnouncementRepository;
+use Doctrine\DBAL\Exception\TableNotFoundException;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 
@@ -30,7 +31,15 @@ final class AdminAnnouncementExtension extends AbstractExtension
             return $this->cachedAnnouncement;
         }
 
-        $announcement = $this->announcementRepository->findCurrent();
+        try {
+            $announcement = $this->announcementRepository->findCurrent();
+        } catch (TableNotFoundException) {
+            return null;
+        } catch (\Throwable) {
+            // Keep header rendering resilient during partial schema updates.
+            return null;
+        }
+
         if ($announcement === null) {
             return null;
         }

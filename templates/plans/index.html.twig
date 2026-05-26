@@ -39,12 +39,7 @@
     </template>
 
     <button class="btn plans-create-btn" id="plans-create-btn" onclick="createNewPlanFromHub()">+ Nouveau plan</button>
-    <div class="zone-legend plans-zone-legend" id="plans-zone-legend">
-      <div class="zone-item"><div class="zone-dot zone-dot-z1"></div><span class="zone-z1-text">Z1 récup</span></div>
-      <div class="zone-item"><div class="zone-dot zone-dot-z2"></div>Z2 endurance</div>
-      <div class="zone-item"><div class="zone-dot zone-dot-z3"></div>Z3 tempo</div>
-      <div class="zone-item"><div class="zone-dot zone-dot-z4"></div>Z4 seuil</div>
-    </div>
+    
 
     <div id="plans-detail" class="plans-detail" style="display:none">
       <div class="plans-detail-header">
@@ -64,6 +59,15 @@
       <div class="plans-detail-actions">
         <button class="btn btn-small plans-add-session-btn" id="plans-add-session-btn" onclick="addPlanSession(currentPlanId)">+ Ajouter séance</button>
       </div>
+    
+    
+  <div class="zone-legend plans-zone-legend" id="plans-zone-legend">
+    <div class="zone-item"><div class="zone-dot zone-dot-z1"></div><span class="zone-z1-text">Z1 récup</span></div>
+    <div class="zone-item"><div class="zone-dot zone-dot-z2"></div>Z2 endurance</div>
+    <div class="zone-item"><div class="zone-dot zone-dot-z3"></div>Z3 tempo</div>
+    <div class="zone-item"><div class="zone-dot zone-dot-z4"></div>Z4 seuil</div>
+    <div class="zone-item"><div class="zone-dot zone-dot-z5"></div>Z5 VO2max</div>
+  </div>
 
       <div id="plans-detail-weeks"></div>
       <template id="plan-week-card-template">

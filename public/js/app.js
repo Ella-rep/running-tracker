@@ -48,6 +48,22 @@ function logout() {
   globalThis.location.href = '/login';
 }
 
+function syncAdminNavVisibility(currentUser) {
+  const adminLink = document.getElementById('admin-nav-link');
+  if (!(adminLink instanceof HTMLElement)) {
+    return;
+  }
+
+  const roles = Array.isArray(currentUser?.roles) ? currentUser.roles : [];
+  const isAdmin = roles.includes('ROLE_ADMIN');
+
+  if (isAdmin) {
+    adminLink.removeAttribute('hidden');
+  } else {
+    adminLink.setAttribute('hidden', 'hidden');
+  }
+}
+
 // Ensure inline onclick handlers can always resolve these functions
 globalThis.logout = logout;
 
@@ -564,12 +580,12 @@ function getAppliedCityFromWeatherItem(item) {
 
 function getDetectedCityDetailsFromWeatherItem(item) {
   if (!item) {
-    return { city: '', status: 'error', message: 'Echec API, saisissez une ville.' };
+    return { city: '', status: 'error', message: 'Echec localisation,  saisissez une ville.' };
   }
 
   const city = String(item?.detectedCity || '').trim();
   const status = String(item?.detectedCityStatus || '').trim() || (city ? 'ok' : 'error');
-  const defaultMessage = city ? `Ville detectee: ${city}` : 'Echec API, saisissez une ville.';
+  const defaultMessage = city ? `Ville detectee: ${city}` : 'Echec localisation,  saisissez une ville.';
   const message = String(item?.detectedCityMessage || '').trim() || defaultMessage;
 
   return { city, status, message };
@@ -582,7 +598,7 @@ async function fetchDetectedWeatherCityFromApi() {
     const weatherItem = extractWeatherItemFromItems(items);
     return getDetectedCityDetailsFromWeatherItem(weatherItem);
   } catch {
-    return { city: '', status: 'error', message: 'Echec API, saisissez une ville.' };
+    return { city: '', status: 'error', message: 'Echec localisation,  saisissez une ville.' };
   }
 }
 
@@ -2609,8 +2625,6 @@ function openPlan(planId) {
   if (plansListHeader) plansListHeader.style.display = 'none';
   const plansCreateBtn = document.getElementById('plans-create-btn');
   if (plansCreateBtn) plansCreateBtn.style.display = 'none';
-  const plansZoneLegend = document.getElementById('plans-zone-legend');
-  if (plansZoneLegend) plansZoneLegend.style.display = 'none';
   const plansDetail = document.getElementById('plans-detail');
   if (plansDetail) plansDetail.style.display = 'block';
 
@@ -2638,8 +2652,6 @@ function backToPlansList() {
   if (plansListHeader) plansListHeader.style.display = '';
   const plansCreateBtn = document.getElementById('plans-create-btn');
   if (plansCreateBtn) plansCreateBtn.style.display = '';
-  const plansZoneLegend = document.getElementById('plans-zone-legend');
-  if (plansZoneLegend) plansZoneLegend.style.display = '';
   const plansDetail = document.getElementById('plans-detail');
   if (plansDetail) plansDetail.style.display = 'none';
   const plansDetailWeeks = document.getElementById('plans-detail-weeks');
@@ -3978,6 +3990,8 @@ async function initApp() {
   if (usernameEl) {
     usernameEl.textContent = formatDisplayName(normalizedUsername);
   }
+
+  syncAdminNavVisibility(me);
 
   // Phase 1: fast first paint (critical data + widget prefs in parallel)
   await Promise.all([

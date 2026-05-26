@@ -71,9 +71,13 @@
           <span>Niveau</span>
           <select name="level">
             {% set selected_level = latest_announcement ? latest_announcement.level : 'info' %}
+            {% if selected_level == 'critical' %}
+              {% set selected_level = 'danger' %}
+            {% endif %}
+            <option value="success" {{ selected_level == 'success' ? 'selected' : '' }}>Success</option>
             <option value="info" {{ selected_level == 'info' ? 'selected' : '' }}>Info</option>
             <option value="warning" {{ selected_level == 'warning' ? 'selected' : '' }}>Warning</option>
-            <option value="critical" {{ selected_level == 'critical' ? 'selected' : '' }}>Critical</option>
+            <option value="danger" {{ selected_level == 'danger' ? 'selected' : '' }}>Danger</option>
           </select>
         </label>
         <label class="admin-field">
@@ -134,7 +138,7 @@
 
     <div class="table-wrap admin-users-table-wrap">
       <div class="table-header">Utilisateurs ({{ total_users }})</div>
-      <table>
+      <table class="admin-users-table">
         <thead>
           <tr>
             <th>ID</th>
@@ -159,22 +163,22 @@
             <td class="mono">{{ user.createdAt|date('d/m/Y H:i') }}</td>
             <td>
               <form method="post" action="{{ path('app_admin_users_reset_password', { id: user.id, q: search_query, page: page }) }}" class="admin-reset-form" onsubmit="return confirm('Reset mot de passe de cet utilisateur ?');">
+                <span class="admin-action-label">Reset</span>
                 <input type="hidden" name="_token" value="{{ csrf_token('admin_reset_' ~ user.id) }}">
                 <input type="password" name="new_password" minlength="6" placeholder="Nouveau mdp" required>
-                <input type="text" name="confirm_phrase" minlength="9" maxlength="9" placeholder="{{ critical_confirm_phrase }}" required>
                 <button class="action-btn action-btn-text" type="submit">Reset</button>
               </form>
             </td>
             <td>
-              <div class="action-btns admin-action-btns">
-                <form method="post" action="{{ path('app_admin_users_toggle_admin', { id: user.id, q: search_query, page: page }) }}">
+              <div class="action-btns admin-action-btns admin-action-stack">
+                <form method="post" action="{{ path('app_admin_users_toggle_admin', { id: user.id, q: search_query, page: page }) }}" class="admin-action-form" onsubmit="return confirm('{{ is_admin ? 'Retirer le role admin de cet utilisateur ?' : 'Donner le role admin a cet utilisateur ?' }}');">
+                  <span class="admin-action-label">Role admin</span>
                   <input type="hidden" name="_token" value="{{ csrf_token('admin_toggle_' ~ user.id) }}">
-                  <input type="text" name="confirm_phrase" minlength="9" maxlength="9" placeholder="{{ critical_confirm_phrase }}" required>
                   <button class="action-btn action-btn-text" type="submit">{{ is_admin ? 'Retirer admin' : 'Passer admin' }}</button>
                 </form>
-                <form method="post" action="{{ path('app_admin_users_delete', { id: user.id, q: search_query, page: page }) }}" onsubmit="return confirm('Supprimer cet utilisateur ?');">
+                <form method="post" action="{{ path('app_admin_users_delete', { id: user.id, q: search_query, page: page }) }}" onsubmit="return confirm('Supprimer cet utilisateur ?');" class="admin-action-form">
+                  <span class="admin-action-label">Suppression</span>
                   <input type="hidden" name="_token" value="{{ csrf_token('admin_delete_' ~ user.id) }}">
-                  <input type="text" name="confirm_phrase" minlength="9" maxlength="9" placeholder="{{ critical_confirm_phrase }}" required>
                   <button class="action-btn action-btn-text del" type="submit">Supprimer</button>
                 </form>
               </div>

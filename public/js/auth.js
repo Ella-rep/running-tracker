@@ -1,17 +1,39 @@
 const AUTH_API_BASE = '/api';
 
+function authCookieSuffix() {
+  const parts = ['Path=/', 'SameSite=Lax'];
+  if (globalThis.location?.protocol === 'https:') {
+    parts.push('Secure');
+  }
+  return '; ' + parts.join('; ');
+}
+
+function writeAuthCookie(token) {
+  const value = encodeURIComponent(String(token || '').trim());
+  if (value) {
+    document.cookie = 'BEARER=' + value + authCookieSuffix();
+  }
+}
+
+function clearAuthCookie() {
+  document.cookie = 'BEARER=; Max-Age=0' + authCookieSuffix();
+}
+
 function getToken() {
   return localStorage.getItem('rt_token') || null;
 }
 
 function setToken(token) {
   if (typeof token === 'string' && token.trim() !== '') {
-    localStorage.setItem('rt_token', token);
+    const normalized = token.trim();
+    localStorage.setItem('rt_token', normalized);
+    writeAuthCookie(normalized);
   }
 }
 
 function clearToken() {
   localStorage.removeItem('rt_token');
+  clearAuthCookie();
 }
 
 function buildAuthHeaders(extraHeaders = {}) {
@@ -53,3 +75,8 @@ globalThis.rtAuth = {
   buildAuthHeaders,
   fetchCurrentUser,
 };
+
+const existingToken = getToken();
+if (existingToken) {
+  writeAuthCookie(existingToken);
+}

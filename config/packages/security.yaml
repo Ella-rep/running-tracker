@@ -28,6 +28,7 @@ security:
         main:
             pattern: ^/
             lazy: true
+            jwt: ~
             custom_authenticators:
                 - App\Security\GoogleAuthenticator
 

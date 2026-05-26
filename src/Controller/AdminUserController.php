@@ -26,7 +26,6 @@ class AdminUserController extends AbstractController
     private const CSRF_ERROR_MESSAGE = 'Token CSRF invalide.';
     private const PER_PAGE = 12;
     private const AUDIT_PER_PAGE = 25;
-    private const CRITICAL_CONFIRM_PHRASE = 'CONFIRMER';
 
     #[Route('', name: 'app_admin_users', methods: ['GET'])]
     public function index(
@@ -61,6 +60,7 @@ class AdminUserController extends AbstractController
 
         $countBuilder = clone $queryBuilder;
         $totalUsers = (int) $countBuilder
+            ->resetDQLPart('orderBy')
             ->select('COUNT(u.id)')
             ->getQuery()
             ->getSingleScalarResult();
@@ -163,7 +163,6 @@ class AdminUserController extends AbstractController
                 'to' => $auditToRaw,
             ],
             'audit_actions' => $auditLogs->findDistinctActions(),
-            'critical_confirm_phrase' => self::CRITICAL_CONFIRM_PHRASE,
             'latest_announcement' => $latestAnnouncement,
         ]);
     }
@@ -273,10 +272,6 @@ class AdminUserController extends AbstractController
             $error = 'Action refusee sur votre propre compte.';
         }
 
-        if ($error === null) {
-            $error = $this->validateCriticalConfirmation($request);
-        }
-
         if ($error !== null) {
             $this->addFlash('error', $error);
             return $this->redirectToIndex($request);
@@ -337,10 +332,6 @@ class AdminUserController extends AbstractController
             $error = 'Suppression de votre propre compte interdite.';
         }
 
-        if ($error === null) {
-            $error = $this->validateCriticalConfirmation($request);
-        }
-
         if ($error !== null) {
             $this->addFlash('error', $error);
             return $this->redirectToIndex($request);
@@ -375,7 +366,8 @@ class AdminUserController extends AbstractController
         }
 
         $message = trim((string) $request->request->get('message', ''));
-        $level = trim((string) $request->request->get('level', 'info'));
+        $levelInput = trim((string) $request->request->get('level', 'info'));
+        $level = strtolower($levelInput);
         $isActive = $request->request->getBoolean('is_active', true);
         $startsAtRaw = trim((string) $request->request->get('starts_at', ''));
         $endsAtRaw = trim((string) $request->request->get('ends_at', ''));
@@ -384,8 +376,17 @@ class AdminUserController extends AbstractController
             $error = 'Annonce trop courte (minimum 6 caracteres).';
         }
 
-        if ($error === null && !in_array($level, ['info', 'warning', 'critical'], true)) {
-            $error = 'Niveau d annonce invalide.';
+        if ($error === null) {
+            $levelAliases = [
+                'critical' => 'danger',
+                'error' => 'danger',
+                'ok' => 'success',
+            ];
+            $level = $levelAliases[$level] ?? $level;
+
+            if (!in_array($level, ['success', 'info', 'warning', 'danger'], true)) {
+                $error = 'Niveau d annonce invalide.';
+            }
         }
 
         $startsAt = $this->parseDateTimeLocal($startsAtRaw);
@@ -525,21 +526,7 @@ class AdminUserController extends AbstractController
             $error = 'Nouveau mot de passe: minimum 6 caracteres.';
         }
 
-        if ($error === null) {
-            $error = $this->validateCriticalConfirmation($request);
-        }
-
         return $error;
-    }
-
-    private function validateCriticalConfirmation(Request $request): ?string
-    {
-        $confirmPhrase = trim((string) $request->request->get('confirm_phrase', ''));
-        if ($confirmPhrase !== self::CRITICAL_CONFIRM_PHRASE) {
-            return 'Confirmation requise: saisir "' . self::CRITICAL_CONFIRM_PHRASE . '".';
-        }
-
-        return null;
     }
 
     private function redirectToIndex(Request $request): RedirectResponse

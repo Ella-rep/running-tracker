@@ -4,6 +4,7 @@ namespace App\Service;
 
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
+use App\Service\LocService;
 
 /**
  * Provides daily weather advice with city and IP-based geolocation fallback.
@@ -14,17 +15,20 @@ final class MeteoService
     private const COLOR_INFO = '#8b9cf4';
     private const COLOR_WARNING = '#f0c040';
     private const COLOR_SUCCESS = '#4ade80';
+    
 
     // Default location: Paris. Can be changed later via constructor args/env binding.
     private const DEFAULT_LAT = 48.8566;
     private const DEFAULT_LON = 2.3522;
     private const DEFAULT_CITY_LABEL = 'Paris';
+    
 
     /**
      * @param RequestStack $requestStack Request stack used to resolve client IP for geolocation.
      */
     public function __construct(
         private RequestStack $requestStack,
+        private LocService $locService,
     ) {}
 
     /**
@@ -273,7 +277,7 @@ final class MeteoService
             $advice['detectedCityStatus'] = $locationSource === 'ip' ? 'ok' : 'error';
             $advice['detectedCityMessage'] = $locationSource === 'ip'
                 ? 'Ville detectee: ' . $appliedCity
-                : 'Echec API, saisissez une ville.';
+                : 'Echec localisation,  saisissez une ville.';
 
             return $advice;
         }
@@ -338,12 +342,17 @@ final class MeteoService
         }
 
         $byIp = $this->resolveCoordinatesFromClientIp();
+        
         if ($byIp !== null) {
             $byIp['source'] = 'ip';
             return $byIp;
         }
-
         $errors[] = 'E2: geolocalisation IP indisponible.';
+        
+        $byLocation = $this->locService->resolveUsersLocation();
+        if($byLocation){
+            return $this->fetchGeoByCity($byLocation);
+        }
 
         return [
             'lat' => self::DEFAULT_LAT,
@@ -352,7 +361,7 @@ final class MeteoService
             'source' => 'default',
         ];
     }
-
+    
     /** @return array{lat:float,lon:float,label:string}|null */
     private function resolveCoordinatesFromClientIp(): ?array
     {
@@ -365,7 +374,6 @@ final class MeteoService
         if ($ip === null) {
             return null;
         }
-
         return $this->fetchGeoByIp($ip);
     }
 
@@ -383,7 +391,6 @@ final class MeteoService
         if (is_string($single) && trim($single) !== '') {
             $candidates[] = $single;
         }
-
         foreach ($candidates as $candidate) {
             if ($this->isPublicIp($candidate)) {
                 return $candidate;
@@ -398,7 +405,6 @@ final class MeteoService
         if (!is_string($ip) || trim($ip) === '') {
             return false;
         }
-
         return filter_var(
             $ip,
             FILTER_VALIDATE_IP,
@@ -406,6 +412,7 @@ final class MeteoService
         ) !== false;
     }
 
+    
     /** @return array{lat:float,lon:float,label:string}|null */
     private function fetchGeoByIp(string $ip): ?array
     {
