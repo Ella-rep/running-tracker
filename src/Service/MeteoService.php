@@ -13,6 +13,7 @@ final class MeteoService
     private const COLOR_INFO = '#8b9cf4';
     private const COLOR_WARNING = '#f0c040';
     private const COLOR_SUCCESS = '#4ade80';
+    private const PROXY_TCP_SCHEME = 'tcp://';
     
 
     // Default location: Paris. Can be changed later via constructor args/env binding.
@@ -35,21 +36,14 @@ final class MeteoService
      */
     public function buildDailyAdvice(?string $city = null): array
     {
-        error_log('[MeteoService] buildDailyAdvice START | city=' . ($city ?? 'null'));
         $requestedCity = trim((string) $city);
         $errors = [];
         $resolved = $this->resolveLocation($city, $errors);
 
-        error_log('[MeteoService] resolved location | label=' . $resolved['label'] . ' | lat=' . $resolved['lat'] . ' | lon=' . $resolved['lon'] . ' | source=' . $resolved['source']);
-
         $liveAdvice = $this->buildLiveAdvice($resolved['lat'], $resolved['lon'], $resolved['label'], $errors);
         if ($liveAdvice !== null) {
-            error_log('[MeteoService] liveAdvice SUCCESS | advice=' . json_encode($liveAdvice));
             return $this->withCityFeedback($liveAdvice, $requestedCity, $resolved['source']);
         }
-
-        error_log('[MeteoService] liveAdvice FAILED | errors=' . json_encode($errors));
-        $this->logFallbackErrors($errors, $city, $resolved['label']);
 
         return $this->withCityFeedback(
             $this->buildErrorAdvice($resolved['label']),
@@ -61,19 +55,14 @@ final class MeteoService
     /** @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string}|null */
     private function buildLiveAdvice(float $lat, float $lon, string $label, array &$errors): ?array
     {
-        error_log('[MeteoService] buildLiveAdvice START | lat=' . $lat . ' | lon=' . $lon . ' | label=' . $label);
         $data = $this->fetchWeather($lat, $lon, $errors);
         if ($data === null) {
-            error_log('[MeteoService] buildLiveAdvice fetchWeather returned null');
             return null;
         }
 
         $advice = $this->buildAdviceFromApiPayload($data, $label);
         if ($advice === null) {
-            error_log('[MeteoService] buildLiveAdvice buildAdviceFromApiPayload returned null');
             $errors[] = 'E3: reponse meteo incomplete.';
-        } else {
-            error_log('[MeteoService] buildLiveAdvice SUCCESS | advice=' . json_encode($advice));
         }
 
         return $advice;
@@ -85,12 +74,8 @@ final class MeteoService
      */
     private function buildAdviceFromApiPayload(array $data, string $label): ?array
     {
-        error_log('[MeteoService] buildAdviceFromApiPayload START | label=' . $label);
         $current = is_array($data['current'] ?? null) ? $data['current'] : [];
         $daily = is_array($data['daily'] ?? null) ? $data['daily'] : [];
-
-        error_log('[MeteoService] buildAdviceFromApiPayload current=' . json_encode($current));
-        error_log('[MeteoService] buildAdviceFromApiPayload daily=' . json_encode($daily));
 
         $temp = $this->asFloat($current['temperature_2m'] ?? null);
         $tempMax = null;
@@ -106,10 +91,7 @@ final class MeteoService
             $precipProbMax = $this->asFloat($daily['precipitation_probability_max'][0]);
         }
 
-        error_log('[MeteoService] buildAdviceFromApiPayload parsed | temp=' . ($temp ?? 'null') . ' | tempMax=' . ($tempMax ?? 'null') . ' | rain=' . ($rain ?? 'null') . ' | wind=' . ($wind ?? 'null') . ' | weatherCode=' . $weatherCode . ' | precipProbMax=' . ($precipProbMax ?? 'null'));
-
         if ($temp === null && $tempMax === null && $rain === null && $wind === null && $precipProbMax === null) {
-            error_log('[MeteoService] buildAdviceFromApiPayload NO DATA FOUND');
             return null;
         }
 
@@ -123,7 +105,6 @@ final class MeteoService
         ];
 
         if ($this->isHeatwave($temp, $tempMax)) {
-            error_log('[MeteoService] buildAdviceFromApiPayload HEATWAVE detected');
             $advice = [
                 'title' => self::TITLE,
                 'text' => 'Alerte chaleur/canicule: privilegie une sortie tres tot ou tard, reduis nettement l\'intensite et hydrate-toi tres regulierement.',
@@ -133,7 +114,6 @@ final class MeteoService
                 'badge' => $this->buildBadge('', $label),
             ];
         } elseif ($this->isHot($temp, $tempMax)) {
-            error_log('[MeteoService] buildAdviceFromApiPayload HOT detected');
             $advice = [
                 'title' => self::TITLE,
                 'text' => 'Chaleur marquee: vise une sortie plus tot/tard, baisse l\'intensite et hydrate-toi regulierement.',
@@ -143,7 +123,6 @@ final class MeteoService
                 'badge' => $this->buildBadge('', $label),
             ];
         } elseif ($this->isRainy($rain, $precipProbMax)) {
-            error_log('[MeteoService] buildAdviceFromApiPayload RAINY detected');
             $advice = [
                 'title' => self::TITLE,
                 'text' => 'Pluie probable: prevois une veste legere, reduis les allures rapides et privilegie un footing controle.',
@@ -153,7 +132,6 @@ final class MeteoService
                 'badge' => $this->buildBadge('', $label),
             ];
         } elseif ($this->isWindy($wind)) {
-            error_log('[MeteoService] buildAdviceFromApiPayload WINDY detected');
             $advice = [
                 'title' => self::TITLE,
                 'text' => 'Vent soutenu: pars prudemment, abrite tes fractions et garde de l\'energie pour le retour face au vent.',
@@ -163,7 +141,6 @@ final class MeteoService
                 'badge' => $this->buildBadge('', $label),
             ];
         } elseif ($temp !== null && $temp <= 3.0) {
-            error_log('[MeteoService] buildAdviceFromApiPayload COLD detected');
             $advice = [
                 'title' => self::TITLE,
                 'text' => 'Froid marque: echauffement progressif, extremites couvertes et allure facile sur les premiers kilometres.',
@@ -173,7 +150,6 @@ final class MeteoService
                 'badge' => $this->buildBadge('', $label),
             ];
         } elseif (in_array($weatherCode, [0, 1], true)) {
-            error_log('[MeteoService] buildAdviceFromApiPayload CLEAR detected');
             $advice = [
                 'title' => self::TITLE,
                 'text' => 'Conditions favorables: bonne fenetre pour ta seance. Pense quand meme a t\'hydrater.',
@@ -184,14 +160,12 @@ final class MeteoService
             ];
         }
 
-        error_log('[MeteoService] buildAdviceFromApiPayload SUCCESS | advice=' . json_encode($advice));
         return $advice;
     }
 
     /** @return array<string,mixed>|null */
     private function fetchWeather(float $lat, float $lon, array &$errors): ?array
     {
-        error_log('[MeteoService] fetchWeather START | lat=' . $lat . ' | lon=' . $lon);
         $query = http_build_query([
             'latitude' => $lat,
             'longitude' => $lon,
@@ -202,25 +176,18 @@ final class MeteoService
         ]);
 
         $url = 'https://api.open-meteo.com/v1/forecast?' . $query;
-        error_log('[MeteoService] fetchWeather URL=' . $url);
 
         $raw = $this->fetchRawWithRetry($url, 3);
         if (!is_string($raw) || $raw === '') {
-            error_log('[MeteoService] fetchWeather FAILED | raw empty or not string');
             $errors[] = 'E3: appel API meteo indisponible.';
             return null;
         }
 
-        error_log('[MeteoService] fetchWeather raw response | length=' . strlen($raw) . ' | first 200 chars=' . substr($raw, 0, 200));
-
         $decoded = json_decode($raw, true);
         if (!is_array($decoded)) {
-            error_log('[MeteoService] fetchWeather FAILED | JSON decode failed');
             $errors[] = 'E3: payload meteo non lisible.';
             return null;
         }
-
-        error_log('[MeteoService] fetchWeather SUCCESS | decoded=' . json_encode($decoded));
         return $decoded;
     }
 
@@ -328,75 +295,41 @@ final class MeteoService
         return $advice;
     }
 
-    private function logFallbackErrors(array $errors, ?string $requestedCity, string $resolvedLabel): void
-    {
-        $diagnostic = '';
-        if ($errors !== []) {
-            $uniq = array_values(array_unique(array_map(static fn ($e) => trim((string) $e), $errors)));
-            $top = array_slice(array_values(array_filter($uniq, static fn ($e) => $e !== '')), 0, 3);
-            if ($top !== []) {
-                $diagnostic = 'Erreurs: ' . implode(' ', $top);
-            }
-        }
-        $requested = trim((string) $requestedCity);
-
-        $parts = ['Meteo fallback active'];
-        $parts[] = 'ville_fallback=' . self::DEFAULT_CITY_LABEL;
-        $parts[] = 'ville_resolue=' . $resolvedLabel;
-        $parts[] = 'ville_demandee=' . ($requested !== '' ? $requested : 'auto');
-        if ($diagnostic !== '') {
-            $parts[] = $diagnostic;
-        }
-
-        error_log('[MeteoService] ' . implode(' | ', $parts));
-    }
-
     /** @return array{lat:float,lon:float,label:string,source:string} */
     private function resolveLocation(?string $city, array &$errors): array
     {
-        error_log('[MeteoService] resolveLocation START | city=' . ($city ?? 'null'));
         $cityName = trim((string) $city);
         if ($cityName !== '') {
-            error_log('[MeteoService] resolveLocation trying city=' . $cityName);
             $byCity = $this->fetchGeoByCity($cityName);
             if ($byCity !== null) {
                 $byCity['source'] = 'city';
-                error_log('[MeteoService] resolveLocation SUCCESS via city | result=' . json_encode($byCity));
                 return $byCity;
             }
-            error_log('[MeteoService] resolveLocation city not found');
             $errors[] = 'E1: ville introuvable.';
         }
-        
-        error_log('[MeteoService] resolveLocation trying LocService');
+
         $byLocation = $this->locService->resolveUsersLocation();
         if($byLocation){
-            error_log('[MeteoService] resolveLocation got location from LocService | location=' . $byLocation);
             $result = $this->fetchGeoByCity($byLocation);
             if ($result !== null) {
                 $result['source'] = 'ip';
-                error_log('[MeteoService] resolveLocation SUCCESS via IP | result=' . json_encode($result));
                 return $result;
             }
         }
 
-        error_log('[MeteoService] resolveLocation LocService failed, using default');
         $errors[] = 'E2: geolocalisation IP indisponible.';
 
-        $default = [
+        return [
             'lat' => self::DEFAULT_LAT,
             'lon' => self::DEFAULT_LON,
             'label' => self::DEFAULT_CITY_LABEL,
             'source' => 'default',
         ];
-        error_log('[MeteoService] resolveLocation DEFAULT FALLBACK | result=' . json_encode($default));
-        return $default;
     }
     
     /** @return array{lat:float,lon:float,label:string}|null */
     private function fetchGeoByCity(string $city): ?array
     {
-        error_log('[MeteoService] fetchGeoByCity START | city=' . $city);
         $coords = null;
         $query = http_build_query([
             'name' => $city,
@@ -406,22 +339,17 @@ final class MeteoService
         ]);
 
         $url = 'https://geocoding-api.open-meteo.com/v1/search?' . $query;
-        error_log('[MeteoService] fetchGeoByCity URL=' . $url);
 
         $raw = $this->fetchRawWithRetry($url, 3);
-        error_log('[MeteoService] fetchGeoByCity response | raw=' . ($raw ? 'received (' . strlen($raw) . ' bytes)' : 'null/empty'));
         
         if (is_string($raw) && $raw !== '') {
             $decoded = json_decode($raw, true);
-            error_log('[MeteoService] fetchGeoByCity decoded | decoded=' . json_encode($decoded));
             
             if (is_array($decoded) && is_array($decoded['results'] ?? null) && isset($decoded['results'][0]) && is_array($decoded['results'][0])) {
                 $first = $decoded['results'][0];
-                error_log('[MeteoService] fetchGeoByCity first result | city=' . ($first['name'] ?? 'null') . ' | country=' . ($first['country'] ?? 'null'));
                 
                 $lat = $this->asFloat($first['latitude'] ?? null);
                 $lon = $this->asFloat($first['longitude'] ?? null);
-                error_log('[MeteoService] fetchGeoByCity lat/lon parsed | lat=' . ($lat ?? 'null') . ' | lon=' . ($lon ?? 'null'));
                 
                 if ($lat !== null && $lon !== null) {
                     $label = $this->buildGeoLabel(
@@ -434,14 +362,10 @@ final class MeteoService
                         'lon' => $lon,
                         'label' => $label,
                     ];
-                    error_log('[MeteoService] fetchGeoByCity SUCCESS | coords=' . json_encode($coords));
                 }
             }
         }
 
-        if ($coords === null) {
-            error_log('[MeteoService] fetchGeoByCity FAILED | no valid coords extracted');
-        }
         return $coords;
     }
 
@@ -456,8 +380,6 @@ final class MeteoService
                 return $raw;
             }
 
-            $first = is_string($raw) ? substr($raw, 0, 120) : 'null';
-            error_log('[MeteoService] HTTP attempt ' . $attempt . '/' . $attempts . ' failed | first chars=' . $first);
             usleep(120000);
         }
 
@@ -498,19 +420,20 @@ final class MeteoService
             return null;
         }
 
-        if (str_starts_with($raw, 'tcp://')) {
-            return $raw;
+        $normalized = $raw;
+        if (str_starts_with($normalized, self::PROXY_TCP_SCHEME)) {
+            return $normalized;
         }
 
-        if (str_starts_with($raw, 'http://')) {
-            return 'tcp://' . substr($raw, 7);
+        if (str_starts_with($normalized, 'http://')) {
+            $normalized = substr($normalized, 7);
+        } elseif (str_starts_with($normalized, 'https://')) {
+            $normalized = substr($normalized, 8);
+        } else {
+            $normalized = ltrim($normalized, '/');
         }
 
-        if (str_starts_with($raw, 'https://')) {
-            return 'tcp://' . substr($raw, 8);
-        }
-
-        return 'tcp://' . ltrim($raw, '/');
+        return self::PROXY_TCP_SCHEME . $normalized;
     }
 
     private function looksLikeHtmlErrorPage(string $raw): bool
