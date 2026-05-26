@@ -50,10 +50,9 @@ $user_agent = $_SERVER['HTTP_USER_AGENT'];
     else
     {
         $response = json_decode($response);
-        
-        if ($response->geoplugin_status == 200)
-        {
-            return $response["city"];
+
+        if (is_object($response) && isset($response->city) && is_string($response->city) && $response->city !== '') {
+            return $response->city;
         }
     }
     return false;
