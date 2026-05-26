@@ -5,7 +5,7 @@ doctrine:
         charset:  utf8  
         port:     '%env(DATABASE_PORT)%'
         dbname:   '%env(DATABASE_NAME)%'
-        server_version: '%env(DATABASE_VERSION)%'
+        server_version: '%env(default:15.0.0:DATABASE_VERSION)%'
         host: '%env(DATABASE_HOST)%'
         user: '%env(DATABASE_USER)%'  
         password: '%env(DATABASE_PASSWORD)%'

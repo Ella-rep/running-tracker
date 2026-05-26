@@ -2,14 +2,21 @@
 set -e
 
 cd /app
+RUNTIME_ENV="${APP_ENV:-prod}"
+COMPOSER_FLAGS="--no-interaction --no-progress --prefer-dist --optimize-autoloader"
+
 echo "➕  Installation des dépendances Composer"
+if [ "$RUNTIME_ENV" = "prod" ]; then
     /usr/local/bin/composer install \
         --no-dev \
-        --no-interaction \
-        --no-progress \
-        --prefer-dist \
-        --optimize-autoloader \
-        --classmap-authoritative
+        --classmap-authoritative \
+        --no-scripts \
+        $COMPOSER_FLAGS
+else
+    /usr/local/bin/composer install \
+        --no-scripts \
+        $COMPOSER_FLAGS
+fi
 
 
 DB_HOST="${DATABASE_HOST:-db}"
@@ -26,7 +33,10 @@ echo "✅  PostgreSQL disponible"
 DB_USER="${DATABASE_USER:-runner}"
 DB_PASS="${DATABASE_PASSWORD:-runner}"
 DB_NAME="${DATABASE_NAME:-postgres}"
-RUNTIME_ENV="${APP_ENV:-prod}"
+
+if [ -z "${DATABASE_VERSION:-}" ]; then
+    export DATABASE_VERSION="15.0.0"
+fi
 
 echo "🧱  Vérification base ${DB_NAME}..."
 if ! PGPASSWORD="$DB_PASS" psql \
