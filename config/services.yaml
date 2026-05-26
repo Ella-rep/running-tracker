@@ -1,4 +1,5 @@
 parameters:
+    env(DATABASE_VERSION): '15.0.0'
     geo_key:  '%env(GEO_KEY)%'
 
 services:
