@@ -341,19 +341,13 @@ final class MeteoService
             }
             $errors[] = 'E1: ville introuvable.';
         }
-
-        $byIp = $this->resolveCoordinatesFromClientIp();
-        
-        if ($byIp !== null) {
-            $byIp['source'] = 'ip';
-            return $byIp;
-        }
-        $errors[] = 'E2: geolocalisation IP indisponible.';
         
         $byLocation = $this->locService->resolveUsersLocation();
         if($byLocation){
             return $this->fetchGeoByCity($byLocation);
         }
+
+        $errors[] = 'E2: geolocalisation IP indisponible.';
 
         return [
             'lat' => self::DEFAULT_LAT,
@@ -363,83 +357,6 @@ final class MeteoService
         ];
     }
     
-    /** @return array{lat:float,lon:float,label:string}|null */
-    private function resolveCoordinatesFromClientIp(): ?array
-    {
-        $request = $this->requestStack->getCurrentRequest();
-        if (!$request instanceof Request) {
-            return null;
-        }
-
-        $ip = $this->resolvePublicClientIp($request);
-        if ($ip === null) {
-            return null;
-        }
-        return $this->fetchGeoByIp($ip);
-    }
-
-    private function resolvePublicClientIp(Request $request): ?string
-    {
-        $candidates = [];
-        $xff = $request->headers->get('X-Forwarded-For');
-        if (is_string($xff) && trim($xff) !== '') {
-            $candidates = array_merge($candidates, array_map('trim', explode(',', $xff)));
-        }
-
-        $candidates = array_merge($candidates, $request->getClientIps());
-
-        $single = $request->getClientIp();
-        if (is_string($single) && trim($single) !== '') {
-            $candidates[] = $single;
-        }
-        foreach ($candidates as $candidate) {
-            if ($this->isPublicIp($candidate)) {
-                return $candidate;
-            }
-        }
-
-        return null;
-    }
-
-    private function isPublicIp(?string $ip): bool
-    {
-        if (!is_string($ip) || trim($ip) === '') {
-            return false;
-        }
-        return filter_var(
-            $ip,
-            FILTER_VALIDATE_IP,
-            FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
-        ) !== false;
-    }
-
-    
-    /** @return array{lat:float,lon:float,label:string}|null */
-    private function fetchGeoByIp(string $ip): ?array
-    {
-        $coords = null;
-        $url = 'https://ipapi.co/' . rawurlencode($ip) . '/json/';
-        $context = stream_context_create([
-            'http' => [
-                'timeout' => 1,
-                'ignore_errors' => true,
-            ],
-        ]);
-
-        $raw = @file_get_contents($url, false, $context);
-        if (is_string($raw) && $raw !== '') {
-            $decoded = json_decode($raw, true);
-            if (is_array($decoded)) {
-                $parsed = $this->parseIpGeoPayload($decoded);
-                if ($parsed !== null) {
-                    $coords = $parsed;
-                }
-            }
-        }
-
-        return $coords;
-    }
-
     /** @return array{lat:float,lon:float,label:string}|null */
     private function fetchGeoByCity(string $city): ?array
     {
@@ -484,26 +401,6 @@ final class MeteoService
         return $coords;
     }
 
-    /**
-     * @param array<string,mixed> $decoded
-     * @return array{lat:float,lon:float,label:string}|null
-     */
-    private function parseIpGeoPayload(array $decoded): ?array
-    {
-        $lat = $this->asFloat($decoded['latitude'] ?? null);
-        $lon = $this->asFloat($decoded['longitude'] ?? null);
-        if ($lat === null || $lon === null) {
-            return null;
-        }
-
-        $label = $this->buildGeoLabel(
-            (string) ($decoded['city'] ?? ''),
-            (string) ($decoded['country_name'] ?? ''),
-            self::DEFAULT_CITY_LABEL
-        );
-
-        return ['lat' => $lat, 'lon' => $lon, 'label' => $label];
-    }
 
     private function buildGeoLabel(string $city, string $country, string $fallback): string
     {
