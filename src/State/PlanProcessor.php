@@ -34,6 +34,9 @@ final class PlanProcessor implements ProcessorInterface
         $isCreate = null === $data->getId();
 
         $data->setUser($user);
+        if ($isCreate && strtolower(trim($data->getName())) === 'starter') {
+            $data->setDashboardTracked(false);
+        }
         $this->em->persist($data);
         $this->em->flush();
 

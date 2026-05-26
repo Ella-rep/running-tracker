@@ -160,6 +160,25 @@
   background: color-mix(in srgb, var(--z2) 16%, var(--surface2));
 }
 
+#dashboard .table-wrap .dashboard-race-status {
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+#dashboard .table-wrap .dashboard-race-status.badge-done {
+  background: color-mix(in srgb, var(--z2) 18%, var(--surface2));
+  color: color-mix(in srgb, var(--z2) 78%, var(--z1));
+  border: 1px solid color-mix(in srgb, var(--z2) 52%, var(--border));
+}
+
+#dashboard .table-wrap .dashboard-race-status.badge-next {
+  background: color-mix(in srgb, var(--z5) 18%, var(--surface2));
+  color: color-mix(in srgb, var(--z5) 88%, var(--text));
+  border: 1px solid color-mix(in srgb, var(--z5) 56%, var(--border));
+}
+
 .weather-city-modal-actions {
   justify-content: flex-end;
 }
@@ -307,6 +326,6 @@
 
   #dashboard .table-wrap .dashboard-race-status {
     padding: 2px 6px;
-    font-size: 9px;
+    font-size: 10px;
   }
 }

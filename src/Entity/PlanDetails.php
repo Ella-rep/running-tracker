@@ -14,6 +14,7 @@ use ApiPlatform\Metadata\Put;
 use App\Repository\PlanDetailsRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Groups;
+use Symfony\Component\Serializer\Attribute\SerializedName;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: PlanDetailsRepository::class)]
@@ -165,6 +166,8 @@ class PlanDetails
     /**
      * Returns normalized session type.
      */
+    #[Groups(['plan_details:read', 'plan_details:write'])]
+    #[SerializedName('sessionType')]
     public function getSessionType(): ?string { return $this->sessionType; }
 
     /**
@@ -195,6 +198,8 @@ class PlanDetails
     /**
      * Returns whether the session is optional.
      */
+    #[Groups(['plan_details:read', 'plan_details:write'])]
+    #[SerializedName('isOptional')]
     public function isOptional(): bool { return $this->isOptional; }
 
     /**
@@ -203,12 +208,24 @@ class PlanDetails
     public function setIsOptional(bool $isOptional): static { $this->isOptional = $isOptional; return $this; }
 
     /**
+     * Sets optional flag (alias for serializer compatibility).
+     */
+    public function setOptional(bool $optional): static { $this->isOptional = $optional; return $this; }
+
+    /**
      * Returns whether the session is completed.
      */
+    #[Groups(['plan_details:read', 'plan_details:write'])]
+    #[SerializedName('isDone')]
     public function isDone(): bool { return $this->isDone; }
 
     /**
      * Sets completion flag.
      */
     public function setIsDone(bool $isDone): static { $this->isDone = $isDone; return $this; }
+
+    /**
+     * Sets completion flag (alias for serializer compatibility).
+     */
+    public function setDone(bool $done): static { $this->isDone = $done; return $this; }
 }

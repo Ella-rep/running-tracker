@@ -122,6 +122,31 @@ openssl rand -hex 32
 openssl rand -hex 16
 ```
 
+Puis renseigner les variables d'integration externes (obligatoires):
+
+```bash
+# OAuth Google (connexion avec Google)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# Geolocalisation IP (dashboard meteo)
+GEO_KEY=
+
+# Email sortant Symfony Mailer
+MAILER_FROM=no-reply@running-dashboard.app
+MAILER_DSN=smtp://${BREVO_SMTP_LOGIN}:${BREVO_SMTP_KEY}@smtp-relay.brevo.com:587?encryption=tls&auth_mode=login
+
+# SMTP Brevo (obligatoire)
+BREVO_SMTP_LOGIN=
+BREVO_SMTP_KEY=
+```
+
+Exemple `MAILER_DSN` avec Brevo (recommande):
+
+```bash
+MAILER_DSN=smtp://${BREVO_SMTP_LOGIN}:${BREVO_SMTP_KEY}@smtp-relay.brevo.com:587?encryption=tls&auth_mode=login
+```
+
 ### 2. Déploiement Docker
 
 Le projet se lance avec Docker Compose. Le `Dockerfile` ne dépend pas de build args spécifiques : la génération des clés JWT est exécutée au démarrage du conteneur par `docker/entrypoint.sh`.
@@ -183,11 +208,17 @@ Si vous déployez l'image sans Docker Compose, il faut fournir explicitement les
 | `JWT_PASSPHRASE` | Oui | Secret | Passphrase de la clé privée JWT |
 | `JWT_TTL` | Oui | ConfigMap | Durée de vie du token JWT (secondes) |
 | `CORS_ALLOW_ORIGIN` | Oui | ConfigMap | Regex d'origine autorisée CORS |
+| `GEO_KEY` | Oui (peut etre vide) | Secret | Cle API de geolocalisation IP utilisee par les conseils meteo |
+| `GOOGLE_CLIENT_ID` | Oui | Secret | OAuth Google: identifiant client |
+| `GOOGLE_CLIENT_SECRET` | Oui | Secret | OAuth Google: secret client |
+| `BREVO_SMTP_LOGIN` | Oui | Secret | Identifiant SMTP Brevo |
+| `BREVO_SMTP_KEY` | Oui | Secret | Cle SMTP Brevo |
+| `MAILER_DSN` | Oui | ConfigMap/Secret | DSN Symfony Mailer (construit avec Brevo) |
+| `MAILER_FROM` | Oui | ConfigMap | Expediteur des emails |
 
 Variables optionnelles:
 
 - `APP_DEBUG` (0/1)
-- `MAILER_DSN`, `MAILER_FROM` (recommandé avec Symfony Mailer/Brevo)
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_TLS`, `SMTP_STARTTLS` (mode legacy msmtp)
 
 ### Exemple kubectl: ConfigMap + Secret
@@ -211,7 +242,17 @@ kubectl create secret generic runtracker-secrets \
   --from-literal=APP_SECRET='<genere_avec_openssl_rand_hex_32>' \
   --from-literal=DATABASE_USER='runner' \
   --from-literal=DATABASE_PASSWORD='<mot_de_passe_db>' \
-  --from-literal=JWT_PASSPHRASE='<passphrase_jwt>'
+  --from-literal=JWT_PASSPHRASE='<passphrase_jwt>' \
+  --from-literal=GEO_KEY='<cle_geo>' \
+  --from-literal=GOOGLE_CLIENT_ID='<google_client_id>' \
+  --from-literal=GOOGLE_CLIENT_SECRET='<google_client_secret>' \
+  --from-literal=BREVO_SMTP_LOGIN='<brevo_login>' \
+  --from-literal=BREVO_SMTP_KEY='<brevo_smtp_key>'
+
+# Configuration mailer obligatoire (Symfony Mailer + Brevo)
+kubectl create configmap runtracker-mailer \
+  --from-literal=MAILER_FROM='no-reply@running-dashboard.app' \
+  --from-literal=MAILER_DSN='smtp://<BREVO_SMTP_LOGIN>:<BREVO_SMTP_KEY>@smtp-relay.brevo.com:587?encryption=tls&auth_mode=login'
 
 # Clés JWT montées en fichiers
 kubectl create secret generic runtracker-jwt-keys \
@@ -225,6 +266,8 @@ kubectl create secret generic runtracker-jwt-keys \
 envFrom:
   - configMapRef:
       name: runtracker-config
+  - configMapRef:
+      name: runtracker-mailer
   - secretRef:
       name: runtracker-secrets
 volumeMounts:
@@ -237,11 +280,36 @@ volumes:
       secretName: runtracker-jwt-keys
 ```
 
+### Executer un script SQL via kubectl
+
+Depuis un fichier SQL local:
+
+```bash
+# Remplace <postgres-pod> par le pod PostgreSQL
+kubectl exec -i <postgres-pod> -- psql -U runner -d postgres < ./script.sql
+```
+
+Depuis une ConfigMap (script embarque):
+
+```bash
+kubectl create configmap runtracker-sql --from-file=script.sql=./script.sql
+
+# Extraire le SQL de la ConfigMap puis l'injecter dans psql
+kubectl get configmap runtracker-sql -o jsonpath='{.data.script\.sql}' \
+  | kubectl exec -i <postgres-pod> -- psql -U runner -d postgres
+```
+
+Test rapide de connectivite SQL:
+
+```bash
+kubectl exec -it <postgres-pod> -- psql -U runner -d postgres -c "SELECT now();"
+```
+
 Notes importantes:
 
 - L'entrypoint attend PostgreSQL en se basant sur `DATABASE_HOST` / `DATABASE_PORT`.
 - Si les clés JWT ne sont pas montées, l'entrypoint peut les générer dans `/app/config/jwt` (selon permissions du volume).
-- En production, privilégier un Secret pour toutes les variables sensibles (`APP_SECRET`, credentials DB, `JWT_PASSPHRASE`, SMTP).
+- En production, privilégier un Secret pour toutes les variables sensibles (`APP_SECRET`, credentials DB, `JWT_PASSPHRASE`, `GEO_KEY`, credentials Google OAuth, credentials Brevo/SMTP).
 
 ---
 
@@ -255,6 +323,32 @@ Ou via curl :
 curl -X POST http://localhost:8080/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{"username":"toi","plainPassword":"monmotdepasse"}'
+```
+
+Par defaut, un compte cree n'a pas `ROLE_ADMIN` et ne voit pas l'onglet Admin.
+
+### Donner ROLE_ADMIN a un utilisateur
+
+Avec Docker local:
+
+```bash
+docker exec -it runtracker_db psql -U runner -d postgres \
+  -c "UPDATE users SET roles='[\"ROLE_USER\",\"ROLE_ADMIN\"]'::json WHERE username='toi';"
+```
+
+Avec Kubernetes:
+
+```bash
+# Remplace <postgres-pod> par le pod PostgreSQL
+kubectl exec -it <postgres-pod> -- psql -U runner -d postgres \
+  -c "UPDATE users SET roles='[\"ROLE_USER\",\"ROLE_ADMIN\"]'::json WHERE username='toi';"
+```
+
+Verification rapide:
+
+```bash
+kubectl exec -it <postgres-pod> -- psql -U runner -d postgres \
+  -c "SELECT id, username, roles FROM users ORDER BY id;"
 ```
 
 ---

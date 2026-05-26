@@ -36,7 +36,11 @@ use Symfony\Component\Validator\Constraints as Assert;
             deserialize: true,
             security: 'is_granted("ROLE_USER")'
         ),
-        new Delete(uriTemplate: self::PLAN_ITEM_URI, security: self::OWNER_SECURITY),
+        new Delete(
+            uriTemplate: self::PLAN_ITEM_URI,
+            security: self::OWNER_SECURITY,
+            processor: 'App\\State\\PlanDeleteProcessor'
+        ),
     ]
 )]
 #[ApiFilter(SearchFilter::class, properties: ['name' => 'exact'])]
@@ -60,6 +64,10 @@ class Plan
     #[Assert\NotBlank]
     #[Groups(['plan:read', 'plan:write', 'plan_details:read'])]
     private string $name = '';
+
+    #[ORM\Column(options: ['default' => true])]
+    #[Groups(['plan:read', 'plan:write'])]
+    private bool $dashboardTracked = true;
 
     /**
      * Returns the plan identifier.
@@ -85,4 +93,14 @@ class Plan
      * Sets the display name of the plan.
      */
     public function setName(string $name): static { $this->name = $name; return $this; }
+
+    /**
+     * Returns whether the plan is tracked on dashboard widgets.
+     */
+    public function isDashboardTracked(): bool { return $this->dashboardTracked; }
+
+    /**
+     * Sets whether the plan is tracked on dashboard widgets.
+     */
+    public function setDashboardTracked(bool $dashboardTracked): static { $this->dashboardTracked = $dashboardTracked; return $this; }
 }

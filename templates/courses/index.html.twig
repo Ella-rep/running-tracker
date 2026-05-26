@@ -4,7 +4,7 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
-<link rel="stylesheet" href="{{ asset('css/courses.css') }}?v=20260522-courses4">
+<link rel="stylesheet" href="{{ asset('css/courses.css') }}?v=20260526-coursesbadgepinkgreen1">
 {% endblock %}
 
 {% block body %}
@@ -12,23 +12,70 @@
 
 <main>
   <section id="courses" class="visible">
+    {% for label, messages in app.flashes %}
+      {% for message in messages %}
+        <div class="section-sub" style="margin:8px 0; color: {{ label == 'error' ? 'var(--accent3)' : 'var(--z1)' }}">{{ message }}</div>
+      {% endfor %}
+    {% endfor %}
+
     <div class="section-title">Calendrier des courses</div>
     <div class="section-sub">Saison 2026</div>
-    <div class="form-card">
+    <form class="form-card" method="post" action="{{ path('app_courses_create') }}">
+      <input type="hidden" name="_token" value="{{ csrf_token('courses.create') }}">
       <h3>➕ Ajouter une course</h3>
       <div class="form-grid">
-        <div class="field"><label for="r-name">Nom</label><input type="text" id="r-name" placeholder="10km de Paris"></div>
-        <div class="field"><label for="r-date">Date</label><input type="date" id="r-date" placeholder="jj/mm/yyyy"></div>
-        <div class="field"><label for="r-dist">Distance</label><input type="text" id="r-dist" placeholder="10km"></div>
-        <div class="field"><label for="r-obj">Objectif (hh:mm:ss)</label><input type="text" id="r-obj" placeholder="00:55:00"></div>
-        <div class="field"><label for="r-real">Résultat</label><input type="text" id="r-real" placeholder="00:53:22"></div>
+        <div class="field"><label for="r-name">Nom</label><input type="text" id="r-name" name="name" placeholder="10km de Paris"></div>
+        <div class="field"><label for="r-date">Date</label><input type="date" id="r-date" name="date" placeholder="jj/mm/yyyy"></div>
+        <div class="field"><label for="r-dist">Distance</label><input type="text" id="r-dist" name="distance" placeholder="10km"></div>
+        <div class="field"><label for="r-obj">Objectif (hh:mm:ss)</label><input type="text" id="r-obj" name="objective" placeholder="00:55:00"></div>
+        <div class="field"><label for="r-real">Résultat</label><input type="text" id="r-real" name="result" placeholder="00:53:22"></div>
       </div>
-      <button class="btn" onclick="addRace()">Ajouter</button>
-    </div>
+      <button class="btn" type="submit">Ajouter</button>
+    </form>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Échéance</th><th>Course</th><th>Date</th><th>Distance</th><th>Objectif</th><th>Résultat</th><th>Écart</th><th></th></tr></thead>
-        <tbody id="races-tbody"></tbody>
+        <tbody id="races-tbody">
+          {% for r in racesView|default([]) %}
+            <tr>
+              <td class="races-status"><span class="badge {{ r.statusClass }}">{{ r.statusLabel }}</span></td>
+              <td><strong class="races-name">{{ r.name }}</strong></td>
+              <td class="mono races-date">{{ r.date|date('d M Y') }}</td>
+              <td class="races-dist">{{ r.distance ?: '—' }}</td>
+              <td class="mono races-obj">{{ r.objective ?: '—' }}</td>
+              <td class="mono races-real">{{ r.result ?: '—' }}</td>
+              <td class="mono races-diff">{{ r.resultDelta }}</td>
+              <td>
+                <div class="action-btns" style="opacity:1; display:flex; gap:6px; justify-content:flex-end;">
+                  <details>
+                    <summary class="action-btn action-btn-text" style="cursor:pointer; list-style:none;">Modifier</summary>
+                    <form method="post" action="{{ path('app_courses_update', { id: r.id }) }}" style="margin-top:8px; min-width:360px; padding:10px; border:1px solid var(--line); border-radius:12px; background:var(--panel); display:grid; gap:8px;">
+                      <input type="hidden" name="_token" value="{{ csrf_token('courses.update.' ~ r.id) }}">
+                      <div class="form-grid">
+                        <div class="field"><label>Nom</label><input type="text" name="name" value="{{ r.name }}" required></div>
+                        <div class="field"><label>Date</label><input type="date" name="date" value="{{ r.date }}" required></div>
+                        <div class="field"><label>Distance</label><input type="text" name="distance" value="{{ r.distance ?: '' }}"></div>
+                        <div class="field"><label>Objectif</label><input type="text" name="objective" value="{{ r.objective ?: '' }}" placeholder="hh:mm:ss"></div>
+                      </div>
+                      <div style="display:flex; gap:6px; justify-content:flex-end;">
+                        <button class="action-btn action-btn-text" type="submit">Sauver</button>
+                      </div>
+                    </form>
+                  </details>
+                  <form method="post" action="{{ path('app_courses_result', { id: r.id }) }}" style="display:inline-flex; gap:6px;">
+                    <input type="hidden" name="_token" value="{{ csrf_token('courses.result.' ~ r.id) }}">
+                    <input type="text" name="result" value="{{ r.result ?: '' }}" placeholder="hh:mm:ss" style="width:92px;">
+                    <button class="action-btn action-btn-text races-result" type="submit" title="Enregistrer résultat">Résultat</button>
+                  </form>
+                  <form method="post" action="{{ path('app_courses_delete', { id: r.id }) }}" onsubmit="return confirm('Supprimer cette course ?');" style="display:inline-flex;">
+                    <input type="hidden" name="_token" value="{{ csrf_token('courses.delete.' ~ r.id) }}">
+                    <button class="action-btn del races-delete" type="submit">🗑</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
       </table>
       <template id="races-row-template">
         <tr>
@@ -56,52 +103,8 @@
 </main>
 
 <div class="notif" id="notif"></div>
-<div class="confirm-overlay" id="confirm-overlay">
-  <div class="modal">
-    <div class="modal-title" id="confirm-title">Confirmation</div>
-    <div id="confirm-msg"></div>
-    <div class="modal-actions">
-      <button class="btn" onclick="confirmDelete()">Confirmer</button>
-      <button class="btn btn-ghost" onclick="closeConfirm()">Annuler</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="race-modal">
-  <div class="modal">
-    <button class="modal-close" onclick="closeModal('race-modal')">✕</button>
-    <div class="modal-title">Modifier la course</div>
-    <input type="hidden" id="rm-idx">
-    <div class="form-grid">
-      <div class="field"><label for="rm-name">Nom</label><input type="text" id="rm-name"></div>
-      <div class="field"><label for="rm-date">Date</label><input type="date" id="rm-date" placeholder="jj/mm/yyyy"></div>
-      <div class="field"><label for="rm-dist">Distance</label><input type="text" id="rm-dist"></div>
-      <div class="field"><label for="rm-obj">Objectif</label><input type="text" id="rm-obj" placeholder="hh:mm:ss"></div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn" onclick="saveRaceEdit()">Enregistrer</button>
-      <button class="btn btn-ghost" onclick="closeModal('race-modal')">Annuler</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="race-result-modal">
-  <div class="modal">
-    <button class="modal-close" onclick="closeModal('race-result-modal')">✕</button>
-    <div class="modal-title">Saisir le résultat</div>
-    <input type="hidden" id="rr-idx">
-    <div class="section-sub">Cette action met à jour uniquement le résultat final de la course.</div>
-    <div class="form-grid">
-      <div class="field"><label for="rr-real">Résultat (hh:mm:ss)</label><input type="text" id="rr-real" placeholder="00:53:22"></div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn" onclick="saveRaceResult()">Enregistrer le résultat</button>
-      <button class="btn btn-ghost" onclick="closeModal('race-result-modal')">Annuler</button>
-    </div>
-  </div>
-</div>
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260522-mobile6"></script>
+<script src="{{ asset('js/app.js') }}?v=20260526-coursesmodalfix1"></script>
 {% endblock %}

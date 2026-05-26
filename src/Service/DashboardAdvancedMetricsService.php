@@ -3,9 +3,11 @@
 namespace App\Service;
 
 use App\Entity\Plan;
+use App\Entity\PlanProgress;
 use App\Entity\RunLog;
 use App\Entity\User;
 use App\Repository\PlanDetailsRepository;
+use App\Repository\PlanProgressRepository;
 use App\Repository\PlanRepository;
 use App\Repository\RunLogRepository;
 
@@ -14,6 +16,7 @@ use App\Repository\RunLogRepository;
  */
 final class DashboardAdvancedMetricsService
 {
+    private const TRAINING_GAP_LOOKBACK_DAYS = 60;
     private const COLOR_TEXT_MUTED = 'var(--text-muted)';
     private const COLOR_Z1 = 'var(--z1)';
     private const COLOR_ACCENT3 = 'var(--accent3)';
@@ -27,6 +30,7 @@ final class DashboardAdvancedMetricsService
         private RunLogRepository $runLogs,
         private PlanRepository $plans,
         private PlanDetailsRepository $planDetails,
+        private PlanProgressRepository $planProgress,
     ) {
     }
 
@@ -35,37 +39,51 @@ final class DashboardAdvancedMetricsService
      */
     public function buildPlanWidgets(User $user): array
     {
-        $selection = $this->selectTargetPlan($user);
-        $targetPlan = $selection['targetPlan'];
-        $isExample = $selection['isExample'];
         $today = (new \DateTimeImmutable('today'))->setTime(0, 0, 0);
+        $plans = $this->plans->findBy(['user' => $user], ['id' => 'ASC']);
+        $planRows = $this->planDetails->findBy(['user' => $user], ['position' => 'ASC']);
+        $rowsByPlanId = $this->groupRowsByPlanId($planRows);
+        $loggedDetailIds = $this->runLogs->findLoggedDetailIds($user);
+        $doneByProgressByPlan = $this->loadDoneSessionIndexesByPlan($user);
+        $planSummaries = $this->buildPlanSummaries($plans, $rowsByPlanId, $loggedDetailIds, $doneByProgressByPlan);
+        $publicPlanSummaries = array_map(static function (array $summary): array {
+            unset($summary['plan']);
+            return $summary;
+        }, $planSummaries);
+        $selection = $this->selectTargetPlan($planSummaries);
+        $targetPlan = $selection['targetPlan'];
+        $focusSummary = $selection['summary'];
 
         if (!$targetPlan instanceof Plan) {
             $monthStart = $today->modify('first day of this month')->setTime(0, 0, 0);
+            $hasPlans = $publicPlanSummaries !== [];
 
             return [
                 'progress' => [
-                    'title' => 'Progression du plan exemple',
+                    'title' => 'Suivi des plans',
+                    'focusTitle' => '',
                     'done' => 0,
                     'total' => 0,
                     'pct' => 0,
+                    'plans' => $publicPlanSummaries,
                 ],
                 'calendar' => $this->buildPlanCalendar(
                     $monthStart,
                     $today,
                     [],
-                    'Aucune seance programmee ce mois-ci',
-                    'Ajoute un plan avec des dates de seances pour remplir ce calendrier.'
+                    $hasPlans ? 'Aucun plan suivi' : 'Aucune seance programmee ce mois-ci',
+                    $hasPlans
+                        ? 'Ajoute un plan au suivi pour afficher son calendrier.'
+                        : 'Ajoute un plan avec des dates de seances pour remplir ce calendrier.'
                 ),
             ];
         }
 
-        $rows = $this->planDetails->findBy(['user' => $user, 'plan' => $targetPlan], ['position' => 'ASC']);
-        $total = count($rows);
-        $loggedDetailIds = $this->runLogs->findLoggedDetailIds($user);
-        $aggregates = $this->aggregatePlanRows($rows, $loggedDetailIds);
+        $targetPlanId = $targetPlan->getId();
+        $rows = is_int($targetPlanId) ? ($rowsByPlanId[$targetPlanId] ?? []) : [];
+        $doneByProgress = is_int($targetPlanId) ? ($doneByProgressByPlan[(string) $targetPlanId] ?? []) : [];
+        $aggregates = $this->aggregatePlanRows($rows, $loggedDetailIds, $doneByProgress);
 
-        $done = $aggregates['done'];
         $datedRows = $aggregates['datedRows'];
         $itemsByDate = $aggregates['itemsByDate'];
 
@@ -75,21 +93,25 @@ final class DashboardAdvancedMetricsService
         $monthKey = $monthStart->format('Y-m');
         $visibleDates = array_filter($datedRows, static fn (\DateTimeImmutable $sessionDate): bool => $sessionDate->format('Y-m') === $monthKey);
         $visibleCount = count($visibleDates);
-        $progressTitle = $isExample
-            ? 'Progression du plan exemple'
-            : sprintf('Progression du plan %s', $targetPlan->getName());
         $summary = 'Aucune seance programmee ce mois-ci';
         if ($visibleCount > 0) {
             $pluralSuffix = $visibleCount > 1 ? 's' : '';
             $summary = sprintf('%d seance%s programmee%s', $visibleCount, $pluralSuffix, $pluralSuffix);
         }
 
+        $focusTitle = is_array($focusSummary) ? (string) ($focusSummary['title'] ?? '') : '';
+        $focusDone = is_array($focusSummary) ? (int) ($focusSummary['done'] ?? 0) : 0;
+        $focusTotal = is_array($focusSummary) ? (int) ($focusSummary['total'] ?? 0) : 0;
+        $focusPct = is_array($focusSummary) ? (int) ($focusSummary['pct'] ?? 0) : 0;
+
         return [
             'progress' => [
-                'title' => $progressTitle,
-                'done' => $done,
-                'total' => $total,
-                'pct' => $total > 0 ? (int) round(($done / $total) * 100) : 0,
+                'title' => 'Suivi des plans',
+                'focusTitle' => $focusTitle,
+                'done' => $focusDone,
+                'total' => $focusTotal,
+                'pct' => $focusPct,
+                'plans' => $publicPlanSummaries,
             ],
             'calendar' => $this->buildPlanCalendar(
                 $monthStart,
@@ -151,7 +173,7 @@ final class DashboardAdvancedMetricsService
 
     /**
      * @param array<int, RunLog> $logs
-     * @return array<int,array{ok:bool,title:string,msg:string}>
+     * @return array<int,array{ok:bool,title:string,msg:string,details?:array<int,string>}>
      */
     public function buildCoherenceAlerts(array $logs): array
     {
@@ -168,30 +190,110 @@ final class DashboardAdvancedMetricsService
         return $alerts;
     }
 
-    /** @return array{targetPlan:?Plan,isExample:bool} */
-    private function selectTargetPlan(User $user): array
+    /**
+     * @param array<int, array{id:int,title:string,done:int,total:int,pct:int,isExample:bool,tracked:bool,plan:Plan}> $summaries
+     * @return array{targetPlan:?Plan,summary:?array{id:int,title:string,done:int,total:int,pct:int,isExample:bool,tracked:bool,plan:Plan}}
+     */
+    private function selectTargetPlan(array $summaries): array
     {
-        $plans = $this->plans->findBy(['user' => $user], ['id' => 'ASC']);
-        $selection = array_reduce($plans, static function (array $carry, Plan $plan): array {
-            if ($plan->getName() === 'starter') {
-                $carry['starter'] = $plan;
-                return $carry;
-            }
-            $carry['latest'] = $plan;
-            return $carry;
-        }, ['latest' => null, 'starter' => null]);
+        $trackedSummaries = array_values(array_filter($summaries, static fn (array $summary): bool => (bool) ($summary['tracked'] ?? false)));
 
         return [
-            'targetPlan' => $selection['latest'] ?? $selection['starter'],
-            'isExample' => $selection['latest'] === null && $selection['starter'] instanceof Plan,
+            'targetPlan' => isset($trackedSummaries[0]) ? $trackedSummaries[0]['plan'] : null,
+            'summary' => $trackedSummaries[0] ?? null,
         ];
     }
 
-    /** @param array<int,mixed> $rows @param array<int,mixed> $loggedDetailIds @return array{done:int,datedRows:array<int,\DateTimeImmutable>,itemsByDate:array<string,array<int,array<string,mixed>>>} */
-    private function aggregatePlanRows(array $rows, array $loggedDetailIds): array
+    /**
+     * @param array<int, Plan> $plans
+     * @param array<int, array<int, mixed>> $rowsByPlanId
+     * @param array<int, mixed> $loggedDetailIds
+     * @param array<string, array<int,bool>> $doneByProgressByPlan
+    * @return array<int, array{id:int,title:string,done:int,total:int,pct:int,isExample:bool,tracked:bool,plan:Plan}>
+     */
+    private function buildPlanSummaries(array $plans, array $rowsByPlanId, array $loggedDetailIds, array $doneByProgressByPlan): array
     {
-        return array_reduce($rows, static function (array $carry, $row) use ($loggedDetailIds): array {
-            $carry['done'] += $row->isDone() ? 1 : 0;
+        $summaries = [];
+
+        foreach ($plans as $plan) {
+            $planId = $plan->getId();
+            if (!is_int($planId)) {
+                continue;
+            }
+
+            $name = trim((string) $plan->getName());
+            $isExample = $name === 'starter';
+            if ($isExample) {
+                continue;
+            }
+
+            $rows = $rowsByPlanId[$planId] ?? [];
+            $aggregates = $this->aggregatePlanRows($rows, $loggedDetailIds, $doneByProgressByPlan[(string) $planId] ?? []);
+            $total = count($rows);
+            $done = $aggregates['done'];
+
+            $summaries[] = [
+                'id' => $planId,
+                'title' => $name,
+                'done' => $done,
+                'total' => $total,
+                'pct' => $total > 0 ? (int) round(($done / $total) * 100) : 0,
+                'isExample' => $isExample,
+                'tracked' => $plan->isDashboardTracked(),
+                'plan' => $plan,
+            ];
+        }
+
+        usort($summaries, static function (array $left, array $right): int {
+            foreach (['pct', 'done', 'total', 'id'] as $field) {
+                $comparison = (int) $right[$field] <=> (int) $left[$field];
+                if ($comparison !== 0) {
+                    return $comparison;
+                }
+            }
+
+            return 0;
+        });
+
+        return $summaries;
+    }
+
+    /**
+     * @param array<int, mixed> $rows
+     * @return array<int, array<int, mixed>>
+     */
+    private function groupRowsByPlanId(array $rows): array
+    {
+        $grouped = [];
+        foreach ($rows as $row) {
+            $planId = $row->getPlan()->getId();
+            if (!is_int($planId)) {
+                continue;
+            }
+
+            $grouped[$planId] ??= [];
+            $grouped[$planId][] = $row;
+        }
+
+        return $grouped;
+    }
+
+    /**
+     * @param array<int,mixed> $rows
+     * @param array<int,mixed> $loggedDetailIds
+     * @param array<int,bool> $doneByProgress
+     * @return array{done:int,datedRows:array<int,\DateTimeImmutable>,itemsByDate:array<string,array<int,array<string,mixed>>>}
+     */
+    private function aggregatePlanRows(array $rows, array $loggedDetailIds, array $doneByProgress): array
+    {
+        return array_reduce($rows, static function (array $carry, $row) use ($loggedDetailIds, $doneByProgress): array {
+            $rowId = $row->getId();
+            $sessionIndex = max(0, $row->getPosition() - 1);
+            $isDone = $row->isDone()
+                || ($rowId !== null && isset($loggedDetailIds[$rowId]))
+                || isset($doneByProgress[$sessionIndex]);
+
+            $carry['done'] += $isDone ? 1 : 0;
             $date = $row->getSessionDate();
             if (!$date instanceof \DateTimeInterface) {
                 return $carry;
@@ -202,18 +304,41 @@ final class DashboardAdvancedMetricsService
             $carry['itemsByDate'][$dateKey] ??= [];
             $carry['itemsByDate'][$dateKey][] = [
                 'kind' => 'session',
-                'detailId' => $row->getId(),
+                'detailId' => $rowId,
                 'planId' => $row->getPlan()->getId(),
                 'sessionType' => $row->getSessionType(),
                 'label' => sprintf('Seance %d', $row->getPosition()),
                 'format' => $row->getFormat(),
                 'pe' => $row->getPe(),
-                'isDone' => $row->isDone(),
-                'hasLog' => isset($loggedDetailIds[$row->getId()]),
+                'isDone' => $isDone,
+                'hasLog' => $rowId !== null && isset($loggedDetailIds[$rowId]),
                 'isOptional' => $row->isOptional(),
             ];
             return $carry;
         }, ['done' => 0, 'datedRows' => [], 'itemsByDate' => []]);
+    }
+
+    /** @return array<string, array<int,bool>> */
+    private function loadDoneSessionIndexesByPlan(User $user): array
+    {
+        $rows = $this->planProgress->findBy(['user' => $user, 'done' => true]);
+
+        $doneByProgress = [];
+        foreach ($rows as $row) {
+            if (!$row instanceof PlanProgress) {
+                continue;
+            }
+
+            $planKey = trim($row->getPlanKey());
+            if ($planKey === '') {
+                continue;
+            }
+
+            $doneByProgress[$planKey] ??= [];
+            $doneByProgress[$planKey][$row->getSessionIndex()] = true;
+        }
+
+        return $doneByProgress;
     }
 
     /** @param array<int,\DateTimeImmutable> $datedRows */
@@ -373,7 +498,7 @@ final class DashboardAdvancedMetricsService
         return $weekly;
     }
 
-    /** @param array<int,array{ok:bool,title:string,msg:string}> $alerts @param array<int,RunLog> $logs */
+    /** @param array<int,array{ok:bool,title:string,msg:string,details?:array<int,string>}> $alerts @param array<int,RunLog> $logs */
     private function appendPaceProgressAlert(array &$alerts, array $logs): void
     {
         $nonRace = array_values(array_filter($logs, function (RunLog $log): bool {
@@ -389,36 +514,87 @@ final class DashboardAdvancedMetricsService
         $firstAvg = array_sum(array_map(fn (RunLog $r): int => $this->paceToSeconds($r->getAllure()) ?? 0, $first)) / max(1, count($first));
         $lastAvg = array_sum(array_map(fn (RunLog $r): int => $this->paceToSeconds($r->getAllure()) ?? 0, $last)) / max(1, count($last));
         $delta = (int) round($firstAvg - $lastAvg);
+        $firstStart = $this->parseDay($first[0]->getDate());
+        $firstEnd = $this->parseDay($first[count($first) - 1]->getDate());
+        $lastStart = $this->parseDay($last[0]->getDate());
+        $lastEnd = $this->parseDay($last[count($last) - 1]->getDate());
+        $details = [];
+        if ($firstStart instanceof \DateTimeImmutable && $firstEnd instanceof \DateTimeImmutable) {
+            $details[] = sprintf('Premiere periode comparee: %s au %s (%d sortie(s)).', $firstStart->format('d/m/Y'), $firstEnd->format('d/m/Y'), count($first));
+        }
+        if ($lastStart instanceof \DateTimeImmutable && $lastEnd instanceof \DateTimeImmutable) {
+            $details[] = sprintf('Derniere periode comparee: %s au %s (%d sortie(s)).', $lastStart->format('d/m/Y'), $lastEnd->format('d/m/Y'), count($last));
+        }
+        $details[] = sprintf('Allure moyenne debut de periode: %s/km.', substr($this->secondsToDuration((int) round($firstAvg)), 3));
+        $details[] = sprintf('Allure moyenne fin de periode: %s/km.', substr($this->secondsToDuration((int) round($lastAvg)), 3));
         if ($delta > 15) {
-            $alerts[] = ['ok' => true, 'title' => self::TITLE_PACE_PROGRESSION, 'msg' => sprintf('Amelioration moyenne de %s/km entre les premieres et dernieres sorties.', substr($this->secondsToDuration($delta), 3))];
+            $alerts[] = ['ok' => true, 'title' => self::TITLE_PACE_PROGRESSION, 'msg' => sprintf('Amelioration moyenne de %s/km entre les premieres et dernieres sorties (base: %d sorties).', substr($this->secondsToDuration($delta), 3), count($nonRace)), 'details' => $details];
         } elseif ($delta < -15) {
-            $alerts[] = ['ok' => false, 'title' => self::TITLE_PACE_PROGRESSION, 'msg' => sprintf('Allure moyenne en baisse de %s/km sur les dernieres sorties.', substr($this->secondsToDuration(-$delta), 3))];
+            $alerts[] = ['ok' => false, 'title' => self::TITLE_PACE_PROGRESSION, 'msg' => sprintf('Allure moyenne en baisse de %s/km sur les dernieres sorties (base: %d sorties).', substr($this->secondsToDuration(-$delta), 3), count($nonRace)), 'details' => $details];
         } else {
-            $alerts[] = ['ok' => true, 'title' => self::TITLE_PACE_PROGRESSION, 'msg' => 'Allure globalement stable sur la periode recente.'];
+            $alerts[] = ['ok' => true, 'title' => self::TITLE_PACE_PROGRESSION, 'msg' => sprintf('Allure globalement stable sur la periode recente (base: %d sorties).', count($nonRace)), 'details' => $details];
         }
     }
 
-    /** @param array<int,array{ok:bool,title:string,msg:string}> $alerts @param array<int,RunLog> $logs */
+    /** @param array<int,array{ok:bool,title:string,msg:string,details?:array<int,string>}> $alerts @param array<int,RunLog> $logs */
     private function appendEfBpmAlert(array &$alerts, array $logs): void
     {
-        $efBpms = [];
+        $efEntries = [];
         foreach ($logs as $log) {
             $type = strtoupper((string) ($log->getRunType() ?? ''));
             if ($type === 'EF' && $log->getBpm() !== null) {
-                $efBpms[] = (int) $log->getBpm();
+                $efEntries[] = [
+                    'date' => $log->getDate(),
+                    'bpm' => (int) $log->getBpm(),
+                    'km' => (float) ($log->getKm() ?? 0.0),
+                ];
             }
         }
-        if (count($efBpms) >= 2) {
-            $alerts[] = ['ok' => true, 'title' => 'BPM endurance fondamentale', 'msg' => sprintf('Plage observee: %d-%d bpm sur %d sortie(s) EF.', min($efBpms), max($efBpms), count($efBpms))];
+        if (count($efEntries) >= 2) {
+            usort($efEntries, static fn (array $left, array $right): int => strcmp((string) $left['date'], (string) $right['date']));
+            $efBpms = array_map(static fn (array $entry): int => (int) $entry['bpm'], $efEntries);
+            $recentEntries = array_slice($efEntries, -3);
+            $details = [
+                sprintf('BPM moyen observe: %d bpm.', (int) round(array_sum($efBpms) / count($efBpms))),
+                sprintf('BPM min/max observes: %d-%d bpm.', min($efBpms), max($efBpms)),
+            ];
+
+            foreach ($recentEntries as $entry) {
+                $date = $this->parseDay((string) $entry['date']);
+                $details[] = sprintf(
+                    'EF du %s: %d bpm%s',
+                    $date instanceof \DateTimeImmutable ? $date->format('d/m/Y') : (string) $entry['date'],
+                    (int) $entry['bpm'],
+                    (float) $entry['km'] > 0 ? sprintf(' · %.1f km', (float) $entry['km']) : ''
+                );
+            }
+
+            $alerts[] = ['ok' => true, 'title' => 'BPM endurance fondamentale', 'msg' => sprintf('Plage observee: %d-%d bpm sur %d sortie(s) EF.', min($efBpms), max($efBpms), count($efBpms)), 'details' => $details];
         }
     }
 
-    /** @param array<int,array{ok:bool,title:string,msg:string}> $alerts @param array<int,RunLog> $logs */
+    /** @param array<int,array{ok:bool,title:string,msg:string,details?:array<int,string>}> $alerts @param array<int,RunLog> $logs */
     private function appendTrainingGapAlert(array &$alerts, array $logs): void
     {
-        $dated = array_values(array_filter($logs, static fn (RunLog $log): bool => $log->getDate() !== ''));
+        $today = (new \DateTimeImmutable('today'))->setTime(0, 0, 0);
+        $windowStart = $today->modify(sprintf('-%d days', self::TRAINING_GAP_LOOKBACK_DAYS));
+
+        $dated = array_values(array_filter($logs, function (RunLog $log) use ($windowStart): bool {
+            if ($log->getDate() === '') {
+                return false;
+            }
+
+            $day = $this->parseDay($log->getDate());
+            return $day instanceof \DateTimeImmutable && $day >= $windowStart;
+        }));
         usort($dated, static fn (RunLog $a, RunLog $b) => strcmp($a->getDate(), $b->getDate()));
+        if (count($dated) < 2) {
+            return;
+        }
+
         $maxGap = 0;
+        $maxGapStart = null;
+        $maxGapEnd = null;
         for ($i = 1; $i < count($dated); $i++) {
             $d1 = $this->parseDay($dated[$i - 1]->getDate());
             $d2 = $this->parseDay($dated[$i]->getDate());
@@ -428,10 +604,44 @@ final class DashboardAdvancedMetricsService
             $gap = (int) round(($d2->getTimestamp() - $d1->getTimestamp()) / 86400);
             if ($gap > $maxGap) {
                 $maxGap = $gap;
+                $maxGapStart = $dated[$i - 1];
+                $maxGapEnd = $dated[$i];
             }
         }
         if ($maxGap >= 10) {
-            $alerts[] = ['ok' => false, 'title' => 'Coupure d\'entrainement', 'msg' => sprintf('Plus longue coupure detectee: %d jours entre deux sorties.', $maxGap)];
+            $details = [];
+            if ($maxGapStart instanceof RunLog && $maxGapEnd instanceof RunLog) {
+                $startDate = $this->parseDay($maxGapStart->getDate());
+                $endDate = $this->parseDay($maxGapEnd->getDate());
+                if ($startDate instanceof \DateTimeImmutable && $endDate instanceof \DateTimeImmutable) {
+                    $details[] = sprintf('Derniere sortie avant coupure: %s', $startDate->format('d/m/Y'));
+                    $details[] = sprintf('Reprise detectee: %s', $endDate->format('d/m/Y'));
+                    $details[] = sprintf('Intervalle calcule: %d jours calendaires entre ces deux sorties.', $maxGap);
+                }
+
+                $startType = trim((string) ($maxGapStart->getRunType() ?? ''));
+                $endType = trim((string) ($maxGapEnd->getRunType() ?? ''));
+                $startKm = (float) ($maxGapStart->getKm() ?? 0.0);
+                $endKm = (float) ($maxGapEnd->getKm() ?? 0.0);
+                $details[] = sprintf(
+                    'Sortie precedente: %s%s',
+                    $startType !== '' ? $startType : 'type non renseigne',
+                    $startKm > 0 ? sprintf(' · %.1f km', $startKm) : ''
+                );
+                $details[] = sprintf(
+                    'Sortie suivante: %s%s',
+                    $endType !== '' ? $endType : 'type non renseigne',
+                    $endKm > 0 ? sprintf(' · %.1f km', $endKm) : ''
+                );
+                $details[] = sprintf('Fenetre analysee: %d derniers jours (%d sortie(s) prises en compte).', self::TRAINING_GAP_LOOKBACK_DAYS, count($dated));
+            }
+
+            $alerts[] = [
+                'ok' => false,
+                'title' => 'Coupure d\'entrainement',
+                'msg' => sprintf('Plus longue coupure detectee: %d jours entre deux sorties.', $maxGap),
+                'details' => $details,
+            ];
         }
     }
 

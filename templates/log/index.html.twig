@@ -4,7 +4,7 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
-<link rel="stylesheet" href="{{ asset('css/log.css') }}?v=20260521-log-mobile9">
+<link rel="stylesheet" href="{{ asset('css/log.css') }}?v=20260527-logsortie1">
 {% endblock %}
 
 {% block body %}
@@ -12,9 +12,16 @@
 
 <main>
   <section id="log" class="visible">
+    {% for label, messages in app.flashes %}
+      {% for message in messages %}
+        <div class="section-sub" style="margin:8px 0; color: {{ label == 'error' ? 'var(--accent3)' : 'var(--z1)' }}">{{ message }}</div>
+      {% endfor %}
+    {% endfor %}
+
     <div class="section-title">Journal de course</div>
     <div class="section-sub" id="log-sub">Chargement…</div>
-    <div class="form-card">
+    <form class="form-card" method="post" action="{{ path('app_log_create') }}">
+      <input type="hidden" name="_token" value="{{ csrf_token('log.create') }}">
       <div class="form-card-head">
         <h3>➕ Ajouter une sortie</h3>
         <fieldset class="log-entry-mode-switch">
@@ -24,22 +31,32 @@
         </fieldset>
       </div>
       <div class="form-grid">
-        <div class="field"><label for="log-date">Date</label><input type="date" id="log-date" placeholder="jj/mm/yyyy"></div>
-        <div class="field"><label for="log-km">Distance (km)</label><input type="number" id="log-km" step="0.01" placeholder="5.00"></div>
-        <div class="field"><label for="log-dur">Durée (hh:mm:ss)</label><input type="text" id="log-dur" placeholder="00:45:00"></div>
-        <div class="field"><label for="log-dplus">D+ (mètres)</label><input type="number" id="log-dplus" placeholder="0"></div>
-        <div class="field"><label for="log-bpm">BPM moy.</label><input type="number" id="log-bpm" placeholder="150"></div>
+        <div class="field"><label for="log-date">Date</label><input type="date" id="log-date" name="date" placeholder="jj/mm/yyyy"></div>
+        <div class="field"><label for="log-km">Distance (km)</label><input type="number" id="log-km" name="km" step="0.01" placeholder="5.00"></div>
+        <div class="field"><label for="log-dur">Durée (hh:mm:ss)</label><input type="text" id="log-dur" name="duration" placeholder="00:45:00"></div>
+        <div class="field"><label for="log-dplus">D+ (mètres)</label><input type="number" id="log-dplus" name="dplus" placeholder="0"></div>
+        <div class="field"><label for="log-bpm">BPM moy.</label><input type="number" id="log-bpm" name="bpm" placeholder="150"></div>
         <div class="field"><label for="log-type">Type</label>
-          <select id="log-type">
+          <select id="log-type" name="runType">
             <option value="">—</option>
             <option value="EF">EF – Endurance fondamentale</option>
             <option value="FC">FC – Fractionné court</option>
-            <option value="FL">FL – Sortie longue</option>
+            <option value="FL">FL – Fractionné long</option>
+            <option value="SL">SL – Sortie longue</option>
             <option value="T">T – Tempo</option>
             <option value="Race">🏁 Course</option>
           </select>
         </div>
-        <div class="field"><label for="log-notes">Notes</label><input type="text" id="log-notes" placeholder="…"></div>
+        <div class="field" id="log-course-field"><label for="log-course-name">Nom de la course</label><input type="text" id="log-course-name" name="courseName" list="log-course-options" placeholder="Course ciblée"></div>
+        <div class="field"><label for="log-effort">Ressenti</label>
+          <select id="log-effort" name="perceivedEffort">
+            <option value="">—</option>
+            <option value="facile">Facile</option>
+            <option value="moderee">Modérée</option>
+            <option value="difficile">Difficile</option>
+            <option value="maximum">Maximum</option>
+          </select>
+        </div>
       </div>
       <div class="log-calendar-choice" id="log-calendar-choice" hidden>
         <div class="field">
@@ -50,22 +67,94 @@
           <input type="hidden" id="log-planned-session-id">
         </div>
       </div>
-      <button class="btn" onclick="addLog()">Enregistrer</button>
-    </div>
-    <div class="filter-bar">
-      <button class="filter-btn active" onclick="filterLog('all',this)">Tout</button>
-      <button class="filter-btn" onclick="filterLog('EF',this)">EF</button>
-      <button class="filter-btn" onclick="filterLog('FC',this)">Fractionné</button>
-      <button class="filter-btn" onclick="filterLog('FL',this)">Longue</button>
-      <button class="filter-btn" onclick="filterLog('Race',this)">Courses</button>
+      <button class="btn" type="submit">Enregistrer</button>
+    </form>
+    <div class="log-toolbar">
+      <div class="filter-bar">
+        <button class="filter-btn active" onclick="filterLog('all',this)">Tout</button>
+        <button class="filter-btn" onclick="filterLog('EF',this)">EF</button>
+        <button class="filter-btn" onclick="filterLog('FC',this)">Frac. court</button>
+        <button class="filter-btn" onclick="filterLog('FL',this)">Frac. long</button>
+        <button class="filter-btn" onclick="filterLog('SL',this)">Longue</button>
+        <button class="filter-btn" onclick="filterLog('Race',this)">Courses</button>
+      </div>
+      <div class="log-type-legend" aria-label="Légende couleurs allure par type">
+        <span class="log-type-legend-label">Couleur allure:</span>
+        <span class="log-type-legend-item"><span class="log-type-legend-dot log-type-legend-dot-endurance"></span><span class="allure-type-endurance">EF/SL</span></span>
+        <span class="log-type-legend-item"><span class="log-type-legend-dot log-type-legend-dot-fractionne"></span><span class="allure-type-fractionne">FC/FL</span></span>
+        <span class="log-type-legend-item"><span class="log-type-legend-dot log-type-legend-dot-tempo"></span><span class="allure-type-tempo">Tempo (T)</span></span>
+        <span class="log-type-legend-item"><span class="log-type-legend-dot log-type-legend-dot-race"></span><span class="allure-type-race">Course</span></span>
+      </div>
     </div>
     <div class="table-wrap">
       <table>
         <thead><tr>
           <th><button id="sort-date-btn" class="sort-date-btn" onclick="toggleSort()">Date <span id="sort-icon">↓</span></button></th>
-          <th>Km</th><th>Durée</th><th>Allure</th><th>GAP</th><th>D+</th><th>BPM</th><th>Type</th><th>Séance prévue</th><th>Notes</th><th></th>
+          <th>Km</th><th>Durée</th><th>Allure</th><th>GAP</th><th>D+</th><th>BPM</th><th>Type</th><th>Sortie</th><th>Ressenti</th><th></th>
         </tr></thead>
-        <tbody id="log-tbody"></tbody>
+        <tbody id="log-tbody">
+          {% for r in logsView|default([]) %}
+            <tr>
+              <td class="mono log-date">{{ r.date|date('d M Y') }}</td>
+              <td class="mono log-km">{{ r.km is not null ? r.km|number_format(2, '.', '') : '—' }}</td>
+              <td class="mono log-dur">{{ r.duration ?: '—' }}</td>
+              <td class="mono log-allure">{{ r.allure ? r.allure ~ '/km' : '—' }}</td>
+              <td class="mono log-gap">{{ r.gap ?: '—' }}</td>
+              <td class="mono log-dplus">{{ r.dplus is not null ? r.dplus : '—' }}</td>
+              <td class="mono log-bpm">{{ r.bpm is not null ? r.bpm : '—' }}</td>
+              <td class="log-type">{% if r.runType %}<span class="badge badge-done">{{ r.runType }}</span>{% else %}—{% endif %}</td>
+              <td class="log-planned"{% set sortieLabel = (r.runType == 'Race' and r.courseName) ? r.courseName : (r.plannedSessionLabel ?: (r.courseName ?: '—')) %}{% if sortieLabel != '—' and sortieLabel|length > 42 %} title="{{ sortieLabel }}"{% endif %}>{{ sortieLabel }}</td>
+              <td class="notes-cell log-effort">{{ r.perceivedEffort ? (r.perceivedEffort == 'moderee' ? 'Modérée' : r.perceivedEffort|capitalize) : (r.notes ?: '—') }}</td>
+              <td>
+                <div class="action-btns" style="opacity:1; display:flex; gap:6px; justify-content:flex-end; align-items:center;">
+                  <details>
+                    <summary class="action-btn action-btn-text" style="cursor:pointer; list-style:none;">Modifier</summary>
+                    <form method="post" action="{{ path('app_log_update', { id: r.id }) }}" style="margin-top:8px; min-width:360px; padding:10px; border:1px solid var(--line); border-radius:12px; background:var(--panel); display:grid; gap:8px;">
+                      <input type="hidden" name="_token" value="{{ csrf_token('log.update.' ~ r.id) }}">
+                      <div class="form-grid">
+                        <div class="field"><label>Date</label><input type="date" name="date" value="{{ r.date }}" required></div>
+                        <div class="field"><label>Distance (km)</label><input type="number" step="0.01" name="km" value="{{ r.km is not null ? r.km|number_format(2, '.', '') : '' }}" required></div>
+                        <div class="field"><label>Duree (hh:mm:ss)</label><input type="text" name="duration" value="{{ r.duration ?: '' }}" required></div>
+                        <div class="field"><label>D+ (metres)</label><input type="number" name="dplus" value="{{ r.dplus is not null ? r.dplus : '' }}"></div>
+                        <div class="field"><label>BPM moy.</label><input type="number" name="bpm" value="{{ r.bpm is not null ? r.bpm : '' }}"></div>
+                        <div class="field">
+                          <label>Type</label>
+                          <select name="runType">
+                            <option value="" {{ r.runType is empty ? 'selected' : '' }}>—</option>
+                            <option value="EF" {{ r.runType == 'EF' ? 'selected' : '' }}>EF – Endurance fondamentale</option>
+                            <option value="FC" {{ r.runType == 'FC' ? 'selected' : '' }}>FC – Fractionne court</option>
+                            <option value="FL" {{ r.runType == 'FL' ? 'selected' : '' }}>FL – Fractionne long</option>
+                            <option value="SL" {{ r.runType == 'SL' ? 'selected' : '' }}>SL – Sortie longue</option>
+                            <option value="T" {{ r.runType == 'T' ? 'selected' : '' }}>T – Tempo</option>
+                            <option value="Race" {{ r.runType == 'Race' ? 'selected' : '' }}>Course</option>
+                          </select>
+                        </div>
+                        <div class="field"><label>Nom de la course</label><input type="text" name="courseName" list="log-course-options" value="{{ r.courseName ?: '' }}"></div>
+                        <div class="field">
+                          <label>Ressenti</label>
+                          <select name="perceivedEffort">
+                            <option value="" {{ r.perceivedEffort is empty ? 'selected' : '' }}>—</option>
+                            <option value="facile" {{ r.perceivedEffort == 'facile' ? 'selected' : '' }}>Facile</option>
+                            <option value="moderee" {{ r.perceivedEffort == 'moderee' ? 'selected' : '' }}>Modérée</option>
+                            <option value="difficile" {{ r.perceivedEffort == 'difficile' ? 'selected' : '' }}>Difficile</option>
+                            <option value="maximum" {{ r.perceivedEffort == 'maximum' ? 'selected' : '' }}>Maximum</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div style="display:flex; gap:6px; justify-content:flex-end;">
+                        <button class="action-btn action-btn-text" type="submit">Sauver</button>
+                      </div>
+                    </form>
+                  </details>
+                  <form method="post" action="{{ path('app_log_delete', { id: r.id }) }}" onsubmit="return confirm('Supprimer cette sortie ?');" style="display:inline-flex;">
+                    <input type="hidden" name="_token" value="{{ csrf_token('log.delete.' ~ r.id) }}">
+                    <button class="action-btn del log-delete" type="submit">🗑</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
       </table>
       <template id="log-row-template">
         <tr>
@@ -78,7 +167,7 @@
           <td class="mono log-bpm"></td>
           <td class="log-type"></td>
           <td class="log-planned"></td>
-          <td class="notes-cell log-notes"></td>
+          <td class="notes-cell log-effort"></td>
           <td>
             <div class="action-btns">
               <button class="action-btn log-edit">✏️</button>
@@ -95,16 +184,6 @@
 </main>
 
 <div class="notif" id="notif"></div>
-<div class="confirm-overlay" id="confirm-overlay">
-  <div class="modal">
-    <div class="modal-title" id="confirm-title">Confirmation</div>
-    <div id="confirm-msg"></div>
-    <div class="modal-actions">
-      <button class="btn" onclick="confirmDelete()">Confirmer</button>
-      <button class="btn btn-ghost" onclick="closeConfirm()">Annuler</button>
-    </div>
-  </div>
-</div>
 
 <div class="modal-overlay" id="log-modal">
   <div class="modal">
@@ -122,20 +201,31 @@
           <option value="">—</option>
           <option value="EF">EF – Endurance fondamentale</option>
           <option value="FC">FC – Fractionné court</option>
-          <option value="FL">FL – Sortie longue</option>
+          <option value="FL">FL – Fractionné long</option>
+          <option value="SL">SL – Sortie longue</option>
           <option value="T">T – Tempo</option>
           <option value="Race">🏁 Course</option>
         </select>
       </div>
+      <div class="field" id="lm-course-field"><label for="lm-course-name">Nom de la course</label><input type="text" id="lm-course-name" list="log-course-options"></div>
+      <div class="field"><label for="lm-effort">Ressenti</label>
+        <select id="lm-effort">
+          <option value="">—</option>
+          <option value="facile">Facile</option>
+          <option value="moderee">Modérée</option>
+          <option value="difficile">Difficile</option>
+          <option value="maximum">Maximum</option>
+        </select>
+      </div>
+    </div>
+    <div class="log-calendar-choice" id="log-modal-calendar-choice">
       <div class="field">
-        <label for="lm-planned-session-text">Séance prévue (optionnel)</label>
+        <label for="lm-planned-session-text">Séance prévue</label>
         <div class="field-actions-inline">
           <input type="text" id="lm-planned-session-text" placeholder="Aucune séance sélectionnée" readonly onclick="openPlannedSessionCalendarPicker('lm-date','lm-planned-session-text','lm-planned-session-id')">
-          <button type="button" class="btn btn-ghost btn-sm" onclick="openPlannedSessionCalendarPicker('lm-date','lm-planned-session-text','lm-planned-session-id')">Choisir sur le calendrier</button>
         </div>
         <input type="hidden" id="lm-planned-session-id">
       </div>
-      <div class="field"><label for="lm-notes">Notes</label><input type="text" id="lm-notes"></div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="saveLogEdit()">Enregistrer</button>
@@ -144,8 +234,10 @@
   </div>
 </div>
 
+<datalist id="log-course-options"></datalist>
+
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260522-mobile6"></script>
+<script src="{{ asset('js/app.js') }}?v=20260527-logsortie1"></script>
 {% endblock %}

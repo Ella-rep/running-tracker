@@ -82,9 +82,17 @@ class RunLog
     #[Groups(['log:read', 'log:write'])]
     private ?string $runType = null;
 
+    #[ORM\Column(length: 128, nullable: true)]
+    #[Groups(['log:read', 'log:write'])]
+    private ?string $courseName = null;
+
     #[ORM\Column(type: 'text', nullable: true)]
     #[Groups(['log:read', 'log:write'])]
     private ?string $notes = null;
+
+    #[ORM\Column(length: 16, nullable: true)]
+    #[Groups(['log:read', 'log:write'])]
+    private ?string $perceivedEffort = null;
 
     #[ORM\ManyToOne(targetEntity: PlanDetails::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
@@ -196,6 +204,16 @@ class RunLog
     public function setRunType(?string $t): static { $this->runType = $t; return $this; }
 
     /**
+     * Returns linked race name (manual or selected upcoming race).
+     */
+    public function getCourseName(): ?string { return $this->courseName; }
+
+    /**
+     * Sets linked race name.
+     */
+    public function setCourseName(?string $courseName): static { $this->courseName = $courseName; return $this; }
+
+    /**
      * Returns free-form notes.
      */
     public function getNotes(): ?string { return $this->notes; }
@@ -204,6 +222,16 @@ class RunLog
      * Sets free-form notes.
      */
     public function setNotes(?string $n): static { $this->notes = $n; return $this; }
+
+    /**
+     * Returns perceived effort value.
+     */
+    public function getPerceivedEffort(): ?string { return $this->perceivedEffort; }
+
+    /**
+     * Sets perceived effort value.
+     */
+    public function setPerceivedEffort(?string $perceivedEffort): static { $this->perceivedEffort = $perceivedEffort; return $this; }
 
     /**
      * Returns the linked planned session.
@@ -231,18 +259,14 @@ class RunLog
             return null;
         }
 
-        $date = $this->plannedSession->getSessionDate()?->format('Y-m-d');
-        $planName = $this->plannedSession->getPlanName();
         $position = $this->plannedSession->getPosition();
         $format = trim((string) $this->plannedSession->getFormat());
 
-        return trim(sprintf(
-            '%s · %s · Seance %d%s',
-            $date ?: 'Sans date',
-            $planName,
-            $position,
-            $format !== '' ? ' · ' . $format : ''
-        ));
+        if ($format !== '') {
+            return sprintf('Seance %d · %s', $position, $format);
+        }
+
+        return sprintf('Seance %d', $position);
     }
 
     /**

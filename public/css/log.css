@@ -3,14 +3,22 @@
 .filter-bar {
   display: flex;
   gap: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 0;
   flex-wrap: wrap;
+}
+
+.log-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
 }
 
 .filter-btn {
   background: var(--surface);
   border: 1px solid var(--border);
-  color: var(--text-muted);
+  color: #fff;
   padding: 6px 14px;
   border-radius: 6px;
   cursor: pointer;
@@ -22,8 +30,58 @@
 .filter-btn:hover,
 .filter-btn.active {
   border-color: var(--accent2);
-  color: var(--accent2);
+  color: #fff;
   background: var(--filter-active-bg);
+}
+
+.log-type-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0;
+  justify-content: flex-end;
+}
+
+.log-type-legend-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.log-type-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface2) 85%, var(--surface));
+  font-size: 11px;
+}
+
+.log-type-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.log-type-legend-dot-endurance { background: var(--z2); }
+.log-type-legend-dot-fractionne { background: var(--z5); }
+.log-type-legend-dot-tempo { background: var(--z4); }
+.log-type-legend-dot-race { background: var(--z3); }
+
+@media (max-width: 940px) {
+  .log-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .log-type-legend {
+    justify-content: flex-start;
+  }
 }
 
 .sort-date-btn {
@@ -47,10 +105,46 @@
   color: var(--text-muted);
 }
 
+#log .log-type .badge {
+  border: 1px solid var(--border);
+}
+
+#log .log-type .badge.allure-type-endurance {
+  color: var(--z2);
+  background: color-mix(in srgb, var(--z2) 16%, var(--surface2));
+  border-color: color-mix(in srgb, var(--z2) 42%, var(--border));
+}
+
+#log .log-type .badge.allure-type-fractionne {
+  color: var(--z5);
+  background: color-mix(in srgb, var(--z5) 16%, var(--surface2));
+  border-color: color-mix(in srgb, var(--z5) 42%, var(--border));
+}
+
+#log .log-type .badge.allure-type-tempo {
+  color: var(--z4);
+  background: color-mix(in srgb, var(--z4) 16%, var(--surface2));
+  border-color: color-mix(in srgb, var(--z4) 42%, var(--border));
+}
+
+#log .log-type .badge.allure-type-race {
+  color: var(--z3);
+  background: color-mix(in srgb, var(--z3) 16%, var(--surface2));
+  border-color: color-mix(in srgb, var(--z3) 42%, var(--border));
+}
+
 .log-planned {
   font-size: 11px;
   max-width: 240px;
   color: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.log-course {
+  font-size: 12px;
+  max-width: 180px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -445,8 +539,8 @@
   .table-wrap td:nth-child(6)::before { content: 'D+'; }
   .table-wrap td:nth-child(7)::before { content: 'BPM'; }
   .table-wrap td:nth-child(8)::before { content: 'Type'; }
-  .table-wrap td:nth-child(9)::before { content: 'Séance'; }
-  .table-wrap td:nth-child(10)::before { content: 'Notes'; }
+  .table-wrap td:nth-child(9)::before { content: 'Sortie'; }
+  .table-wrap td:nth-child(10)::before { content: 'Ressenti'; }
   .table-wrap td:nth-child(11)::before { content: 'Actions'; }
 
   .table-wrap td:nth-child(5),

@@ -64,17 +64,24 @@ final class DashboardMetricsFacadeService
         $rows = [];
         foreach ($races as $race) {
             $days = $this->daysTo($today, $race->getDate());
+            $weeksToRace = (int) ceil(max(0, $days) / 7);
             $result = trim((string) ($race->getResult() ?? ''));
 
             $statusClass = 'badge-future';
-            $statusLabel = $days < 0 ? 'Passée' : sprintf('S-%d', (int) round($days / 7));
+            $statusLabel = $days < 0 ? 'Passée' : sprintf('S-%d', $weeksToRace);
 
             if ($result !== '') {
                 $statusClass = 'badge-done';
                 $statusLabel = '✓ Terminée';
-            } elseif ($days <= 7) {
+            } elseif ($days <= 14) {
                 $statusClass = 'badge-next';
-                $statusLabel = sprintf('J-%d', $days);
+                $statusLabel = $days <= 7
+                    ? sprintf('J-%d', $days)
+                    : sprintf('S-%d', $weeksToRace);
+            } elseif ($weeksToRace <= 2) {
+                // Keep visual status coherent: S-1/S-2 must use the "next" badge color.
+                $statusClass = 'badge-next';
+                $statusLabel = sprintf('S-%d', $weeksToRace);
             }
 
             $rows[] = [

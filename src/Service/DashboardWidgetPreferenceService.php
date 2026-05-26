@@ -43,8 +43,8 @@ class DashboardWidgetPreferenceService
             ],
             [
                 'key' => DashboardWidgetKeys::PLAN_PROGRESS,
-                'label' => 'Progression du plan',
-                'description' => 'Avancement global du plan actif.',
+                'label' => 'Suivi des plans',
+                'description' => 'Etat du plan le plus avance et resume de tous les plans.',
             ],
             [
                 'key' => DashboardWidgetKeys::MONTHLY_LOAD,

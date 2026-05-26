@@ -5,7 +5,7 @@
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
   <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260522-mobile24">
-<link rel="stylesheet" href="{{ asset('css/home.css') }}?v=20260522-home5">
+<link rel="stylesheet" href="{{ asset('css/home.css') }}?v=20260526-homebadgepinkgreen1">
 {% endblock %}
 
 {% block body %}
@@ -18,7 +18,20 @@
         <div class="section-title">Accueil</div>
         <div class="section-sub" id="dash-date">Chargement…</div>
       </div>
-      <div id="dashboard-weather"></div>
+      <div id="dashboard-weather">
+        {% if initialWeatherAdvice is defined and initialWeatherAdvice %}
+          <article class="advice-card advice-info" data-server-fallback="1">
+            <div class="advice-icon">{{ initialWeatherAdvice.icon|default('🌤️') }}</div>
+            <div class="advice-content">
+              <h4 class="advice-title">{{ initialWeatherAdvice.title|default('Conseil meteo du jour') }}</h4>
+              <div class="advice-meta">
+                <span class="advice-badge">{{ initialWeatherAdvice.badge|default('Auto') }}</span>
+              </div>
+              <p class="advice-text">{{ initialWeatherAdvice.text|default('Meteo variable: adapte l\'allure et pense a t\'hydrater.') }}</p>
+            </div>
+          </article>
+        {% endif %}
+      </div>
     </div>
 
     <div id="dashboard-advice"></div>
@@ -36,14 +49,32 @@
       </article>
     </template>
 
-    <div class="progress-section">
-      <div class="progress-label">
-        <span id="progress-plan-label">Progression du plan</span>
-        <span id="tempo-pct">—</span>
+    <section class="progress-section home-plan-module" id="home-plan-module">
+      <button type="button" class="home-plan-module-toggle" id="home-plan-module-toggle" aria-expanded="true" aria-controls="home-plan-module-content">
+        <span class="home-plan-module-toggle-label">Suivi des plans</span>
+        <span class="home-plan-module-toggle-icon" aria-hidden="true">▾</span>
+      </button>
+      <div class="home-plan-module-content" id="home-plan-module-content">
+        <div class="plan-progress-list" id="plan-progress-list"></div>
+        <div class="plan-progress-hidden" id="plan-progress-hidden"></div>
+        <template id="plan-progress-card-template">
+          <article class="plan-progress-card">
+            <div class="plan-progress-card-head">
+              <div class="plan-progress-card-heading">
+                <div class="plan-progress-card-title"></div>
+                <div class="plan-progress-card-pct"></div>
+              </div>
+              <button type="button" class="plan-progress-card-action"></button>
+            </div>
+            <div class="plan-progress-card-bar"><div class="plan-progress-card-fill"></div></div>
+            <div class="plan-progress-card-meta"></div>
+          </article>
+        </template>
+        <template id="plan-progress-hidden-button-template">
+          <button type="button" class="plan-progress-hidden-btn"></button>
+        </template>
       </div>
-      <div class="progress-bar"><div class="progress-fill" id="tempo-bar"></div></div>
-      <div class="progress-meta" id="tempo-meta"></div>
-    </div>
+    </section>
 
     <div class="chart-wrap plan-calendar-wrap" id="plan-calendar-wrap">
       <div class="plan-calendar-head">
@@ -69,7 +100,7 @@
     <div class="table-wrap">
       <div class="table-header">📅 Prochaines courses</div>
       <table>
-        <thead><tr><th>Course</th><th>Date</th><th>Distance</th><th>Objectif</th><th>Statut</th></tr></thead>
+        <thead><tr><th>Course</th><th>Date</th><th>Distance</th><th>Statut</th></tr></thead>
         <tbody id="race-tbody"></tbody>
       </table>
       <template id="dashboard-race-row-template">
@@ -77,7 +108,6 @@
           <td class="dashboard-race-name"></td>
           <td class="mono dashboard-race-date"></td>
           <td class="dashboard-race-dist"></td>
-          <td class="mono dashboard-race-obj"></td>
           <td><span class="badge dashboard-race-status"></span></td>
         </tr>
       </template>
@@ -110,5 +140,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260522-mobile6"></script>
+<script src="{{ asset('js/app.js') }}?v=20260526-metadatafix2"></script>
 {% endblock %}

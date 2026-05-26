@@ -97,12 +97,25 @@
       <div id="training-load-chart" class="training-load-chart"></div>
     </div>
     <div class="progress-section" data-widget="plan_progress">
-      <div class="progress-label">
-        <span id="progress-plan-label">Progression du plan</span>
-        <span id="tempo-pct">—</span>
-      </div>
-      <div class="progress-bar"><div class="progress-fill" id="tempo-bar"></div></div>
-      <div class="progress-meta" id="tempo-meta"></div>
+      <div class="chart-title">Suivi des plans</div>
+      <div class="plan-progress-list" id="plan-progress-list"></div>
+      <div class="plan-progress-hidden" id="plan-progress-hidden"></div>
+      <template id="plan-progress-card-template">
+        <article class="plan-progress-card">
+          <div class="plan-progress-card-head">
+            <div class="plan-progress-card-heading">
+              <div class="plan-progress-card-title"></div>
+              <div class="plan-progress-card-pct"></div>
+            </div>
+            <button type="button" class="plan-progress-card-action"></button>
+          </div>
+          <div class="plan-progress-card-bar"><div class="plan-progress-card-fill"></div></div>
+          <div class="plan-progress-card-meta"></div>
+        </article>
+      </template>
+      <template id="plan-progress-hidden-button-template">
+        <button type="button" class="plan-progress-hidden-btn"></button>
+      </template>
     </div>
 
     <div class="chart-wrap" data-widget="monthly_load">
@@ -110,7 +123,7 @@
       <div class="bar-chart" id="monthly-chart"></div>
       <template id="monthly-bar-template">
         <article class="bar-col">
-          <div class="bar"></div>
+          <div class="bar"><span class="bar-value" aria-hidden="true"></span></div>
           <div class="bar-label"></div>
         </article>
       </template>
@@ -121,6 +134,8 @@
       <div class="alert">
         <div class="alert-title"></div>
         <p class="alert-body"></p>
+        <button type="button" class="alert-detail-toggle" hidden></button>
+        <div class="alert-details" hidden></div>
       </div>
     </template>
 
@@ -142,5 +157,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260522-mobile6"></script>
+<script src="{{ asset('js/app.js') }}?v=20260526-metadatafix2"></script>
 {% endblock %}

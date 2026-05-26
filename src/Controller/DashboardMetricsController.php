@@ -37,7 +37,7 @@ final class DashboardMetricsController extends AbstractController
                 ],
                 'coherenceAlerts' => [],
                 'racesTable' => [],
-                'planProgress' => ['title' => 'Progression du plan exemple', 'done' => 0, 'total' => 0, 'pct' => 0],
+                'planProgress' => ['title' => 'Suivi des plans', 'focusTitle' => '', 'done' => 0, 'total' => 0, 'pct' => 0, 'plans' => []],
             ], 401);
         }
 

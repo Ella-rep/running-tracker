@@ -12,6 +12,11 @@
         </testsuite>
     </testsuites>
 
+    <php>
+        <server name="APP_ENV" value="test" force="true"/>
+        <server name="KERNEL_CLASS" value="App\Kernel"/>
+    </php>
+
     <source>
         <include>
             <directory>src</directory>

@@ -21,7 +21,7 @@ class PlanSessionService
             return $this->starterSessions();
         }
 
-        return $this->starterSessions();
+        return [];
     }
 
     /** @return array<int, array{sem:int, date:?string, format:string, sessionType:?string, pe:?string, totalMin:?int, isOptional:bool}> */

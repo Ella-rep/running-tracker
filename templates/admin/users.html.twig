@@ -4,7 +4,7 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
-<link rel="stylesheet" href="{{ asset('css/admin.css') }}?v=20260522-admin1">
+<link rel="stylesheet" href="{{ asset('css/admin.css') }}?v=20260526-admincompact1">
 {% endblock %}
 
 {% block body %}
@@ -172,12 +172,10 @@
             <td>
               <div class="action-btns admin-action-btns admin-action-stack">
                 <form method="post" action="{{ path('app_admin_users_toggle_admin', { id: user.id, q: search_query, page: page }) }}" class="admin-action-form" onsubmit="return confirm('{{ is_admin ? 'Retirer le role admin de cet utilisateur ?' : 'Donner le role admin a cet utilisateur ?' }}');">
-                  <span class="admin-action-label">Role admin</span>
                   <input type="hidden" name="_token" value="{{ csrf_token('admin_toggle_' ~ user.id) }}">
                   <button class="action-btn action-btn-text" type="submit">{{ is_admin ? 'Retirer admin' : 'Passer admin' }}</button>
                 </form>
                 <form method="post" action="{{ path('app_admin_users_delete', { id: user.id, q: search_query, page: page }) }}" onsubmit="return confirm('Supprimer cet utilisateur ?');" class="admin-action-form">
-                  <span class="admin-action-label">Suppression</span>
                   <input type="hidden" name="_token" value="{{ csrf_token('admin_delete_' ~ user.id) }}">
                   <button class="action-btn action-btn-text del" type="submit">Supprimer</button>
                 </form>

@@ -262,7 +262,8 @@
           <option value="">—</option>
           <option value="EF">EF – Endurance fondamentale</option>
           <option value="FC">FC – Fractionné court</option>
-          <option value="FL">FL – Sortie longue</option>
+          <option value="FL">FL – Fractionné long</option>
+          <option value="SL">SL – Sortie longue</option>
           <option value="T">T – Tempo</option>
           <option value="Race">🏁 Course</option>
         </select>
@@ -275,7 +276,8 @@
     <button class="filter-btn active" onclick="filterLog('all',this)">Tout</button>
     <button class="filter-btn" onclick="filterLog('EF',this)">EF</button>
     <button class="filter-btn" onclick="filterLog('FC',this)">Fractionné</button>
-    <button class="filter-btn" onclick="filterLog('FL',this)">Longue</button>
+    <button class="filter-btn" onclick="filterLog('FL',this)">Frac. long</button>
+    <button class="filter-btn" onclick="filterLog('SL',this)">Longue</button>
     <button class="filter-btn" onclick="filterLog('Race',this)">Courses</button>
   </div>
   <div class="table-wrap">
@@ -423,7 +425,8 @@
           <option value="">—</option>
           <option value="EF">EF – Endurance fondamentale</option>
           <option value="FC">FC – Fractionné court</option>
-          <option value="FL">FL – Sortie longue</option>
+          <option value="FL">FL – Fractionné long</option>
+          <option value="SL">SL – Sortie longue</option>
           <option value="T">T – Tempo</option>
           <option value="Race">🏁 Course</option>
         </select>
@@ -497,5 +500,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260522-mobile6"></script>
+<script src="{{ asset('js/app.js') }}?v=20260526-metadatafix2"></script>
 {% endblock %}

@@ -49,9 +49,8 @@ final class MeteoService
 
         $this->logFallbackErrors($errors, $city, $resolved['label']);
 
-        $today = $date ?? new \DateTimeImmutable('today');
         return $this->withCityFeedback(
-            $this->buildFallbackAdvice($today, self::DEFAULT_CITY_LABEL),
+            $this->buildErrorAdvice($resolved['label']),
             $requestedCity,
             $resolved['source']
         );
@@ -83,6 +82,10 @@ final class MeteoService
         $daily = is_array($data['daily'] ?? null) ? $data['daily'] : [];
 
         $temp = $this->asFloat($current['temperature_2m'] ?? null);
+        $tempMax = null;
+        if (is_array($daily['temperature_2m_max'] ?? null) && isset($daily['temperature_2m_max'][0])) {
+            $tempMax = $this->asFloat($daily['temperature_2m_max'][0]);
+        }
         $rain = $this->asFloat($current['precipitation'] ?? null);
         $wind = $this->asFloat($current['wind_speed_10m'] ?? null);
         $weatherCode = (int) ($current['weather_code'] ?? -1);
@@ -92,7 +95,7 @@ final class MeteoService
             $precipProbMax = $this->asFloat($daily['precipitation_probability_max'][0]);
         }
 
-        if ($temp === null && $rain === null && $wind === null && $precipProbMax === null) {
+        if ($temp === null && $tempMax === null && $rain === null && $wind === null && $precipProbMax === null) {
             return null;
         }
 
@@ -105,7 +108,25 @@ final class MeteoService
             'badge' => $this->buildBadge('', $label),
         ];
 
-        if ($this->isRainy($rain, $precipProbMax)) {
+        if ($this->isHeatwave($temp, $tempMax)) {
+            $advice = [
+                'title' => self::TITLE,
+                'text' => 'Alerte chaleur/canicule: privilegie une sortie tres tot ou tard, reduis nettement l\'intensite et hydrate-toi tres regulierement.',
+                'tone' => 'warning',
+                'icon' => '🔥',
+                'color' => self::COLOR_WARNING,
+                'badge' => $this->buildBadge('', $label),
+            ];
+        } elseif ($this->isHot($temp, $tempMax)) {
+            $advice = [
+                'title' => self::TITLE,
+                'text' => 'Chaleur marquee: vise une sortie plus tot/tard, baisse l\'intensite et hydrate-toi regulierement.',
+                'tone' => 'warning',
+                'icon' => '☀️',
+                'color' => self::COLOR_WARNING,
+                'badge' => $this->buildBadge('', $label),
+            ];
+        } elseif ($this->isRainy($rain, $precipProbMax)) {
             $advice = [
                 'title' => self::TITLE,
                 'text' => 'Pluie probable: prevois une veste legere, reduis les allures rapides et privilegie un footing controle.',
@@ -121,15 +142,6 @@ final class MeteoService
                 'tone' => 'info',
                 'icon' => '💨',
                 'color' => self::COLOR_INFO,
-                'badge' => $this->buildBadge('', $label),
-            ];
-        } elseif ($temp !== null && $temp >= 28.0) {
-            $advice = [
-                'title' => self::TITLE,
-                'text' => 'Chaleur marquee: vise une sortie plus tot/tard, baisse l\'intensite et hydrate-toi regulierement.',
-                'tone' => 'warning',
-                'icon' => '☀️',
-                'color' => self::COLOR_WARNING,
                 'badge' => $this->buildBadge('', $label),
             ];
         } elseif ($temp !== null && $temp <= 3.0) {
@@ -191,39 +203,16 @@ final class MeteoService
     }
 
     /** @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string} */
-    private function buildFallbackAdvice(\DateTimeImmutable $today, string $label): array
+    private function buildErrorAdvice(string $label): array
     {
-        $month = (int) $today->format('n');
-        $advice = [
+        return [
             'title' => self::TITLE,
-            'text' => 'Meteo variable: prevois une couche legere coupe-vent et adapte l\'allure selon vent/pluie.',
-            'tone' => 'encourage',
-            'icon' => '🌤️',
-            'color' => self::COLOR_SUCCESS,
+            'text' => 'Impossible de recuperer la meteo en direct pour le moment. Reessaie dans quelques minutes ou choisis une autre ville.',
+            'tone' => 'warning',
+            'icon' => '⚠️',
+            'color' => self::COLOR_WARNING,
             'badge' => $this->buildBadge('', $label),
         ];
-
-        if ($month <= 2 || $month === 12) {
-            $advice = [
-                'title' => self::TITLE,
-                'text' => 'Temps frais: echauffe-toi 10-15 min, couvre les extremites, et reste en endurance si vent fort.',
-                'tone' => 'info',
-                'icon' => '🧣',
-                'color' => self::COLOR_INFO,
-                'badge' => $this->buildBadge('', $label),
-            ];
-        } elseif ($month >= 6 && $month <= 8) {
-            $advice = [
-                'title' => self::TITLE,
-                'text' => 'Chaleur: pars tot ou tard, reduis l\'intensite, hydrate-toi avant/pendant/apres (petites gorgees regulieres).',
-                'tone' => 'warning',
-                'icon' => '☀️',
-                'color' => self::COLOR_WARNING,
-                'badge' => $this->buildBadge('', $label),
-            ];
-        }
-
-        return $advice;
     }
 
     private function asFloat(mixed $value): ?float
@@ -244,6 +233,18 @@ final class MeteoService
     private function isWindy(?float $wind): bool
     {
         return $wind !== null && $wind >= 30.0;
+    }
+
+    private function isHot(?float $temp, ?float $tempMax): bool
+    {
+        return ($temp !== null && $temp >= 25.0)
+            || ($tempMax !== null && $tempMax >= 28.0);
+    }
+
+    private function isHeatwave(?float $temp, ?float $tempMax): bool
+    {
+        return ($temp !== null && $temp >= 27.0)
+            || ($tempMax !== null && $tempMax >= 30.0);
     }
 
     private function buildBadge(string $prefix, string $label): string

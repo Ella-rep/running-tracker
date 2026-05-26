@@ -24,3 +24,15 @@
 	padding-top: 10px;
 	padding-bottom: 10px;
 }
+
+#courses .races-status .badge.badge-done {
+	background: color-mix(in srgb, var(--z2) 18%, var(--surface2));
+	color: color-mix(in srgb, var(--z2) 78%, var(--z1));
+	border: 1px solid color-mix(in srgb, var(--z2) 52%, var(--border));
+}
+
+#courses .races-status .badge.badge-next {
+	background: color-mix(in srgb, var(--z5) 18%, var(--surface2));
+	color: color-mix(in srgb, var(--z5) 88%, var(--text));
+	border: 1px solid color-mix(in srgb, var(--z5) 56%, var(--border));
+}

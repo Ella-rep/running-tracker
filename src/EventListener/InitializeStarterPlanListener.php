@@ -40,6 +40,7 @@ final class InitializeStarterPlanListener
         $starterPlan = new Plan();
         $starterPlan->setUser($user);
         $starterPlan->setName('starter');
+        $starterPlan->setDashboardTracked(false);
         $this->entityManager->persist($starterPlan);
         $this->entityManager->flush();
 

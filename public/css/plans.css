@@ -301,6 +301,63 @@
   font-weight: 700;
 }
 
+.session-type-badge--dark {
+  color: #0f172a;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+
+.session-meta-slot--empty {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.session-date-badge {
+  display: inline-flex;
+  align-items: center;
+  min-width: 92px;
+  text-align: center;
+  justify-content: center;
+}
+
+.session-type-badge {
+  min-width: 54px;
+  text-align: center;
+}
+
+.pe-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  text-align: center;
+}
+
+.duration-badge {
+  display: inline-block;
+  min-width: 34px;
+  text-align: right;
+}
+
+.session-format-optional {
+  color: var(--text-muted);
+  font-style: italic;
+  white-space: nowrap;
+}
+
+.optional-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 84px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: var(--surface2);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-style: normal;
+  white-space: nowrap;
+}
+
 @media (max-width: 640px) {
   .session-row {
     display: grid;
@@ -346,15 +403,35 @@
   }
 
   .optional-tag {
-    display: none;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
   }
 
   .session-date-badge,
   .session-type-badge,
   .pe-badge,
-  .duration-badge {
+  .duration-badge,
+  .optional-tag {
     white-space: nowrap;
     font-size: 11px;
+  }
+
+  .session-date-badge {
+    min-width: 86px;
+  }
+
+  .session-type-badge {
+    min-width: 48px;
+  }
+
+  .pe-badge {
+    min-width: 58px;
+  }
+
+  .optional-tag {
+    min-width: 76px;
+    padding: 2px 7px;
   }
 
   .session-date-badge,

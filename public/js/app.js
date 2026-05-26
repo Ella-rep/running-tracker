@@ -38,6 +38,20 @@ function members(data) {
   return data?.['hydra:member'] ?? data ?? [];
 }
 
+function applyDynamicTextContrast(textEl, bgEl = textEl, threshold = 0.62, darkClass = 'bar-value--dark') {
+  if (!(textEl instanceof HTMLElement) || !(bgEl instanceof HTMLElement)) return;
+
+  const rgb = globalThis.getComputedStyle(bgEl).backgroundColor.match(/\d+/g);
+  if (!rgb || rgb.length < 3) {
+    textEl.classList.remove(darkClass);
+    return;
+  }
+
+  const [r, g, b] = rgb.slice(0, 3).map(Number);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  textEl.classList.toggle(darkClass, luminance > threshold);
+}
+
 function logout() {
   if (globalThis.rtAuth?.clearToken) {
     globalThis.rtAuth.clearToken();
@@ -122,7 +136,67 @@ let weatherDetectedCity = '';
 let weatherDetectedCityStatus = '';
 let weatherDetectedCityMessage = '';
 const DASHBOARD_WIDGET_PRESET_KEY = 'rt_dashboard_widgets_preset_v2';
+const HOME_PLAN_MODULE_COLLAPSED_KEY = 'rt_home_plan_module_collapsed_v1';
+const DASHBOARD_PLAN_TRACKING_OVERRIDE_KEY = 'rt_dashboard_plan_tracking_override_v1';
 let dashboardWidgetPrefsHydrated = false;
+
+function readPlanTrackingOverrides() {
+  try {
+    const raw = localStorage.getItem(DASHBOARD_PLAN_TRACKING_OVERRIDE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writePlanTrackingOverrides(overrides) {
+  const safe = overrides && typeof overrides === 'object' ? overrides : {};
+  localStorage.setItem(DASHBOARD_PLAN_TRACKING_OVERRIDE_KEY, JSON.stringify(safe));
+}
+
+function getPlanTrackingOverride(planId) {
+  const key = String(Number(planId));
+  if (!/^\d+$/.test(key)) return null;
+  const overrides = readPlanTrackingOverrides();
+  if (!Object.prototype.hasOwnProperty.call(overrides, key)) {
+    return null;
+  }
+  return !!overrides[key];
+}
+
+function setPlanTrackingOverride(planId, tracked) {
+  const key = String(Number(planId));
+  if (!/^\d+$/.test(key)) return;
+  const overrides = readPlanTrackingOverrides();
+  overrides[key] = !!tracked;
+  writePlanTrackingOverrides(overrides);
+}
+
+function prunePlanTrackingOverrides(validPlanIds) {
+  const keep = new Set((Array.isArray(validPlanIds) ? validPlanIds : []).map((id) => String(Number(id))));
+  const overrides = readPlanTrackingOverrides();
+  const next = {};
+  Object.entries(overrides).forEach(([key, tracked]) => {
+    if (keep.has(String(Number(key)))) {
+      next[String(Number(key))] = !!tracked;
+    }
+  });
+  writePlanTrackingOverrides(next);
+}
+
+function applyPlanTrackedToLocal(planId, tracked) {
+  const normalizedPlanId = Number(planId);
+  const normalizedTracked = !!tracked;
+
+  plansData = (Array.isArray(plansData) ? plansData : []).map((plan) => (
+    Number(plan.id) === normalizedPlanId ? { ...plan, dashboardTracked: normalizedTracked } : plan
+  ));
+
+  state.extraPlans = (Array.isArray(state.extraPlans) ? state.extraPlans : []).map((plan) => (
+    Number(plan.id) === normalizedPlanId ? { ...plan, dashboardTracked: normalizedTracked } : plan
+  ));
+}
 
 function setDashboardLoadingState(isLoading) {
   const on = !!isLoading;
@@ -313,10 +387,16 @@ function formatDisplayName(value) {
 const SESSION_TYPE_OPTIONS = [
   { value: 'EF', label: 'EF' },
   { value: 'FC', label: 'FC' },
+  { value: 'SL', label: 'SL' },
   { value: 'FL', label: 'FL' },
   { value: 'T', label: 'T' },
-  { value: 'Race', label: 'Race' },
+  { value: 'Race', label: 'Course' },
 ];
+
+function sessionTypeDisplayLabel(value) {
+  const normalized = normalizeSessionType(value);
+  return normalized === 'Race' ? 'Course' : String(normalized || value || '').trim();
+}
 
 function normalizeSessionType(value) {
   const raw = String(value || '').trim();
@@ -332,22 +412,84 @@ function normalizeSessionType(value) {
 
   if (compact === 'EF' || compact.includes('ENDURANCE FONDAMENTALE')) return 'EF';
   if (compact === 'FC' || compact.includes('FRACTIONNE COURT')) return 'FC';
-  if (compact === 'FL' || compact.includes('SORTIE LONGUE')) return 'FL';
+  if (compact === 'SL' || compact.includes('SORTIE LONGUE')) return 'SL';
+  if (compact === 'FL' || compact.includes('FRACTIONNE LONG')) return 'FL';
   if (compact === 'T' || compact.includes('TEMPO')) return 'T';
   if (compact === 'RACE' || compact.includes('COURSE')) return 'Race';
 
-  const codePrefix = /^(EF|FC|FL|T|RACE)\b/.exec(compact);
+  const codePrefix = /^(EF|FC|SL|FL|T|RACE)\b/.exec(compact);
   if (codePrefix) return codePrefix[1] === 'RACE' ? 'Race' : codePrefix[1];
 
   // Keep non-empty unknown values instead of silently dropping them.
   return raw;
 }
 
+function sessionDateValue(session) {
+  return session?.date ?? session?.sessionDate ?? session?.session_date ?? null;
+}
+
+function sessionTotalMinutesValue(session) {
+  const raw = session?.total ?? session?.totalMin ?? session?.total_min ?? null;
+  if (raw === null || raw === '') return null;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function sessionOptionalValue(session) {
+  return !!(session?.isOptional ?? session?.is_optional ?? session?.optional ?? session?.opt);
+}
+
 function normalizePlan(r) {
   return {
     id: iriToId(r['@id']) ?? r.id,
     name: r.name,
+    dashboardTracked: r.dashboardTracked !== false,
   };
+}
+
+async function setPlanDashboardTracked(planId, tracked) {
+  const normalizedPlanId = Number(planId);
+  const normalizedTracked = !!tracked;
+
+  setPlanTrackingOverride(normalizedPlanId, normalizedTracked);
+  applyPlanTrackedToLocal(normalizedPlanId, normalizedTracked);
+
+  let persistedTracked = null;
+  try {
+    const payload = await apiFetch(`/plans/${normalizedPlanId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ dashboardTracked: normalizedTracked }),
+    });
+    if (payload && typeof payload.dashboardTracked === 'boolean') {
+      persistedTracked = !!payload.dashboardTracked;
+    }
+  } catch {
+    // Fallback for environments where Plan API patch is restricted.
+  }
+
+  if (persistedTracked === null) {
+    try {
+      const payload = await apiFetch(`/plans/${normalizedPlanId}/tracking`, {
+        method: 'PATCH',
+        body: JSON.stringify({ tracked: normalizedTracked }),
+      });
+      if (payload && typeof payload.tracked === 'boolean') {
+        persistedTracked = !!payload.tracked;
+      }
+    } catch {
+      // Handled below via notification.
+    }
+  }
+
+  if (persistedTracked !== null) {
+    setPlanTrackingOverride(normalizedPlanId, persistedTracked);
+    applyPlanTrackedToLocal(normalizedPlanId, persistedTracked);
+  } else {
+    notify('⚠ Synchronisation impossible (etat conserve localement)');
+  }
+
+  await loadDashboardMetrics();
+  renderDashboard();
 }
 
 async function createPlanInDb(name) {
@@ -367,7 +509,23 @@ async function renamePlanInDb(planId, name) {
 }
 
 async function deletePlanInDb(planId) {
-  await apiFetch(`/plans/${planId}`, { method: 'DELETE' });
+  const normalizedPlanId = Number(planId);
+  const hasPlan = (rows) => (Array.isArray(rows) ? rows : []).some((plan) => Number(plan?.id) === normalizedPlanId);
+
+  try {
+    await apiFetch(`/plans/${normalizedPlanId}/delete`, { method: 'DELETE' });
+  } catch {
+    await apiFetch(`/plans/${normalizedPlanId}`, { method: 'DELETE' });
+  }
+
+  const afterDelete = members(await apiFetch('/plans?pagination=false'));
+  if (hasPlan(afterDelete)) {
+    throw new Error('Suppression non persistée côté API');
+  }
+
+  const overrides = readPlanTrackingOverrides();
+  delete overrides[String(normalizedPlanId)];
+  writePlanTrackingOverrides(overrides);
 }
 
 function planDetailApiPath(row) {
@@ -389,17 +547,41 @@ async function replacePlanSessionsInDb(planId, sessions, doneMap = {}) {
     // Keep both keys for API compatibility across serializer/config variants.
     session_type: normalizeSessionType(session?.sessionType ?? session?.session_type ?? session?.type),
     sem: session?.sem ?? null,
-    date: normalizeDateForStorage(session?.date) || null,
+    date: normalizeDateForStorage(sessionDateValue(session)) || null,
     format: session?.format || "45'@Z2",
     sessionType: normalizeSessionType(session?.sessionType ?? session?.session_type ?? session?.type),
     pe: session?.pe || null,
-    total: session?.total ?? null,
-    opt: !!session?.opt,
+    total: sessionTotalMinutesValue(session),
+    isOptional: sessionOptionalValue(session),
+    optional: sessionOptionalValue(session),
+    opt: sessionOptionalValue(session),
   }));
 
   await apiFetch(`/plans/${Number(planId)}/sessions`, {
     method: 'PATCH',
     body: JSON.stringify({ sessions: payloadSessions, doneMap: doneMap || {} }),
+  });
+}
+
+async function updatePlanDetailInDb(detailId, session) {
+  const normalizedDetailId = Number(detailId);
+  if (!Number.isFinite(normalizedDetailId)) {
+    throw new Error('Seance invalide');
+  }
+
+  await apiFetch(`/plan_details/${normalizedDetailId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      sem: session?.sem ?? null,
+      sessionDate: normalizeDateForStorage(sessionDateValue(session)) || null,
+      format: session?.format || "45'@Z2",
+      sessionType: normalizeSessionType(session?.sessionType ?? session?.session_type ?? session?.type),
+      pe: session?.pe || null,
+      totalMin: sessionTotalMinutesValue(session),
+      isOptional: sessionOptionalValue(session),
+      optional: sessionOptionalValue(session),
+      done: !!session?.isDone,
+    }),
   });
 }
 
@@ -434,12 +616,13 @@ function mapDbRowsToPlans(rows, plans) {
     grouped[planId].sessions[idx] = {
       detailId: Number.parseInt(row.id, 10) || iriToId(row['@id']) || null,
       sem: row.sem,
-      date: normalizeDateForStorage(row.sessionDate),
+      date: normalizeDateForStorage(row.sessionDate ?? row.session_date ?? row.date),
       format: row.format,
       sessionType: normalizeSessionType(row.sessionType ?? row.session_type ?? row.type),
       pe: row.pe,
-      total: row.totalMin,
-      opt: !!row.isOptional,
+      total: sessionTotalMinutesValue(row),
+      isOptional: sessionOptionalValue(row),
+      opt: sessionOptionalValue(row),
     };
 
     if (row.isDone) grouped[planId].done[idx] = true;
@@ -447,17 +630,45 @@ function mapDbRowsToPlans(rows, plans) {
 
   return Object.values(grouped).map(plan => ({
     ...plan,
+    dashboardTracked: (plansData || []).find((row) => Number(row.id) === Number(plan.id))?.dashboardTracked !== false,
     sessions: plan.sessions.filter(Boolean),
   }));
 }
 
 async function loadPlansFromDb() {
+  await loadPlansFromDbWithProgress();
+}
+
+function applyPlanProgressChecksToState(checksList) {
+  state.doneByKey = {};
+
+  (Array.isArray(checksList) ? checksList : []).forEach((c) => {
+    const key = String(c.planKey || '').trim();
+    if (!key) return;
+    state.doneByKey[key] ??= {};
+    state.doneByKey[key][c.sessionIndex] = !!c.done;
+
+    const extra = (state.extraPlans || []).find((p) => (
+      String(p.id) === key || `extra:${p.id}` === key
+    ));
+    if (!extra) return;
+    extra.done[c.sessionIndex] = !!c.done;
+  });
+}
+
+async function loadPlansFromDbWithProgress(checksList = null) {
   const [plansRes, sessionsRes] = await Promise.all([
     apiFetch('/plans?order[name]=asc&pagination=false'),
     apiFetch('/plan_details?order[position]=asc&pagination=false'),
   ]);
-  plansData = members(plansRes).map(normalizePlan);
-  const mapped = mapDbRowsToPlans(members(sessionsRes), plansData);
+  plansData = members(plansRes).map(normalizePlan).map((plan) => {
+    const override = getPlanTrackingOverride(plan.id);
+    return override === null ? plan : { ...plan, dashboardTracked: override };
+  });
+  prunePlanTrackingOverrides(plansData.map((plan) => plan.id));
+  const existingPlanIds = new Set((plansData || []).map((plan) => Number(plan.id)));
+  const mapped = mapDbRowsToPlans(members(sessionsRes), plansData)
+    .filter((plan) => existingPlanIds.has(Number(plan.id)));
   const byId = new Set(mapped.map((p) => Number(p.id)));
 
   plansData.forEach((plan) => {
@@ -468,21 +679,18 @@ async function loadPlansFromDb() {
       key: plan.name,
       title: isExamplePlanName(plan.name) ? 'Plan de depart (exemple)' : plan.name,
       sub: isExamplePlanName(plan.name) ? 'Plan fourni avec l\'application · blocs hebdomadaires' : '',
+      dashboardTracked: plan.dashboardTracked !== false,
       sessions: [],
       done: {},
     });
   });
 
   state.extraPlans = mapped;
-}
 
-async function initializeStarterPlan() {
-  const examplePlanRef = (plansData || []).find(p => isExamplePlanName(p.name));
-  if (!examplePlanRef) {
-    // Creating the "starter" plan triggers backend starterSessions via PlanSessionService.
-    await createPlanInDb('starter');
-    await loadPlansFromDb();
-  }
+  const resolvedChecks = Array.isArray(checksList)
+    ? checksList
+    : members(await apiFetch('/plan_progresses?pagination=false'));
+  applyPlanProgressChecksToState(resolvedChecks);
 }
 
 async function loadAllData(options = {}) {
@@ -497,30 +705,15 @@ async function loadAllData(options = {}) {
   // Normalize API Platform IRI ids to plain int ids
   logData   = members(logs).map(normalizeLog);
   racesData = members(races).map(normalizeRace);
+  fillLogCourseOptions();
 
   state = { doneByKey: {}, planMeta: {}, extraPlans: [] };
-  checksList.forEach(c => {
-    const key = String(c.planKey || '').trim();
-    if (!key) return;
-    state.doneByKey[key] ??= {};
-    state.doneByKey[key][c.sessionIndex] = !!c.done;
-  });
 
   const calendarEventsPromise = loadCalendarEvents();
 
   try {
-    await loadPlansFromDb();
+    await loadPlansFromDbWithProgress(checksList);
 
-    // Apply saved progress to extra plans (supports both new numeric keys and legacy extra:<id> keys)
-    checksList.forEach((c) => {
-      const extra = (state.extraPlans || []).find((p) => (
-        String(p.id) === String(c.planKey) || `extra:${p.id}` === String(c.planKey)
-      ));
-      if (!extra) return;
-      extra.done[c.sessionIndex] = !!c.done;
-    });
-
-    await initializeStarterPlan();
     if (includeDashboardMetrics) {
       await loadDashboardMetrics();
     }
@@ -908,9 +1101,22 @@ function renderDashboardAdvice(metrics = {}) {
       if (badge) {
         badgeEl.textContent = badge;
         badgeEl.style.display = '';
+
+        const tone = String(item?.tone || 'info');
+        const toneColor = tone === 'success'
+          ? 'var(--z1)'
+          : tone === 'warning'
+            ? 'var(--z3)'
+            : tone === 'encourage'
+              ? 'var(--accent)'
+              : 'var(--z3)';
+        badgeEl.style.background = `color-mix(in srgb, ${toneColor} 24%, var(--surface2))`;
+        badgeEl.style.borderColor = `color-mix(in srgb, ${toneColor} 45%, var(--border))`;
+        applyDynamicTextContrast(badgeEl, badgeEl, 0.58, 'advice-badge--dark');
       } else {
         badgeEl.textContent = '';
         badgeEl.style.display = 'none';
+        badgeEl.classList.remove('advice-badge--dark');
       }
     }
     if (textEl) textEl.textContent = item?.text || '';
@@ -953,7 +1159,10 @@ function renderDashboardAdvice(metrics = {}) {
     }
     weatherBox.replaceChildren(weatherCard);
   } else {
-    weatherBox.replaceChildren();
+    const serverFallback = weatherBox.querySelector('[data-server-fallback="1"]');
+    if (!serverFallback) {
+      weatherBox.replaceChildren();
+    }
   }
 
   stack.replaceChildren(...nodes);
@@ -1284,6 +1493,8 @@ function normalizeLog(r) {
     ? r.plannedSession
     : (r.plannedSession?.['@id'] || r.plannedSession?.id || null);
   const plannedSessionId = Number.parseInt(r.plannedSessionId ?? iriToId(plannedSessionIri), 10);
+  const rawNotes = String(r.notes || '').trim() || null;
+  const perceivedEffort = normalizePerceivedEffort(r.perceivedEffort ?? r.notes);
   return {
     id:       iriToId(r['@id']) ?? r.id,
     date:     r.date,
@@ -1294,7 +1505,9 @@ function normalizeLog(r) {
     dplus:    r.dplus,
     bpm:      r.bpm,
     run_type: r.runType ?? r.run_type,
-    notes:    r.notes,
+    courseName: String(r.courseName || '').trim() || null,
+    perceivedEffort,
+    notes:    rawNotes,
     plannedSessionId: Number.isFinite(plannedSessionId) ? plannedSessionId : null,
     plannedSessionLabel: String(r.plannedSessionLabel || '').trim() || null,
   };
@@ -1314,14 +1527,32 @@ function normalizeRace(r) {
   };
 }
 
+function normalizePerceivedEffort(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return null;
+  if (raw === 'moderee' || raw === 'modérée') return 'moderee';
+  if (raw === 'facile' || raw === 'difficile' || raw === 'maximum') return raw;
+  return null;
+}
+
+function perceivedEffortLabel(value, fallback = null) {
+  if (value === 'moderee') return 'Modérée';
+  if (value === 'facile') return 'Facile';
+  if (value === 'difficile') return 'Difficile';
+  if (value === 'maximum') return 'Maximum';
+  if (fallback) return fallback;
+  return '—';
+}
+
 // ============================================================
 // UTILS
 // ============================================================
-function allureClass(a) {
-  if (!a) return '';
-  const m = Number.parseInt(a, 10);
-  if (m <= 8) return 'allure-fast';
-  if (m <= 9) return 'allure-mid';
+function allureClass(runType) {
+  const normalizedType = normalizeSessionType(runType);
+  if (normalizedType === 'EF' || normalizedType === 'SL') return 'allure-type-endurance';
+  if (normalizedType === 'FC' || normalizedType === 'FL') return 'allure-type-fractionne';
+  if (normalizedType === 'T') return 'allure-type-tempo';
+  if (normalizedType === 'Race') return 'allure-type-race';
   return 'allure-slow';
 }
 function formatDate(d) {
@@ -1377,6 +1608,25 @@ function notify(msg) {
   n.textContent = text;
   n.className = `notif notif-${kind} show`;
   setTimeout(()=>n.classList.remove('show'),2500);
+}
+
+function findLatestLoggedDurationForSession(detailId) {
+  const normalizedDetailId = Number(detailId);
+  if (!Number.isFinite(normalizedDetailId)) return '';
+
+  const matches = (Array.isArray(logData) ? logData : [])
+    .filter((log) => Number(log?.plannedSessionId) === normalizedDetailId)
+    .filter((log) => String(log?.duration || '').trim() !== '');
+
+  if (!matches.length) return '';
+
+  matches.sort((a, b) => {
+    const da = String(a?.date || '');
+    const db = String(b?.date || '');
+    return db.localeCompare(da);
+  });
+
+  return String(matches[0]?.duration || '').trim();
 }
 
 const plannedSessionPickerState = {
@@ -1716,15 +1966,84 @@ function renderDashboard() {
   }
 
   if (isWidgetEnabled('plan_progress')) {
-    const progress = metrics.planProgress || { title: '', done: 0, total: 0, pct: 0 };
-    const labelEl = document.getElementById('progress-plan-label');
-    if (labelEl) labelEl.textContent = progress.title;
-    const tempoPctEl = document.getElementById('tempo-pct');
-    if (tempoPctEl) tempoPctEl.textContent = progress.pct + '%';
-    const tempoBarEl = document.getElementById('tempo-bar');
-    if (tempoBarEl) tempoBarEl.style.width = progress.pct + '%';
-    const tempoMetaEl = document.getElementById('tempo-meta');
-    if (tempoMetaEl) tempoMetaEl.textContent = `${progress.done} / ${progress.total} séances complétées`;
+    const progress = metrics.planProgress || { title: '', focusTitle: '', done: 0, total: 0, pct: 0, plans: [] };
+    const plans = (Array.isArray(progress.plans) ? progress.plans : []).map((plan) => {
+      const override = getPlanTrackingOverride(plan?.id);
+      if (override === null) {
+        return plan;
+      }
+      return { ...plan, tracked: override };
+    });
+    const trackedPlans = plans.filter((plan) => plan?.tracked !== false);
+    const hiddenPlans = plans.filter((plan) => plan?.tracked === false);
+
+    const progressListEl = document.getElementById('plan-progress-list');
+    if (progressListEl) {
+      const nodes = trackedPlans.map((plan) => {
+        const node = cloneTemplate('plan-progress-card-template') || document.createElement('article');
+        const titleEl = node.querySelector('.plan-progress-card-title');
+        const pctEl = node.querySelector('.plan-progress-card-pct');
+        const fillEl = node.querySelector('.plan-progress-card-fill');
+        const metaEl = node.querySelector('.plan-progress-card-meta');
+        const actionEl = node.querySelector('.plan-progress-card-action');
+
+        if (titleEl) titleEl.textContent = String(plan.title || 'Plan');
+        if (pctEl) pctEl.textContent = `${Number(plan.pct || 0)}%`;
+        if (fillEl) fillEl.style.width = `${Number(plan.pct || 0)}%`;
+        if (metaEl) metaEl.textContent = `${Number(plan.done || 0)} / ${Number(plan.total || 0)} séances complétées`;
+        if (actionEl instanceof HTMLButtonElement) {
+          actionEl.textContent = 'Retirer';
+          actionEl.addEventListener('click', () => {
+            actionEl.disabled = true;
+            void setPlanDashboardTracked(plan.id, false).finally(() => {
+              actionEl.disabled = false;
+            });
+          });
+        }
+
+        return node;
+      });
+
+      progressListEl.replaceChildren(...nodes);
+      progressListEl.style.display = nodes.length > 0 ? '' : 'none';
+    }
+
+    const progressHiddenEl = document.getElementById('plan-progress-hidden');
+    if (progressHiddenEl) {
+      const hiddenNodes = hiddenPlans.map((plan) => {
+        const button = cloneTemplate('plan-progress-hidden-button-template') || document.createElement('button');
+        if (button instanceof HTMLButtonElement) {
+          button.type = 'button';
+          button.classList.add('plan-progress-hidden-btn');
+          button.textContent = `+ Suivre ${String(plan.title || 'Plan')}`;
+          button.addEventListener('click', () => {
+            button.disabled = true;
+            void setPlanDashboardTracked(plan.id, true).finally(() => {
+              button.disabled = false;
+            });
+          });
+        }
+
+        return button;
+      });
+
+      if (hiddenNodes.length > 0) {
+        const title = document.createElement('div');
+        title.className = 'plan-progress-hidden-title';
+        title.textContent = 'Plans non suivis';
+        progressHiddenEl.replaceChildren(title, ...hiddenNodes);
+        progressHiddenEl.style.display = '';
+      } else if (trackedPlans.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'plan-progress-hidden-title';
+        empty.textContent = 'Aucun plan suivi';
+        progressHiddenEl.replaceChildren(empty);
+        progressHiddenEl.style.display = '';
+      } else {
+        progressHiddenEl.replaceChildren();
+        progressHiddenEl.style.display = 'none';
+      }
+    }
   }
 
   if (isWidgetEnabled('plan_calendar')) renderPlanCalendar(metrics.planCalendar || null);
@@ -1737,11 +2056,19 @@ function renderDashboard() {
       const h = Number(bar.height || 0);
       const node = cloneTemplate('monthly-bar-template') || document.createElement('article');
       const barEl = node.querySelector('.bar');
+      const valueEl = node.querySelector('.bar-value');
       const labelEl = node.querySelector('.bar-label');
       if (barEl) {
         barEl.style.height = `${h}px`;
         barEl.title = `${km.toFixed(1)} km`;
         barEl.style.background = `var(--z${(index % 5) + 1})`;
+        barEl.classList.toggle('bar--tiny', h < 28);
+        barEl.setAttribute('role', 'img');
+        barEl.setAttribute('aria-label', `${String(bar.label || 'Mois')}: ${km.toFixed(1)} kilometres`);
+        if (valueEl) {
+          valueEl.textContent = `${km.toFixed(0)} km`;
+          applyDynamicTextContrast(valueEl, barEl, 0.62, 'bar-value--dark');
+        }
       }
       if (labelEl) {
         labelEl.replaceChildren(
@@ -1757,20 +2084,25 @@ function renderDashboard() {
 
   const raceTbody = document.getElementById('race-tbody');
   if (raceTbody && isWidgetEnabled('races_table')) {
-    const rows = (Array.isArray(metrics.racesTable) ? metrics.racesTable : []).map((r) => {
+    const upcomingRows = (Array.isArray(metrics.racesTable) ? metrics.racesTable : []).filter((r) => {
+      const statusClass = String(r?.statusClass || '').toLowerCase();
+      const statusLabel = String(r?.statusLabel || '').toLowerCase();
+      return statusClass !== 'badge-done' && !statusLabel.includes('termin');
+    });
+
+    const rows = upcomingRows.map((r) => {
       const row = cloneTemplate('dashboard-race-row-template') || document.createElement('tr');
       const nameEl = row.querySelector('.dashboard-race-name');
       const dateEl = row.querySelector('.dashboard-race-date');
       const distEl = row.querySelector('.dashboard-race-dist');
-      const objEl = row.querySelector('.dashboard-race-obj');
       const statusEl = row.querySelector('.dashboard-race-status');
       if (nameEl) nameEl.textContent = r.name || '—';
       if (dateEl) dateEl.textContent = formatDate(r.date);
       if (distEl) distEl.textContent = r.dist || '—';
-      if (objEl) objEl.textContent = r.obj || '—';
       if (statusEl) {
         statusEl.classList.add(r.statusClass || 'badge-future');
         statusEl.textContent = r.statusLabel || '—';
+        applyDynamicTextContrast(statusEl, statusEl, 0.58, 'badge--dark');
       }
       return row;
     });
@@ -1782,6 +2114,35 @@ function renderDashboard() {
   renderTrainingLoad();
   renderEF();
   renderEfBpmChart();
+}
+
+function setupHomePlanModuleAccordion() {
+  const toggle = document.getElementById('home-plan-module-toggle');
+  const content = document.getElementById('home-plan-module-content');
+  const root = document.getElementById('home-plan-module');
+  if (!(toggle instanceof HTMLButtonElement) || !(content instanceof HTMLElement) || !(root instanceof HTMLElement)) {
+    return;
+  }
+
+  const applyState = (collapsed) => {
+    const isCollapsed = !!collapsed;
+    root.classList.toggle('is-collapsed', isCollapsed);
+    content.hidden = isCollapsed;
+    toggle.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+  };
+
+  applyState(localStorage.getItem(HOME_PLAN_MODULE_COLLAPSED_KEY) === '1');
+
+  if (toggle.dataset.bound === '1') {
+    return;
+  }
+
+  toggle.addEventListener('click', () => {
+    const nextCollapsed = !root.classList.contains('is-collapsed');
+    localStorage.setItem(HOME_PLAN_MODULE_COLLAPSED_KEY, nextCollapsed ? '1' : '0');
+    applyState(nextCollapsed);
+  });
+  toggle.dataset.bound = '1';
 }
 
 function buildPlanCalendarDayNodes(days, racesByDate, personalByDate) {
@@ -2534,8 +2895,27 @@ function renderCoherence() {
     if (a.ok) node.classList.add('alert-ok');
     const t = node.querySelector('.alert-title');
     const m = node.querySelector('.alert-msg') || node.querySelector('.alert-body');
+    const detailToggle = node.querySelector('.alert-detail-toggle');
+    const detailBox = node.querySelector('.alert-details');
     if (t) t.textContent = `${a.ok ? '✓' : '⚠'} ${a.title}`;
     if (m) m.textContent = String(a.msg || 'Aucun detail disponible.');
+    const details = Array.isArray(a.details) ? a.details.filter((item) => String(item || '').trim() !== '') : [];
+    if (detailToggle instanceof HTMLButtonElement && detailBox instanceof HTMLElement && details.length > 0) {
+      detailToggle.hidden = false;
+      detailBox.hidden = true;
+      detailToggle.textContent = 'Voir le detail';
+      detailBox.replaceChildren(...details.map((item) => {
+        const line = document.createElement('div');
+        line.className = 'alert-detail-line';
+        line.textContent = String(item);
+        return line;
+      }));
+      detailToggle.addEventListener('click', () => {
+        const isOpen = !detailBox.hidden;
+        detailBox.hidden = isOpen;
+        detailToggle.textContent = isOpen ? 'Voir le detail' : 'Masquer le detail';
+      });
+    }
     return node;
   });
   section.replaceChildren(title, ...nodes);
@@ -2572,6 +2952,68 @@ function renderProjections() {
 // PLAN RENDERER
 // ============================================================
 let currentPlanId = null;
+let plansHistoryListenerBound = false;
+
+function parsePlanIdFromPathname(pathname) {
+  const normalizedPath = String(pathname || '').replace(/\/+$/, '') || '/';
+  const match = /^\/plans\/(\d+)$/.exec(normalizedPath);
+  if (!match) return null;
+  const id = Number.parseInt(match[1], 10);
+  return Number.isFinite(id) ? id : null;
+}
+
+function getInitialPlanIdFromUrlOrDom() {
+  const fromPath = parsePlanIdFromPathname(globalThis.location?.pathname || '');
+  if (fromPath !== null) return fromPath;
+
+  const root = document.getElementById('plans');
+  if (!root) return null;
+  const raw = String(root.getAttribute('data-initial-plan-id') || '').trim();
+  if (!raw) return null;
+  const id = Number.parseInt(raw, 10);
+  return Number.isFinite(id) ? id : null;
+}
+
+function updatePlansPath(planId, { pushHistory = false } = {}) {
+  const currentPath = String(globalThis.location?.pathname || '');
+  if (!currentPath.startsWith('/plans')) return;
+
+  const targetPath = Number.isFinite(Number(planId)) ? `/plans/${Number(planId)}` : '/plans';
+  if (currentPath === targetPath) return;
+
+  const cleanUrl = new URL(globalThis.location.href);
+  cleanUrl.pathname = targetPath;
+  const next = `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`;
+  if (pushHistory) {
+    globalThis.history.pushState({}, '', next);
+  } else {
+    globalThis.history.replaceState({}, '', next);
+  }
+}
+
+function syncPlansViewFromUrl() {
+  const plansRoot = document.getElementById('plans');
+  if (!plansRoot) return;
+
+  const planId = parsePlanIdFromPathname(globalThis.location?.pathname || '');
+  if (planId !== null) {
+    const opened = openPlan(planId, { pushHistory: false });
+    if (!opened) {
+      backToPlansList({ pushHistory: false });
+    }
+    return;
+  }
+
+  if (currentPlanId !== null) {
+    backToPlansList({ pushHistory: false });
+  }
+}
+
+function bindPlansHistoryListener() {
+  if (plansHistoryListenerBound) return;
+  plansHistoryListenerBound = true;
+  globalThis.addEventListener('popstate', syncPlansViewFromUrl);
+}
 
 function getExtraPlan(planId) {
   return (state.extraPlans || []).find(p => String(p.id) === String(planId)) || null;
@@ -2614,15 +3056,18 @@ function renderPlansList() {
   list.replaceChildren(...nodes);
 }
 
-function openPlan(planId) {
+function openPlan(planId, options = {}) {
+  const pushHistory = options.pushHistory !== false;
   currentPlanId = planId;
   const extra = getExtraPlan(planId);
-  if (!extra) return;
+  if (!extra) return false;
 
   const plansList = document.getElementById('plans-list');
   if (plansList) plansList.style.display = 'none';
   const plansListHeader = document.getElementById('plans-list-header');
   if (plansListHeader) plansListHeader.style.display = 'none';
+  const plansCreateForm = document.getElementById('plans-create-form');
+  if (plansCreateForm) plansCreateForm.style.display = 'none';
   const plansCreateBtn = document.getElementById('plans-create-btn');
   if (plansCreateBtn) plansCreateBtn.style.display = 'none';
   const plansDetail = document.getElementById('plans-detail');
@@ -2642,14 +3087,19 @@ function openPlan(planId) {
   if (crumbCurrent) crumbCurrent.textContent = meta.title;
 
   renderPlan('plans-detail-weeks', extra.sessions, `extra:${planId}`);
+  updatePlansPath(planId, { pushHistory });
+  return true;
 }
 
-function backToPlansList() {
+function backToPlansList(options = {}) {
+  const pushHistory = options.pushHistory !== false;
   currentPlanId = null;
   const plansList = document.getElementById('plans-list');
   if (plansList) plansList.style.display = 'flex';
   const plansListHeader = document.getElementById('plans-list-header');
   if (plansListHeader) plansListHeader.style.display = '';
+  const plansCreateForm = document.getElementById('plans-create-form');
+  if (plansCreateForm) plansCreateForm.style.display = '';
   const plansCreateBtn = document.getElementById('plans-create-btn');
   if (plansCreateBtn) plansCreateBtn.style.display = '';
   const plansDetail = document.getElementById('plans-detail');
@@ -2659,6 +3109,7 @@ function backToPlansList() {
   const crumbCurrent = document.getElementById('plans-crumb-current');
   if (crumbCurrent) crumbCurrent.textContent = '';
   renderPlansList();
+  updatePlansPath(null, { pushHistory });
 }
 
 function createNewPlanFromHub() {
@@ -2819,6 +3270,18 @@ function deleteExtraPlan(planId) {
 function renderPlan(containerId, data, stateKey) {
   const container = document.getElementById(containerId);
   if (!container) return;
+
+  const dateSortValue = (value) => {
+    const iso = normalizeDateForStorage(value);
+    return iso ? Date.parse(`${iso}T00:00:00Z`) : Number.POSITIVE_INFINITY;
+  };
+
+  const sortSessionsByDate = (sessions) => sessions.slice().sort((a, b) => {
+    const dateDiff = dateSortValue(a?.date) - dateSortValue(b?.date);
+    if (dateDiff !== 0) return dateDiff;
+    return (a?.__idx ?? 0) - (b?.__idx ?? 0);
+  });
+
   const weekNodes = [];
   const blocks = [];
   let i = 0;
@@ -2852,16 +3315,19 @@ function renderPlan(containerId, data, stateKey) {
   }
 
   blocks.forEach((block, blockIndex) => {
-    const wd = block.sessions.find((s) => s.date)?.date;
+    const sortedSessions = sortSessionsByDate(block.sessions);
+    const wd = sortedSessions.map((s) => normalizeDateForStorage(sessionDateValue(s))).find(Boolean);
     const week = cloneTemplate('plan-week-card-template') || document.createElement('div');
     const weekNumEl = week.querySelector('.week-num');
     const weekDateEl = week.querySelector('.week-date');
     const weekSessionsEl = week.querySelector('.week-sessions');
-    if (weekNumEl) weekNumEl.textContent = `BLOC ${block.sem ?? (blockIndex + 1)}`;
+    if (weekNumEl) weekNumEl.textContent = `SEMAINE ${block.sem ?? (blockIndex + 1)}`;
     if (weekDateEl) weekDateEl.textContent = wd ? formatDate(wd) : '—';
     const sessionNodes = [];
-    block.sessions.forEach((s) => {
+    sortedSessions.forEach((s) => {
       const idx = s.__idx;
+      const isOptional = sessionOptionalValue(s);
+      const realDuration = findLatestLoggedDurationForSession(s?.detailId);
       const done = stateKey.startsWith('extra:')
         ? !!(getExtraPlan(stateKey.slice(6))?.done?.[idx])
         : !!state.doneByKey?.[stateKey]?.[idx];
@@ -2881,24 +3347,50 @@ function renderPlan(containerId, data, stateKey) {
         checkEl.textContent = done ? '✓' : '';
       }
       appendFormattedZones(formatEl, s.format || '');
+      if (isOptional && formatEl) {
+        const optionalEl = document.createElement('span');
+        optionalEl.className = 'session-format-optional';
+        optionalEl.textContent = ' (optionnel)';
+        formatEl.appendChild(optionalEl);
+      }
       if (dateEl) {
-        dateEl.hidden = !s.date;
-        dateEl.textContent = s.date ? formatDate(s.date) : '';
+        const sessionDate = normalizeDateForStorage(sessionDateValue(s));
+        dateEl.hidden = !sessionDate;
+        dateEl.classList.toggle('session-meta-slot--empty', !sessionDate);
+        dateEl.setAttribute('aria-hidden', sessionDate ? 'false' : 'true');
+        dateEl.textContent = sessionDate ? formatDate(sessionDate) : '';
       }
       if (typeEl) {
         const sessionType = normalizeSessionType(s.sessionType ?? s.session_type ?? s.type) || '';
         typeEl.hidden = !sessionType;
+        typeEl.classList.toggle('session-meta-slot--empty', !sessionType);
+        typeEl.setAttribute('aria-hidden', sessionType ? 'false' : 'true');
         typeEl.textContent = sessionType;
+        if (sessionType) {
+          applyDynamicTextContrast(typeEl, typeEl, 0.58, 'session-type-badge--dark');
+        } else {
+          typeEl.classList.remove('session-type-badge--dark');
+        }
       }
       if (peEl) {
         peEl.hidden = !s.pe;
+        peEl.classList.toggle('session-meta-slot--empty', !s.pe);
+        peEl.setAttribute('aria-hidden', s.pe ? 'false' : 'true');
         peEl.textContent = s.pe ? `PE ${s.pe}` : '';
       }
       if (durEl) {
-        durEl.hidden = !s.total;
-        durEl.textContent = s.total ? `${s.total}'` : '';
+        const totalMinutes = sessionTotalMinutesValue(s);
+        durEl.hidden = !totalMinutes;
+        durEl.classList.toggle('session-meta-slot--empty', !totalMinutes);
+        durEl.setAttribute('aria-hidden', totalMinutes ? 'false' : 'true');
+        durEl.textContent = totalMinutes ? `${totalMinutes}'` : '';
       }
-      if (optEl) optEl.hidden = !s.opt;
+      if (optEl) {
+        optEl.hidden = false;
+        optEl.classList.toggle('session-meta-slot--empty', !realDuration);
+        optEl.setAttribute('aria-hidden', realDuration ? 'false' : 'true');
+        optEl.textContent = realDuration ? `Reel ${realDuration}` : '';
+      }
       row.addEventListener('click', () => toggleSession(stateKey, idx, row));
       if (editBtn) {
         editBtn.addEventListener('click', (e) => {
@@ -2968,10 +3460,10 @@ function openPlanEdit(stateKey, idx) {
   document.getElementById('pm-idx').value = idx;
   document.getElementById('pm-format').value = s.format || '';
   document.getElementById('pm-type').value = normalizeSessionType(s.sessionType ?? s.session_type ?? s.type) || '';
-  document.getElementById('pm-date').value = normalizeDateForStorage(s.date);
+  document.getElementById('pm-date').value = normalizeDateForStorage(sessionDateValue(s));
   document.getElementById('pm-pe').value = s.pe || '';
-  document.getElementById('pm-total').value = s.total || '';
-  document.getElementById('pm-opt').checked = !!s.opt;
+  document.getElementById('pm-total').value = sessionTotalMinutesValue(s) ?? '';
+  document.getElementById('pm-opt').checked = sessionOptionalValue(s);
   openModal('plan-modal');
 }
 
@@ -2993,12 +3485,21 @@ async function savePlanEdit() {
   }
   d[idx].date = isoDate || null;
   d[idx].pe = document.getElementById('pm-pe').value;
-  d[idx].total = Number.parseInt(document.getElementById('pm-total').value, 10) || null;
-  d[idx].opt = document.getElementById('pm-opt').checked;
+  const totalMinutes = Number.parseInt(document.getElementById('pm-total').value, 10);
+  d[idx].total = Number.isFinite(totalMinutes) ? totalMinutes : null;
+  d[idx].totalMin = d[idx].total;
+  const isOptional = document.getElementById('pm-opt').checked;
+  d[idx].isOptional = isOptional;
+  d[idx].opt = isOptional;
 
   if (isExtra) {
     try {
-      await replacePlanSessionsInDb(planId, d, getExtraPlan(planId)?.done || {});
+      if (Number.isFinite(Number(d[idx]?.detailId))) {
+        await updatePlanDetailInDb(d[idx].detailId, d[idx]);
+      } else {
+        // Fallback for transient rows without persisted detail id.
+        await replacePlanSessionsInDb(planId, d, getExtraPlan(planId)?.done || {});
+      }
       await loadPlansFromDb();
       const reloadedPlan = getExtraPlan(planId);
       if (reloadedPlan) {
@@ -3404,6 +3905,23 @@ function plannedSessionLabel(item) {
   return `${date} · ${planName} · ${sessionLabel}${suffix}`;
 }
 
+function plannedSessionTypeTargetId(textInputId, hiddenInputId) {
+  if (textInputId === 'log-planned-session-text' || hiddenInputId === 'log-planned-session-id') return 'log-type';
+  if (textInputId === 'lm-planned-session-text' || hiddenInputId === 'lm-planned-session-id') return 'lm-type';
+  return null;
+}
+
+function applyPlannedSessionTypeSelection(textInputId, hiddenInputId, session) {
+  const targetId = plannedSessionTypeTargetId(textInputId, hiddenInputId);
+  if (!targetId) return;
+
+  const typeEl = document.getElementById(targetId);
+  if (!(typeEl instanceof HTMLSelectElement)) return;
+
+  const nextType = normalizeSessionType(session?.sessionType ?? session?.session_type ?? session?.type) || '';
+  typeEl.value = nextType;
+}
+
 function setLogEntryMode(mode, options = {}) {
   const nextMode = mode === 'calendar' ? 'calendar' : 'manual';
   const shouldClearCalendarSelection = options.clearCalendarSelection !== false;
@@ -3461,6 +3979,7 @@ function syncPlannedSessionHiddenId(textInputId, hiddenInputId) {
     (item) => plannedSessionLabel(item) === String(textInput.value || '').trim()
   );
   hiddenInput.value = selected ? String(selected.id) : '';
+  applyPlannedSessionTypeSelection(textInputId, hiddenInputId, selected || null);
 }
 
 function setPlannedSessionSelection(textInputId, hiddenInputId, sessionId) {
@@ -3472,6 +3991,7 @@ function setPlannedSessionSelection(textInputId, hiddenInputId, sessionId) {
   if (!Number.isFinite(wantedId)) {
     textInput.value = '';
     hiddenInput.value = '';
+    applyPlannedSessionTypeSelection(textInputId, hiddenInputId, null);
     return;
   }
 
@@ -3481,11 +4001,13 @@ function setPlannedSessionSelection(textInputId, hiddenInputId, sessionId) {
   if (!selected) {
     textInput.value = '';
     hiddenInput.value = '';
+    applyPlannedSessionTypeSelection(textInputId, hiddenInputId, null);
     return;
   }
 
   textInput.value = plannedSessionLabel(selected);
   hiddenInput.value = String(selected.id);
+  applyPlannedSessionTypeSelection(textInputId, hiddenInputId, selected);
 }
 
 function suggestPlannedSessionByDate(dateInputId, textInputId, hiddenInputId) {
@@ -3506,6 +4028,7 @@ function suggestPlannedSessionByDate(dateInputId, textInputId, hiddenInputId) {
 
   textInput.value = plannedSessionLabel(candidate);
   hiddenInput.value = String(candidate.id);
+  applyPlannedSessionTypeSelection(textInputId, hiddenInputId, candidate);
 }
 
 function ensurePlannedSessionBindings() {
@@ -3525,6 +4048,64 @@ function ensurePlannedSessionBindings() {
     textInput.addEventListener('blur', () => syncPlannedSessionHiddenId(textId, hiddenId));
     dateInput.addEventListener('change', () => suggestPlannedSessionByDate(dateId, textId, hiddenId));
     textInput.dataset.bound = '1';
+  });
+}
+
+function fillLogCourseOptions() {
+  const list = document.getElementById('log-course-options');
+  if (!(list instanceof HTMLDataListElement)) return;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const names = [];
+  const seen = new Set();
+
+  (Array.isArray(racesData) ? racesData : []).forEach((race) => {
+    const hasResult = Boolean(String(race?.result || '').trim());
+    const raceDate = normalizeDateForStorage(race?.date);
+    const name = String(race?.name || '').trim();
+    if (!name || hasResult) return;
+    if (raceDate && raceDate < today) return;
+    if (seen.has(name.toLowerCase())) return;
+    seen.add(name.toLowerCase());
+    names.push(name);
+  });
+
+  names.sort((a, b) => a.localeCompare(b, 'fr'));
+  list.replaceChildren(
+    ...names.map((name) => {
+      const option = document.createElement('option');
+      option.value = name;
+      return option;
+    })
+  );
+}
+
+function updateCourseFieldVisibility(typeSelectId, fieldWrapperId, inputId) {
+  const typeEl = document.getElementById(typeSelectId);
+  const fieldEl = document.getElementById(fieldWrapperId);
+  const inputEl = document.getElementById(inputId);
+  if (!(typeEl instanceof HTMLSelectElement) || !(fieldEl instanceof HTMLElement) || !(inputEl instanceof HTMLInputElement)) return;
+
+  const isRace = normalizeSessionType(typeEl.value) === 'Race';
+  fieldEl.hidden = !isRace;
+  inputEl.disabled = !isRace;
+  if (!isRace) inputEl.value = '';
+}
+
+function bindCourseFieldVisibility() {
+  const bindings = [
+    ['log-type', 'log-course-field', 'log-course-name'],
+    ['lm-type', 'lm-course-field', 'lm-course-name'],
+  ];
+
+  bindings.forEach(([typeId, fieldId, inputId]) => {
+    const typeEl = document.getElementById(typeId);
+    if (!(typeEl instanceof HTMLSelectElement)) return;
+    if (typeEl.dataset.courseVisibilityBound !== '1') {
+      typeEl.addEventListener('change', () => updateCourseFieldVisibility(typeId, fieldId, inputId));
+      typeEl.dataset.courseVisibilityBound = '1';
+    }
+    updateCourseFieldVisibility(typeId, fieldId, inputId);
   });
 }
 
@@ -3584,12 +4165,27 @@ function setLogTypeCell(cell, runType) {
     return;
   }
   const badge = cloneTemplate('log-type-badge-template') || document.createElement('span');
-  badge.textContent = runType;
+  const typeColorClass = allureClass(runType);
+  if (typeColorClass) {
+    badge.classList.add(typeColorClass);
+  }
+  badge.textContent = sessionTypeDisplayLabel(runType);
   cell.replaceChildren(badge);
 }
 
+function logOutingLabel(log) {
+  const isRace = normalizeSessionType(log?.run_type) === 'Race';
+  const courseName = String(log?.courseName || '').trim();
+  const plannedLabel = String(log?.plannedSessionLabel || '').trim();
+
+  if (isRace && courseName) return courseName;
+  if (plannedLabel) return plannedLabel;
+  if (courseName) return courseName;
+  return '—';
+}
+
 function buildLogRow(r) {
-  const ac = allureClass(r.allure);
+  const ac = allureClass(r.run_type);
   const row = cloneTemplate('log-row-template') || document.createElement('tr');
   const dateEl = row.querySelector('.log-date');
   const kmEl = row.querySelector('.log-km');
@@ -3600,7 +4196,7 @@ function buildLogRow(r) {
   const bpmEl = row.querySelector('.log-bpm');
   const typeEl = row.querySelector('.log-type');
   const plannedEl = row.querySelector('.log-planned');
-  const notesEl = row.querySelector('.log-notes');
+  const effortEl = row.querySelector('.log-effort');
   const editBtn = row.querySelector('.log-edit');
   const delBtn = row.querySelector('.log-delete');
 
@@ -3615,12 +4211,31 @@ function buildLogRow(r) {
   setLogMetricCell(dplusEl, r.dplus, 'metric-dplus', 'm');
   if (bpmEl) bpmEl.textContent = r.bpm || '—';
   setLogTypeCell(typeEl, r.run_type);
-  if (plannedEl) plannedEl.textContent = r.plannedSessionLabel || '—';
-  if (notesEl) notesEl.textContent = r.notes || '—';
+  if (plannedEl) plannedEl.textContent = logOutingLabel(r);
+  if (effortEl) effortEl.textContent = perceivedEffortLabel(r.perceivedEffort, r.notes);
   if (editBtn) editBtn.addEventListener('click', () => openLogEdit(r.id));
   if (delBtn) delBtn.addEventListener('click', () => deleteLog(r.id, r.date));
 
   return row;
+}
+
+function applyOverflowTooltipToLogPlannedCells() {
+  const plannedCells = document.querySelectorAll('#log-tbody .log-planned');
+  plannedCells.forEach((cell) => {
+    if (!(cell instanceof HTMLElement)) return;
+
+    const text = String(cell.textContent || '').trim();
+    if (text === '' || text === '—') {
+      cell.removeAttribute('title');
+      return;
+    }
+
+    if (cell.scrollWidth > cell.clientWidth) {
+      cell.setAttribute('title', text);
+    } else {
+      cell.removeAttribute('title');
+    }
+  });
 }
 
 function renderLog() {
@@ -3634,6 +4249,7 @@ function renderLog() {
   if (!tbody) return;
   const rows = items.map(buildLogRow);
   tbody.replaceChildren(...rows);
+  requestAnimationFrame(applyOverflowTooltipToLogPlannedCells);
   addHoverListeners('log-tbody');
 }
 
@@ -3671,7 +4287,9 @@ async function addLog() {
   const dplus=Number.parseInt(document.getElementById('log-dplus').value, 10)||null;
   const bpm=Number.parseInt(document.getElementById('log-bpm').value, 10)||null;
   const runType=document.getElementById('log-type').value||null;
-  const notes=document.getElementById('log-notes').value||null;
+  const isRaceType = normalizeSessionType(runType) === 'Race';
+  const courseName=isRaceType ? (String(document.getElementById('log-course-name').value||'').trim()||null) : null;
+  const perceivedEffort=normalizePerceivedEffort(document.getElementById('log-effort').value)||null;
   const plannedSessionIdRaw = document.getElementById('log-planned-session-id').value;
   const plannedSessionId = Number.parseInt(plannedSessionIdRaw, 10);
   const useCalendarSession = logEntryMode === 'calendar';
@@ -3683,13 +4301,14 @@ async function addLog() {
   if(!date||!km||!dur){notify('⚠ Date, km et durée requis');return;}
   try {
     const created=await apiFetch('/run_logs',{method:'POST',body:JSON.stringify({
-      date,km,duration:dur,dplus,bpm,runType,notes,plannedSession
+      date,km,duration:dur,dplus,bpm,runType,courseName,perceivedEffort,plannedSession
     })});
     logData.unshift(normalizeLog(created));
     await syncPlannedSessionDate(plannedSessionId, date);
     renderLog(); requestDashboardRefresh();
-    ['log-km','log-dur','log-dplus','log-bpm','log-notes'].forEach(id=>document.getElementById(id).value='');
+    ['log-km','log-dur','log-dplus','log-bpm','log-course-name'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('log-type').value='';
+    document.getElementById('log-effort').value='';
     document.getElementById('log-planned-session-text').value='';
     document.getElementById('log-planned-session-id').value='';
     notify('✓ Sortie enregistrée !');
@@ -3698,14 +4317,30 @@ async function addLog() {
 
 function openLogEdit(id) {
   const r=logData.find(x=>x.id===id); if(!r)return;
-  document.getElementById('lm-idx').value=id;
-  document.getElementById('lm-date').value=r.date||'';
-  document.getElementById('lm-km').value=r.km||'';
-  document.getElementById('lm-dur').value=r.duration||'';
-  document.getElementById('lm-dplus').value=r.dplus||'';
-  document.getElementById('lm-bpm').value=r.bpm||'';
-  document.getElementById('lm-type').value=r.run_type||'';
-  document.getElementById('lm-notes').value=r.notes||'';
+  const idxEl = document.getElementById('lm-idx');
+  const dateEl = document.getElementById('lm-date');
+  const kmEl = document.getElementById('lm-km');
+  const durEl = document.getElementById('lm-dur');
+  const dplusEl = document.getElementById('lm-dplus');
+  const bpmEl = document.getElementById('lm-bpm');
+  const typeEl = document.getElementById('lm-type');
+  const courseEl = document.getElementById('lm-course-name');
+  const effortEl = document.getElementById('lm-effort');
+  if (!idxEl || !dateEl || !kmEl || !durEl || !dplusEl || !bpmEl || !typeEl || !courseEl || !effortEl) {
+    notify('⚠ Édition indisponible: modal log introuvable');
+    return;
+  }
+
+  idxEl.value=id;
+  dateEl.value=r.date||'';
+  kmEl.value=r.km||'';
+  durEl.value=r.duration||'';
+  dplusEl.value=r.dplus||'';
+  bpmEl.value=r.bpm||'';
+  typeEl.value=r.run_type||'';
+  courseEl.value=r.courseName||'';
+  effortEl.value=r.perceivedEffort||'';
+  updateCourseFieldVisibility('lm-type', 'lm-course-field', 'lm-course-name');
   setPlannedSessionSelection('lm-planned-session-text', 'lm-planned-session-id', r.plannedSessionId);
   openModal('log-modal');
 }
@@ -3718,13 +4353,16 @@ async function saveLogEdit() {
   const plannedSessionIdRaw = document.getElementById('lm-planned-session-id').value;
   const plannedSessionId = Number.parseInt(plannedSessionIdRaw, 10);
   const plannedSession = Number.isFinite(plannedSessionId) ? `/api/plan_details/${plannedSessionId}` : null;
+  const runType = document.getElementById('lm-type').value||null;
+  const isRaceType = normalizeSessionType(runType) === 'Race';
   try {
     const updated=await apiFetch(`/run_logs/${id}`,{method:'PUT',body:JSON.stringify({
       date:document.getElementById('lm-date').value,
       km,duration:dur,dplus,
       bpm:Number.parseInt(document.getElementById('lm-bpm').value, 10)||null,
-      runType:document.getElementById('lm-type').value||null,
-      notes:document.getElementById('lm-notes').value||null,
+      runType,
+      courseName:isRaceType ? (String(document.getElementById('lm-course-name').value||'').trim()||null) : null,
+      perceivedEffort:normalizePerceivedEffort(document.getElementById('lm-effort').value)||null,
       plannedSession,
     })});
     const idx=logData.findIndex(r=>r.id===id);
@@ -3765,8 +4403,13 @@ async function deleteLog(id,dateStr) {
 // RACES
 // ============================================================
 function buildRaceRow(r) {
-  const statusClass = String(r?.statusClass || 'badge-future');
   const statusText = String(r?.statusLabel || '—');
+  let statusClass = String(r?.statusClass || 'badge-future');
+  if (statusClass !== 'badge-done') {
+    if (/^J-\d+$/i.test(statusText) || /^S-[12]$/i.test(statusText)) {
+      statusClass = 'badge-next';
+    }
+  }
   const diff = String(r?.resultDelta || '—');
   const row = cloneTemplate('races-row-template') || document.createElement('tr');
   const statusEl = row.querySelector('.races-status');
@@ -3784,6 +4427,7 @@ function buildRaceRow(r) {
     const badge = cloneTemplate('races-status-badge-template') || document.createElement('span');
     badge.classList.add(statusClass);
     badge.textContent = statusText;
+    applyDynamicTextContrast(badge, badge, 0.58, 'badge--dark');
     statusEl.replaceChildren(badge);
   }
   if (nameEl) nameEl.textContent = r.name || '—';
@@ -3819,6 +4463,7 @@ function renderRaces() {
   if (!tbody) return;
   const rows = racesData.map(buildRaceRow);
   tbody.replaceChildren(...rows);
+  fillLogCourseOptions();
   addHoverListeners('races-tbody');
 }
 
@@ -3842,12 +4487,24 @@ async function addRace() {
 }
 
 function openRaceEdit(id) {
+  ensureRaceModals();
   const r=racesData.find(x=>x.id===id); if(!r)return;
-  document.getElementById('rm-idx').value=id;
-  document.getElementById('rm-name').value=r.name||'';
-  document.getElementById('rm-date').value=r.date||'';
-  document.getElementById('rm-dist').value=r.distance||'';
-  document.getElementById('rm-obj').value=r.objective||'';
+  const idxEl = document.getElementById('rm-idx');
+  const nameEl = document.getElementById('rm-name');
+  const dateEl = document.getElementById('rm-date');
+  const distEl = document.getElementById('rm-dist');
+  const objEl = document.getElementById('rm-obj');
+  if (!(idxEl instanceof HTMLInputElement) || !(nameEl instanceof HTMLInputElement)
+    || !(dateEl instanceof HTMLInputElement) || !(distEl instanceof HTMLInputElement)
+    || !(objEl instanceof HTMLInputElement)) {
+    notify('⚠ Edition indisponible pour le moment');
+    return;
+  }
+  idxEl.value = id;
+  nameEl.value = r.name || '';
+  dateEl.value = r.date || '';
+  distEl.value = r.distance || '';
+  objEl.value = r.objective || '';
   openModal('race-modal');
 }
 
@@ -3872,10 +4529,17 @@ async function saveRaceEdit() {
 }
 
 function openRaceResult(id) {
+  ensureRaceModals();
   const r = racesData.find((x) => x.id === id);
   if (!r) return;
-  document.getElementById('rr-idx').value = id;
-  document.getElementById('rr-real').value = r.result || '';
+  const idxEl = document.getElementById('rr-idx');
+  const resultEl = document.getElementById('rr-real');
+  if (!(idxEl instanceof HTMLInputElement) || !(resultEl instanceof HTMLInputElement)) {
+    notify('⚠ Saisie resultat indisponible pour le moment');
+    return;
+  }
+  idxEl.value = id;
+  resultEl.value = r.result || '';
   openModal('race-result-modal');
 }
 
@@ -3918,6 +4582,55 @@ async function deleteRace(id,name) {
       notify('🗑 Course supprimée');
     } catch(e){notify('⚠ '+e.message);}
   });
+}
+
+function ensureRaceModals() {
+  let raceModal = document.getElementById('race-modal');
+  if (!raceModal) {
+    raceModal = document.createElement('div');
+    raceModal.id = 'race-modal';
+    raceModal.className = 'modal-overlay';
+    raceModal.innerHTML = `
+      <div class="modal">
+        <button class="modal-close" onclick="closeModal('race-modal')">x</button>
+        <div class="modal-title">Modifier la course</div>
+        <input type="hidden" id="rm-idx">
+        <div class="form-grid">
+          <div class="field"><label for="rm-name">Nom</label><input id="rm-name" type="text"></div>
+          <div class="field"><label for="rm-date">Date</label><input id="rm-date" type="date"></div>
+          <div class="field"><label for="rm-dist">Distance</label><input id="rm-dist" type="text"></div>
+          <div class="field"><label for="rm-obj">Objectif (hh:mm:ss)</label><input id="rm-obj" type="text"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" onclick="saveRaceEdit()">Enregistrer</button>
+          <button class="btn btn-ghost" onclick="closeModal('race-modal')">Annuler</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(raceModal);
+  }
+
+  let raceResultModal = document.getElementById('race-result-modal');
+  if (!raceResultModal) {
+    raceResultModal = document.createElement('div');
+    raceResultModal.id = 'race-result-modal';
+    raceResultModal.className = 'modal-overlay';
+    raceResultModal.innerHTML = `
+      <div class="modal">
+        <button class="modal-close" onclick="closeModal('race-result-modal')">x</button>
+        <div class="modal-title">Saisir le resultat</div>
+        <input type="hidden" id="rr-idx">
+        <div class="form-grid">
+          <div class="field"><label for="rr-real">Resultat (hh:mm:ss)</label><input id="rr-real" type="text" placeholder="00:53:22"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" onclick="saveRaceResult()">Enregistrer</button>
+          <button class="btn btn-ghost" onclick="closeModal('race-result-modal')">Annuler</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(raceResultModal);
+  }
 }
 
 // ============================================================
@@ -4012,13 +4725,26 @@ async function initApp() {
 
   // Keep plans independent from dashboard errors.
   safeRender(renderPlansList, 'plans');
+  safeRender(bindPlansHistoryListener, 'plans-history');
+  safeRender(() => {
+    const initialPlanId = getInitialPlanIdFromUrlOrDom();
+    if (initialPlanId !== null) {
+      const opened = openPlan(initialPlanId, { pushHistory: false });
+      if (!opened) {
+        backToPlansList({ pushHistory: false });
+        notify('⚠ Plan introuvable');
+      }
+    }
+  }, 'plan-url-open');
   safeRender(renderDashboard, 'dashboard');
+  safeRender(setupHomePlanModuleAccordion, 'home-plan-module-accordion');
   safeRender(renderLog, 'log');
   safeRender(renderRaces, 'races');
   safeRender(consumeAdviceFocusFromUrl, 'advice-focus-url');
   safeRender(consumePlanEditIntentFromUrl, 'plan-edit-url');
   safeRender(consumeRaceEditIntentFromUrl, 'race-edit-url');
   safeRender(setupWeatherCityControls, 'weather-city-controls');
+  safeRender(bindCourseFieldVisibility, 'course-field-visibility');
 
   const today = new Date().toISOString().split('T')[0];
   const logDateEl = document.getElementById('log-date');

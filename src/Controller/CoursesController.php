@@ -2,7 +2,13 @@
 
 namespace App\Controller;
 
+use App\Entity\Race;
+use App\Entity\User;
+use App\Repository\RaceRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -11,14 +17,159 @@ use Symfony\Component\Routing\Attribute\Route;
  */
 class CoursesController extends AbstractController
 {
+    private const FLASH_ERROR = 'error';
+    private const FLASH_SUCCESS = 'success';
+
     /**
      * Displays the courses page.
      */
     #[Route('/courses', name: 'app_courses')]
-    public function index(): Response
+    public function index(RaceRepository $raceRepository): Response
     {
+        $races = [];
+        $user = $this->getUser();
+        if ($user instanceof User) {
+            $races = $raceRepository->findBy(['user' => $user], ['date' => 'ASC']);
+        }
+
         return $this->render('courses/index.html.twig', [
             'username' => $this->getUser()?->getUserIdentifier(),
+            'racesView' => $races,
         ]);
+    }
+
+    #[Route('/courses/create', name: 'app_courses_create', methods: ['POST'])]
+    public function create(Request $request, EntityManagerInterface $entityManager): RedirectResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->redirectToRoute('app_login');
+        }
+
+        if (!$this->isCsrfTokenValid('courses.create', (string) $request->request->get('_token', ''))) {
+            $this->addFlash(self::FLASH_ERROR, 'Jeton CSRF invalide.');
+            return $this->redirectToRoute('app_courses');
+        }
+
+        $name = trim((string) $request->request->get('name', ''));
+        $date = trim((string) $request->request->get('date', ''));
+        if ($name === '' || $date === '') {
+            $this->addFlash(self::FLASH_ERROR, 'Nom et date requis.');
+            return $this->redirectToRoute('app_courses');
+        }
+
+        $race = (new Race())
+            ->setUser($user)
+            ->setName($name)
+            ->setDate($date)
+            ->setDistance($this->nullableString($request->request->get('distance')))
+            ->setObjective($this->nullableString($request->request->get('objective')))
+            ->setResult($this->nullableString($request->request->get('result')));
+
+        $entityManager->persist($race);
+        $entityManager->flush();
+
+        $this->addFlash(self::FLASH_SUCCESS, 'Course ajoutée.');
+        return $this->redirectToRoute('app_courses');
+    }
+
+    #[Route('/courses/{id<\d+>}/delete', name: 'app_courses_delete', methods: ['POST'])]
+    public function delete(int $id, Request $request, RaceRepository $raceRepository, EntityManagerInterface $entityManager): RedirectResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->redirectToRoute('app_login');
+        }
+
+        $race = $raceRepository->find($id);
+        if (!$race instanceof Race || $race->getUser()->getId() !== $user->getId()) {
+            $this->addFlash(self::FLASH_ERROR, 'Course introuvable.');
+            return $this->redirectToRoute('app_courses');
+        }
+
+        if (!$this->isCsrfTokenValid('courses.delete.' . $id, (string) $request->request->get('_token', ''))) {
+            $this->addFlash(self::FLASH_ERROR, 'Jeton CSRF invalide.');
+            return $this->redirectToRoute('app_courses');
+        }
+
+        $entityManager->remove($race);
+        $entityManager->flush();
+
+        $this->addFlash(self::FLASH_SUCCESS, 'Course supprimée.');
+        return $this->redirectToRoute('app_courses');
+    }
+
+    #[Route('/courses/{id<\d+>}/result', name: 'app_courses_result', methods: ['POST'])]
+    public function updateResult(int $id, Request $request, RaceRepository $raceRepository, EntityManagerInterface $entityManager): RedirectResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->redirectToRoute('app_login');
+        }
+
+        $race = $raceRepository->find($id);
+        if (!$race instanceof Race || $race->getUser()->getId() !== $user->getId()) {
+            $this->addFlash(self::FLASH_ERROR, 'Course introuvable.');
+            return $this->redirectToRoute('app_courses');
+        }
+
+        if (!$this->isCsrfTokenValid('courses.result.' . $id, (string) $request->request->get('_token', ''))) {
+            $this->addFlash(self::FLASH_ERROR, 'Jeton CSRF invalide.');
+            return $this->redirectToRoute('app_courses');
+        }
+
+        $race->setResult($this->nullableString($request->request->get('result')));
+        $entityManager->flush();
+
+        $this->addFlash(self::FLASH_SUCCESS, 'Résultat mis à jour.');
+        return $this->redirectToRoute('app_courses');
+    }
+
+    #[Route('/courses/{id<\d+>}/update', name: 'app_courses_update', methods: ['POST'])]
+    public function update(int $id, Request $request, RaceRepository $raceRepository, EntityManagerInterface $entityManager): RedirectResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->redirectToRoute('app_login');
+        }
+
+        $race = $raceRepository->find($id);
+        if (!$race instanceof Race || $race->getUser()->getId() !== $user->getId()) {
+            $this->addFlash(self::FLASH_ERROR, 'Course introuvable.');
+            return $this->redirectToRoute('app_courses');
+        }
+
+        if (!$this->isCsrfTokenValid('courses.update.' . $id, (string) $request->request->get('_token', ''))) {
+            $this->addFlash(self::FLASH_ERROR, 'Jeton CSRF invalide.');
+            return $this->redirectToRoute('app_courses');
+        }
+
+        $name = trim((string) $request->request->get('name', ''));
+        $date = trim((string) $request->request->get('date', ''));
+        if ($name === '' || $date === '') {
+            $this->addFlash(self::FLASH_ERROR, 'Nom et date requis.');
+            return $this->redirectToRoute('app_courses');
+        }
+
+        $race
+            ->setName($name)
+            ->setDate($date)
+            ->setDistance($this->nullableString($request->request->get('distance')))
+            ->setObjective($this->nullableString($request->request->get('objective')));
+
+        $entityManager->flush();
+
+        $this->addFlash(self::FLASH_SUCCESS, 'Course mise à jour.');
+        return $this->redirectToRoute('app_courses');
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $text = trim((string) $value);
+        return $text === '' ? null : $text;
     }
 }

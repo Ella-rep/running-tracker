@@ -59,7 +59,7 @@ final class PlanSessionReplaceService
             $detail->setSessionType($this->extractSessionType($session));
             $detail->setPe($this->nullableString($session['pe'] ?? null));
             $detail->setTotalMin($this->nullableInt($session['totalMin'] ?? ($session['total'] ?? null)));
-            $detail->setIsOptional((bool) ($session['isOptional'] ?? ($session['opt'] ?? false)));
+            $detail->setIsOptional((bool) ($session['isOptional'] ?? ($session['optional'] ?? ($session['opt'] ?? false))));
             $detail->setIsDone($this->resolveDone($doneMap, $idx));
             $this->em->persist($detail);
         }
@@ -177,7 +177,9 @@ final class PlanSessionReplaceService
                 $normalized = 'EF';
             } elseif ($ascii === 'FC' || str_contains($ascii, 'FRACTIONNE COURT')) {
                 $normalized = 'FC';
-            } elseif ($ascii === 'FL' || str_contains($ascii, 'SORTIE LONGUE')) {
+            } elseif ($ascii === 'SL' || str_contains($ascii, 'SORTIE LONGUE')) {
+                $normalized = 'SL';
+            } elseif ($ascii === 'FL' || str_contains($ascii, 'FRACTIONNE LONG')) {
                 $normalized = 'FL';
             } elseif ($ascii === 'T' || str_contains($ascii, 'TEMPO')) {
                 $normalized = 'T';

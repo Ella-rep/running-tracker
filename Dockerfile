@@ -1,9 +1,3 @@
-# ── Stage 1 : vendor (composer install) ──────────────────────────────────────
-#FROM composer:2 AS vendor
-
-# Composer
-
-
 # ── Image finale (repo, sans proxy) ──────────────────────────────────────────
 FROM php:8.4-fpm
 

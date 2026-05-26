@@ -162,7 +162,7 @@ class Race
         }
 
         $daysTo = $this->daysToRace();
-        if ($daysTo !== null && $daysTo <= 10 && $daysTo >= 0) {
+        if ($daysTo !== null && $daysTo <= 14 && $daysTo >= 0) {
             return self::STATUS_NEXT_CLASS;
         }
 

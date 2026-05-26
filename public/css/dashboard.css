@@ -119,6 +119,11 @@
   padding: 2px 8px;
 }
 
+.advice-badge--dark {
+  color: #0f172a;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+
 
 .advice-action-btn {
   margin-top: 8px;
@@ -330,6 +335,150 @@
   font-size: 11px;
   color: var(--text-muted);
   font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.plan-progress-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.plan-progress-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 85%, var(--surface2));
+  background: color-mix(in srgb, var(--surface2) 70%, var(--surface));
+}
+
+.plan-progress-card:first-child {
+  border-color: color-mix(in srgb, var(--z1) 42%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--z1) 18%, transparent);
+}
+
+.plan-progress-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plan-progress-card-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.plan-progress-card-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.plan-progress-card-pct {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--z1);
+  white-space: nowrap;
+}
+
+.plan-progress-card-bar {
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--border) 76%, var(--surface2));
+}
+
+.plan-progress-card-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--z1), #8de1b8);
+}
+
+.plan-progress-card-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.plan-progress-card-action,
+.plan-progress-hidden-btn,
+.home-plan-module-toggle {
+  border: 1px solid color-mix(in srgb, var(--accent2) 46%, var(--border));
+  background: color-mix(in srgb, var(--surface2) 70%, var(--surface));
+  color: color-mix(in srgb, var(--text) 92%, var(--accent2));
+  border-radius: 999px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.plan-progress-card-action {
+  min-height: 30px;
+  padding: 0 12px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.plan-progress-hidden {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.plan-progress-hidden-title {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+}
+
+.plan-progress-hidden-btn {
+  justify-self: start;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 11px;
+}
+
+.home-plan-module {
+  display: grid;
+  gap: 14px;
+}
+
+.home-plan-module-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  font-size: 13px;
+  border: none;
+  background: transparent;
+  border-radius: 0;
+}
+
+.home-plan-module-toggle-label {
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--text);
+}
+
+.home-plan-module-toggle-icon {
+  font-size: 16px;
+  transition: transform 0.2s ease;
+}
+
+.home-plan-module.is-collapsed .home-plan-module-toggle-icon {
+  transform: rotate(-90deg);
+}
+
+.home-plan-module-content {
+  display: grid;
+  gap: 14px;
+}
+
+.home-plan-module-content[hidden] {
+  display: none;
 }
 
 .widget-picker-wrap {
@@ -868,6 +1017,38 @@
   margin-bottom: 16px;
 }
 
+.alert-detail-toggle {
+  margin-top: 10px;
+  align-self: flex-start;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent2) 46%, var(--border));
+  background: color-mix(in srgb, var(--surface2) 70%, var(--surface));
+  color: color-mix(in srgb, var(--text) 92%, var(--accent2));
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.alert-details {
+  margin-top: 10px;
+  display: grid;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.alert-details[hidden] {
+  display: none;
+}
+
+.alert-detail-line {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 .empty-hint {
   color: var(--text-muted);
   font-size: 13px;
@@ -1053,6 +1234,26 @@
     padding: 14px;
     border-radius: 14px;
     margin-bottom: 16px;
+  }
+
+  .plan-progress-card-head {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .plan-progress-card-action,
+  .plan-progress-hidden-btn,
+  .home-plan-module-toggle {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .home-plan-module-toggle {
+    padding: 0;
+  }
+
+  .home-plan-module-toggle-label {
+    font-size: 16px;
   }
 
   .section-sub {

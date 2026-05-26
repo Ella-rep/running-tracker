@@ -4,20 +4,71 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
-<link rel="stylesheet" href="{{ asset('css/plans.css') }}?v=20260521-plans-mobile1">
+<link rel="stylesheet" href="{{ asset('css/plans.css') }}?v=20260526-realduration1">
 {% endblock %}
 
 {% block body %}
 {% include 'components/_app_header.html.twig' with { current_page: 'plans', username: username } %}
 
+{% set hasSelectedPlan = selectedPlanView is not null %}
+
 <main>
-  <section id="plans" class="visible">
-    <div id="plans-list-header">
+  <section id="plans" class="visible" data-initial-plan-id="{{ initialPlanId ?? '' }}">
+    {% for label, messages in app.flashes %}
+      {% for message in messages %}
+        <div class="section-sub" style="margin:8px 0; color: {{ label == 'error' ? 'var(--accent3)' : 'var(--z1)' }}">{{ message }}</div>
+      {% endfor %}
+    {% endfor %}
+
+    <div id="plans-list-header"{% if hasSelectedPlan %} style="display:none"{% endif %}>
       <div class="section-title">Mes plans</div>
       <div class="section-sub">Un plan exemple est fourni. Ajoute ensuite tes plans personnels.</div>
     </div>
 
-    <div id="plans-list" class="plans-list"></div>
+    {% if requestedPlanNotFound %}
+      <div class="section-sub" style="margin:12px 0">Le plan demandé est introuvable.</div>
+    {% endif %}
+
+    <div id="plans-list" class="plans-list"{% if hasSelectedPlan %} style="display:none"{% endif %}>
+      {% for plan in plansView %}
+        <article class="plan-card">
+          <div class="plan-card-head">
+            <div class="plan-card-main">
+              <div class="plan-card-title">{{ plan.title }}</div>
+              <div class="plan-card-sub">{{ plan.sub }}</div>
+            </div>
+            <div class="plan-card-stats">
+              <div class="plan-card-pct">{{ plan.pct }}%</div>
+              <div class="plan-card-count">{{ plan.done }}/{{ plan.total }} séances</div>
+            </div>
+            <form method="post" action="{{ path('app_plans_delete', { planId: plan.id }) }}" onsubmit="return confirm('Supprimer ce plan ?');" style="display:inline-flex">
+              <input type="hidden" name="_token" value="{{ csrf_token('plans.delete.' ~ plan.id) }}">
+              <button class="plan-card-delete" type="submit" title="Supprimer ce plan">🗑</button>
+            </form>
+            <a class="plan-card-arrow" href="{{ path('app_plans_detail', { planId: plan.id }) }}" aria-label="Ouvrir {{ plan.title }}">›</a>
+          </div>
+          <div class="plan-card-bar-bg">
+            <div class="plan-card-bar" style="width:{{ plan.pct }}%"></div>
+          </div>
+        </article>
+      {% else %}
+        <div class="section-sub">Aucun plan disponible.</div>
+      {% endfor %}
+    </div>
+
+    <form id="plans-create-form" method="post" action="{{ path('app_plans_create') }}" class="form-card"{% if hasSelectedPlan %} style="display:none"{% endif %}>
+      <input type="hidden" name="_token" value="{{ csrf_token('plans.create') }}">
+      <div class="form-grid form-grid-single">
+        <div class="field">
+          <label for="plans-create-name">Nom du plan</label>
+          <input id="plans-create-name" type="text" name="name" maxlength="64" placeholder="Ex: Mon Premier Semi" required>
+        </div>
+      </div>
+      <div class="modal-actions" style="margin-top:10px; justify-content:flex-start;">
+        <button class="btn" type="submit">Créer un plan</button>
+      </div>
+    </form>
+
     <template id="plan-card-template">
       <article class="plan-card">
         <div class="plan-card-head">
@@ -38,26 +89,38 @@
       </article>
     </template>
 
-    <button class="btn plans-create-btn" id="plans-create-btn" onclick="createNewPlanFromHub()">+ Nouveau plan</button>
-    
-
-    <div id="plans-detail" class="plans-detail" style="display:none">
+    <div id="plans-detail" class="plans-detail"{% if not hasSelectedPlan %} style="display:none"{% endif %}>
       <div class="plans-detail-header">
         <div class="plans-detail-meta">
           <nav class="plans-breadcrumb" aria-label="Fil d'ariane">
-            <button class="plans-breadcrumb-link" onclick="backToPlansList()">Plans</button>
+            <a class="plans-breadcrumb-link" href="{{ path('app_plans') }}">Plans</a>
             <span class="plans-breadcrumb-sep">/</span>
-            <span class="plans-breadcrumb-current" id="plans-crumb-current"></span>
+            <span class="plans-breadcrumb-current" id="plans-crumb-current">{{ selectedPlanView.title ?? '' }}</span>
           </nav>
-          <div class="section-title plans-detail-title" id="plans-detail-title"></div>
-          <div class="section-sub" id="plans-detail-sub"></div>
+          <div class="section-title plans-detail-title" id="plans-detail-title">{{ selectedPlanView.title ?? '' }}</div>
+          <div class="section-sub" id="plans-detail-sub">{{ selectedPlanView.sub ?? '' }}</div>
         </div>
-        <button id="plans-edit-meta-btn" class="btn-inline-icon" style="display:none" onclick="editPlanMeta(currentPlanId)" title="Modifier">✏️</button>
-        <button id="delete-extra-btn" class="btn-inline btn-inline-danger" style="display:none" onclick="deleteExtraPlan(currentPlanId)">🗑 Supprimer</button>
+        {% if hasSelectedPlan %}
+          <button id="plans-edit-meta-btn" class="btn-inline-icon" type="button" onclick="editPlanMeta({{ selectedPlanView.id }})" title="Renommer">✏️</button>
+          <form method="post" action="{{ path('app_plans_delete', { planId: selectedPlanView.id }) }}" onsubmit="return confirm('Supprimer ce plan ?');">
+            <input type="hidden" name="_token" value="{{ csrf_token('plans.delete.' ~ selectedPlanView.id) }}">
+            <button id="delete-extra-btn" class="btn-inline btn-inline-danger" type="submit">🗑 Supprimer</button>
+          </form>
+        {% else %}
+          <button id="plans-edit-meta-btn" class="btn-inline-icon" style="display:none" onclick="editPlanMeta(currentPlanId)" title="Modifier">✏️</button>
+          <button id="delete-extra-btn" class="btn-inline btn-inline-danger" style="display:none" onclick="deleteExtraPlan(currentPlanId)">🗑 Supprimer</button>
+        {% endif %}
       </div>
 
       <div class="plans-detail-actions">
-        <button class="btn btn-small plans-add-session-btn" id="plans-add-session-btn" onclick="addPlanSession(currentPlanId)">+ Ajouter séance</button>
+        {% if hasSelectedPlan %}
+          <form method="post" action="{{ path('app_plans_session_add', { planId: selectedPlanView.id }) }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('plans.session.add.' ~ selectedPlanView.id) }}">
+            <button class="btn btn-small plans-add-session-btn" id="plans-add-session-btn" type="submit">+ Ajouter séance</button>
+          </form>
+        {% else %}
+          <button class="btn btn-small plans-add-session-btn" id="plans-add-session-btn" onclick="addPlanSession(currentPlanId)">+ Ajouter séance</button>
+        {% endif %}
       </div>
     
     
@@ -69,7 +132,50 @@
     <div class="zone-item"><div class="zone-dot zone-dot-z5"></div>Z5 VO2max</div>
   </div>
 
-      <div id="plans-detail-weeks"></div>
+      <div id="plans-detail-weeks">
+        {% if hasSelectedPlan %}
+          {% for week in selectedPlanView.weeks %}
+            <div class="week-card">
+              <div class="week-header">
+                <span class="week-num">SEMAINE {{ week.weekNumber }}</span>
+                <span class="week-date">{{ week.weekDate ? week.weekDate|date('d M Y') : '—' }}</span>
+              </div>
+              <div class="week-sessions">
+                {% for session in week.sessions %}
+                  <div class="session-row" data-session-index="{{ session.position - 1 }}">
+                    <div class="session-check{% if session.isDone %} done{% endif %}">
+                      {% if hasSelectedPlan %}
+                        <form method="post" action="{{ path('app_plans_session_toggle', { planId: selectedPlanView.id, sessionId: session.id }) }}">
+                          <input type="hidden" name="_token" value="{{ csrf_token('plans.session.toggle.' ~ session.id) }}">
+                          <button class="action-btn" type="submit" title="Basculer la validation">{% if session.isDone %}✓{% else %}○{% endif %}</button>
+                        </form>
+                      {% else %}
+                        {% if session.isDone %}✓{% endif %}
+                      {% endif %}
+                    </div>
+                    <div class="session-format">{{ session.format }}</div>
+                    <div class="session-meta">
+                      <span class="session-date-badge{% if not session.date %} session-meta-slot--empty{% endif %}"{% if not session.date %} aria-hidden="true"{% endif %}>{{ session.date ? session.date|date('d M Y') : '00 xxx 0000' }}</span>
+                      <span class="session-type-badge{% if not session.sessionType %} session-meta-slot--empty{% endif %}"{% if not session.sessionType %} aria-hidden="true"{% endif %}>{{ session.sessionType ?: 'TYPE' }}</span>
+                      <span class="pe-badge{% if not session.pe %} session-meta-slot--empty{% endif %}"{% if not session.pe %} aria-hidden="true"{% endif %}>PE {{ session.pe ?: '0/10' }}</span>
+                      <span class="duration-badge{% if not session.totalMin %} session-meta-slot--empty{% endif %}"{% if not session.totalMin %} aria-hidden="true"{% endif %}>{{ session.totalMin ?: '00' }}'</span>
+                      {% if session.isOptional %}<span class="optional-tag">(optionnel)</span>{% endif %}
+                      {% if hasSelectedPlan %}
+                        <form method="post" action="{{ path('app_plans_session_delete', { planId: selectedPlanView.id, sessionId: session.id }) }}" onsubmit="return confirm('Supprimer cette séance ?');" style="display:inline-flex; margin-left:8px;">
+                          <input type="hidden" name="_token" value="{{ csrf_token('plans.session.delete.' ~ session.id) }}">
+                          <button class="action-btn del" type="submit" title="Supprimer">🗑</button>
+                        </form>
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          {% else %}
+            <div class="section-sub">Ce plan ne contient aucune séance.</div>
+          {% endfor %}
+        {% endif %}
+      </div>
       <template id="plan-week-card-template">
         <div class="week-card">
           <div class="week-header">
@@ -84,10 +190,10 @@
           <div class="session-check"></div>
           <div class="session-format"></div>
           <div class="session-meta">
-            <span class="session-date-badge" hidden></span>
-            <span class="session-type-badge" hidden></span>
-            <span class="pe-badge" hidden></span>
-            <span class="duration-badge" hidden></span>
+            <span class="session-date-badge session-meta-slot--empty" aria-hidden="true">00 xxx 0000</span>
+            <span class="session-type-badge session-meta-slot--empty" aria-hidden="true">TYPE</span>
+            <span class="pe-badge session-meta-slot--empty" aria-hidden="true">PE 0/10</span>
+            <span class="duration-badge session-meta-slot--empty" aria-hidden="true">00'</span>
             <span class="optional-tag" hidden>(optionnel)</span>
             <div class="action-btns">
               <button class="action-btn session-edit" title="Modifier">✏️</button>
@@ -124,7 +230,8 @@
           <option value="">—</option>
           <option value="EF">EF – Endurance fondamentale</option>
           <option value="FC">FC – Fractionné court</option>
-          <option value="FL">FL – Sortie longue</option>
+          <option value="FL">FL – Fractionné long</option>
+          <option value="SL">SL – Sortie longue</option>
           <option value="T">T – Tempo</option>
           <option value="Race">🏁 Course</option>
         </select>
@@ -176,5 +283,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260522-mobile6"></script>
+<script src="{{ asset('js/app.js') }}?v=20260526-optionaloff1"></script>
 {% endblock %}

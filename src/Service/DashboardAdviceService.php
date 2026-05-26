@@ -7,7 +7,7 @@ use App\Entity\RunLog;
 use App\Entity\User;
 use App\Entity\PlanDetails;
 use App\Repository\PlanDetailsRepository;
-use App\Repository\PlanRepository;
+use App\Repository\PlanProgressRepository;
 use App\Repository\RaceRepository;
 use App\Repository\RunLogRepository;
 
@@ -26,15 +26,15 @@ final class DashboardAdviceService
     /**
      * @param RunLogRepository $runLogs Repository for run logs.
      * @param RaceRepository $races Repository for races.
-     * @param PlanRepository $plans Repository for plans.
      * @param PlanDetailsRepository $planDetails Repository for plan sessions.
+     * @param PlanProgressRepository $planProgress Repository for plan completion state.
      * @param MeteoService $meteo Weather advice provider.
      */
     public function __construct(
         private RunLogRepository $runLogs,
         private RaceRepository $races,
-        private PlanRepository $plans,
         private PlanDetailsRepository $planDetails,
+        private PlanProgressRepository $planProgress,
         private MeteoService $meteo,
     ) {}
 
@@ -74,7 +74,7 @@ final class DashboardAdviceService
      *   daysSince:int,
      *   nextRace:?Race,
      *   nextRaceDays:?int,
-     *   planned:array{pastPending:?PlanDetails,today:?PlanDetails,tomorrow:?PlanDetails}
+    *   planned:array{pastPending:?PlanDetails,today:array<int,PlanDetails>,tomorrow:array<int,PlanDetails>}
      * }
      */
     private function buildContext(User $user): array
@@ -92,7 +92,7 @@ final class DashboardAdviceService
 
         $runsData = $this->extractRunsData($logs, $todayStr, $yesterdayStr, $weekStartStr);
         $nextRaceData = $this->findNextRace($races, $today);
-        $planned = $this->loadPlannedSessionsAroundToday($user, $todayStr, $tomorrowStr);
+        $planned = $this->loadPlannedSessionsAroundToday($user, $todayStr, $tomorrowStr, $logs);
 
         return [
             'today' => $today,
@@ -215,23 +215,39 @@ final class DashboardAdviceService
                 'actionPlanId' => $pendingPlanId,
                 'actionSessionIndex' => $pendingIndex,
             ];
-        } elseif ($planned['today'] !== null) {
+        } elseif (!empty($planned['today'])) {
             $raceHint = ' Pense aussi a verifier la meteo avant de partir.';
             if ($nextRace !== null && $nextRaceDays !== null && $nextRaceDays <= 2) {
                 $dist = $nextRace->getDistance() ?: 'course';
                 $raceHint = sprintf(' Focus course: %s (%s) approche.', $nextRace->getName(), $dist);
             }
 
+            $todayCount = count($planned['today']);
+            $labelText = $this->plannedSessionsLabelList($planned['today']);
+
             $advice = [
                 'title' => 'Seance planifiee aujourd\'hui',
-                'text' => sprintf('Seance "%s" aujourd\'hui.%s', $this->sessionLabel($planned['today']), $raceHint),
+                'text' => sprintf(
+                    '%d seance%s planifiee%s aujourd\'hui: %s.%s',
+                    $todayCount,
+                    $todayCount > 1 ? 's' : '',
+                    $todayCount > 1 ? 's' : '',
+                    $labelText,
+                    $raceHint
+                ),
                 'tone' => 'info',
                 'icon' => '📅',
                 'color' => self::COLOR_INFO,
                 'badge' => 'Aujourd\'hui',
             ];
-        } elseif ($planned['tomorrow'] !== null) {
-            $isIntense = $this->isIntensePlannedSession($planned['tomorrow']);
+        } elseif (!empty($planned['tomorrow'])) {
+            $isIntense = false;
+            foreach ($planned['tomorrow'] as $tomorrowSession) {
+                if ($this->isIntensePlannedSession($tomorrowSession)) {
+                    $isIntense = true;
+                    break;
+                }
+            }
             $advice = $isIntense
                 ? [
                     'title' => 'Demain seance intense',
@@ -484,20 +500,43 @@ final class DashboardAdviceService
     }
 
     /**
-    * @return array{pastPending:?PlanDetails,today:?PlanDetails,tomorrow:?PlanDetails}
+    * @return array{pastPending:?PlanDetails,today:array<int,PlanDetails>,tomorrow:array<int,PlanDetails>}
      */
-    private function loadPlannedSessionsAroundToday(User $user, string $todayStr, string $tomorrowStr): array
+    private function loadPlannedSessionsAroundToday(User $user, string $todayStr, string $tomorrowStr, array $logs = []): array
     {
-        $targetPlan = $this->resolveTargetPlan($user);
-        if ($targetPlan === null) {
-            return ['pastPending' => null, 'today' => null, 'tomorrow' => null];
+        $doneByProgress = [];
+        $progressRows = $this->planProgress->findBy([
+            'user' => $user,
+            'done' => true,
+        ]);
+        foreach ($progressRows as $progress) {
+            $planKey = (string) $progress->getPlanKey();
+            if (!isset($doneByProgress[$planKey])) {
+                $doneByProgress[$planKey] = [];
+            }
+            $doneByProgress[$planKey][$progress->getSessionIndex()] = true;
         }
 
-        $rows = $this->planDetails->findBy(['user' => $user, 'plan' => $targetPlan], ['position' => 'ASC']);
+        // Some historical rows can have stale isDone=false even when a linked run log exists.
+        // Build an in-memory set to avoid false "seance passee non validee" alerts.
+        $validatedByLog = [];
+        foreach ($logs as $log) {
+            if (!$log instanceof RunLog) {
+                continue;
+            }
+
+            $plannedSession = $log->getPlannedSession();
+            $plannedSessionId = $plannedSession?->getId();
+            if ($plannedSessionId !== null) {
+                $validatedByLog[$plannedSessionId] = true;
+            }
+        }
+
+        $rows = $this->planDetails->findBy(['user' => $user], ['sessionDate' => 'ASC', 'position' => 'ASC']);
 
         $pastPending = null;
-        $today = null;
-        $tomorrow = null;
+        $today = [];
+        $tomorrow = [];
 
         foreach ($rows as $row) {
             $d = $row->getSessionDate();
@@ -506,36 +545,46 @@ final class DashboardAdviceService
             }
 
             $date = $d->format('Y-m-d');
+            $rowId = $row->getId();
+            $hasLinkedRunLog = $rowId !== null && isset($validatedByLog[$rowId]);
+            $sessionIndex = max(0, $row->getPosition() - 1);
+            $planId = $row->getPlan()->getId();
+            $planKey = is_int($planId) ? (string) $planId : '';
+            $isDoneByProgress = $planKey !== '' && isset($doneByProgress[$planKey][$sessionIndex]);
 
-            if ($date < $todayStr && !$row->isDone() && ($pastPending === null || $d > $pastPending->getSessionDate())) {
+            if ($date < $todayStr && !$row->isDone() && !$hasLinkedRunLog && !$isDoneByProgress && ($pastPending === null || $d > $pastPending->getSessionDate())) {
                 $pastPending = $row;
             }
 
-            if ($date === $todayStr && $today === null) {
-                $today = $row;
-            } elseif ($date === $tomorrowStr && $tomorrow === null) {
-                $tomorrow = $row;
+            if ($date === $todayStr) {
+                $today[] = $row;
+            } elseif ($date === $tomorrowStr) {
+                $tomorrow[] = $row;
             }
         }
+
+        usort($today, static fn (PlanDetails $a, PlanDetails $b): int => ($a->getPosition() <=> $b->getPosition()));
+        usort($tomorrow, static fn (PlanDetails $a, PlanDetails $b): int => ($a->getPosition() <=> $b->getPosition()));
 
         return ['pastPending' => $pastPending, 'today' => $today, 'tomorrow' => $tomorrow];
     }
 
-    private function resolveTargetPlan(User $user): ?object
+    /** @param array<int,PlanDetails> $sessions */
+    private function plannedSessionsLabelList(array $sessions): string
     {
-        $plans = $this->plans->findBy(['user' => $user], ['id' => 'ASC']);
-        $latestPersonalPlan = null;
-        $starterPlan = null;
-
-        foreach ($plans as $plan) {
-            if ($plan->getName() === 'starter') {
-                $starterPlan = $plan;
-                continue;
+        $labels = [];
+        foreach ($sessions as $session) {
+            $label = $this->sessionLabel($session);
+            if ($label !== '' && !in_array($label, $labels, true)) {
+                $labels[] = $label;
             }
-            $latestPersonalPlan = $plan;
         }
 
-        return $latestPersonalPlan ?? $starterPlan;
+        if ($labels === []) {
+            return 'seance planifiee';
+        }
+
+        return implode(' | ', $labels);
     }
 
     private function sessionLabel(PlanDetails $session): string

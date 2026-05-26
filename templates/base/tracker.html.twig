@@ -125,7 +125,7 @@
   </div>
   <template id="monthly-bar-template">
     <article class="bar-col">
-      <div class="bar" style="background:var(--accent2)"></div>
+      <div class="bar" style="background:var(--accent2)"><span class="bar-value" aria-hidden="true"></span></div>
       <div class="bar-label"></div>
     </article>
   </template>
@@ -261,7 +261,8 @@
           <option value="">â€”</option>
           <option value="EF">EF â€“ Endurance fondamentale</option>
           <option value="FC">FC â€“ FractionnÃ© court</option>
-          <option value="FL">FL â€“ Sortie longue</option>
+          <option value="FL">FL â€“ Fractionné long</option>
+          <option value="SL">SL â€“ Sortie longue</option>
           <option value="T">T â€“ Tempo</option>
           <option value="Race">ðŸ Course</option>
         </select>
@@ -276,7 +277,8 @@
     <button class="filter-btn active" onclick="filterLog('all', this)">Tout</button>
     <button class="filter-btn" onclick="filterLog('EF', this)">EF</button>
     <button class="filter-btn" onclick="filterLog('FC', this)">FractionnÃ©</button>
-    <button class="filter-btn" onclick="filterLog('FL', this)">Longue</button>
+    <button class="filter-btn" onclick="filterLog('FL', this)">Frac. long</button>
+    <button class="filter-btn" onclick="filterLog('SL', this)">Longue</button>
     <button class="filter-btn" onclick="filterLog('Race', this)">Courses</button>
   </div>
 
@@ -399,7 +401,8 @@
           <option value="">â€”</option>
           <option value="EF">EF â€“ Endurance fondamentale</option>
           <option value="FC">FC â€“ FractionnÃ© court</option>
-          <option value="FL">FL â€“ Sortie longue</option>
+          <option value="FL">FL â€“ Fractionné long</option>
+          <option value="SL">SL â€“ Sortie longue</option>
           <option value="T">T â€“ Tempo</option>
           <option value="Race">ðŸ Course</option>
         </select>
