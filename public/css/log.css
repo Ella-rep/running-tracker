@@ -18,7 +18,7 @@
 .filter-btn {
   background: var(--surface);
   border: 1px solid var(--border);
-  color: #fff;
+  color: var(--text);
   padding: 6px 14px;
   border-radius: 6px;
   cursor: pointer;
@@ -30,7 +30,7 @@
 .filter-btn:hover,
 .filter-btn.active {
   border-color: var(--accent2);
-  color: #fff;
+  color: var(--text);
   background: var(--filter-active-bg);
 }
 

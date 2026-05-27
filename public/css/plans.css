@@ -34,7 +34,7 @@
 .zone-dot-z2 { background: var(--z2); }
 .zone-dot-z3 { background: var(--z3); }
 .zone-dot-z4 { background: var(--z4); }
-.zone-dot-z5 { background: var(--accent3); }
+.zone-dot-z5 { background: var(--z5); }
 .zone-z1-text { color: var(--z1); }
 
 .plan-card {
@@ -299,6 +299,8 @@
   padding: 3px 8px;
   border-radius: 999px;
   font-weight: 700;
+  min-width: 54px;
+  text-align: center;
 }
 
 .session-type-badge--dark {
@@ -319,11 +321,6 @@
   justify-content: center;
 }
 
-.session-type-badge {
-  min-width: 54px;
-  text-align: center;
-}
-
 .pe-badge {
   display: inline-flex;
   align-items: center;
@@ -333,8 +330,9 @@
 }
 
 .duration-badge {
-  display: inline-block;
-  min-width: 34px;
+  display: inline-flex;
+  justify-content: flex-end;
+  min-width: 110px;
   text-align: right;
 }
 
@@ -359,6 +357,13 @@
 }
 
 @media (max-width: 640px) {
+  #plan-modal .field input,
+  #plan-modal .field select {
+    height: 48px;
+    min-height: 48px;
+    box-sizing: border-box;
+  }
+
   .session-row {
     display: grid;
     grid-template-columns: 20px minmax(0, 1fr);
@@ -380,13 +385,11 @@
   .session-meta {
     grid-area: meta;
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 6px;
     align-items: center;
     min-width: 0;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: thin;
+    overflow: visible;
   }
 
   .session-meta .action-btns {
@@ -406,10 +409,12 @@
     display: inline-flex;
     align-items: center;
     white-space: nowrap;
+    min-width: 76px;
+    padding: 2px 7px;
   }
 
   .session-date-badge,
-  .session-type-badge,
+  .session-meta .session-type-badge,
   .pe-badge,
   .duration-badge,
   .optional-tag {
@@ -421,7 +426,7 @@
     min-width: 86px;
   }
 
-  .session-type-badge {
+  .session-meta .session-type-badge {
     min-width: 48px;
   }
 
@@ -429,13 +434,8 @@
     min-width: 58px;
   }
 
-  .optional-tag {
-    min-width: 76px;
-    padding: 2px 7px;
-  }
-
   .session-date-badge,
-  .session-type-badge,
+  .session-meta .session-type-badge,
   .pe-badge {
     padding: 2px 7px;
   }

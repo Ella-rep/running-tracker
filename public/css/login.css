@@ -191,6 +191,10 @@ body {
   letter-spacing: 0.1px;
 }
 
+[data-theme="light"] .login-google-btn {
+  color: #1a1f2b;
+}
+
 [data-theme="dark"] .login-google-btn {
   background: #1f2430;
   border-color: #3b4357;

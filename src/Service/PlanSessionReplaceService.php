@@ -41,7 +41,7 @@ final class PlanSessionReplaceService
             ->getQuery()
             ->execute();
 
-        $planStartMonday = $this->getPlanStartMonday($sessions);
+        $weekIndexByMonday = $this->buildTrainingWeekIndexByMonday($sessions);
 
         foreach (array_values($sessions) as $idx => $session) {
             if (!is_array($session)) {
@@ -53,7 +53,7 @@ final class PlanSessionReplaceService
             $detail->setUser($user);
             $detail->setPlan($plan);
             $detail->setPosition($idx + 1);
-            $detail->setSem($this->resolveSem($session, $sessionDate, $planStartMonday));
+            $detail->setSem($this->resolveSem($session, $sessionDate, $weekIndexByMonday));
             $detail->setSessionDate($sessionDate);
             $detail->setFormat($this->asString($session['format'] ?? "45'@Z2", "45'@Z2"));
             $detail->setSessionType($this->extractSessionType($session));
@@ -82,10 +82,13 @@ final class PlanSessionReplaceService
         return false;
     }
 
-    /** @param array<int, array<string, mixed>> $sessions */
-    private function getPlanStartMonday(array $sessions): ?\DateTimeImmutable
+    /**
+     * @param array<int, array<string, mixed>> $sessions
+     * @return array<string, int>
+     */
+    private function buildTrainingWeekIndexByMonday(array $sessions): array
     {
-        $firstDate = null;
+        $mondayKeys = [];
 
         foreach ($sessions as $session) {
             if (!is_array($session)) {
@@ -97,22 +100,28 @@ final class PlanSessionReplaceService
                 continue;
             }
 
-            if ($firstDate === null || $date < $firstDate) {
-                $firstDate = $date;
-            }
+            $mondayKeys[] = $date->setTime(0, 0)->modify('monday this week')->format('Y-m-d');
         }
 
-        return $firstDate?->setTime(0, 0)->modify('monday this week');
+        $uniqueMondayKeys = array_values(array_unique($mondayKeys));
+        sort($uniqueMondayKeys, \SORT_STRING);
+
+        $weekIndexByMonday = [];
+        foreach ($uniqueMondayKeys as $idx => $mondayKey) {
+            $weekIndexByMonday[$mondayKey] = $idx + 1;
+        }
+
+        return $weekIndexByMonday;
     }
 
     /** @param array<string, mixed> $session */
-    private function resolveSem(array $session, ?\DateTimeImmutable $sessionDate, ?\DateTimeImmutable $planStartMonday): ?int
+    private function resolveSem(array $session, ?\DateTimeImmutable $sessionDate, array $weekIndexByMonday): ?int
     {
-        if ($sessionDate && $planStartMonday) {
-            $sessionMonday = $sessionDate->setTime(0, 0)->modify('monday this week');
-            $daysDiff = (int) $planStartMonday->diff($sessionMonday)->format('%r%a');
-
-            return intdiv(max(0, $daysDiff), 7) + 1;
+        if ($sessionDate) {
+            $mondayKey = $sessionDate->setTime(0, 0)->modify('monday this week')->format('Y-m-d');
+            if (array_key_exists($mondayKey, $weekIndexByMonday)) {
+                return $weekIndexByMonday[$mondayKey];
+            }
         }
 
         return $this->nullableInt($session['sem'] ?? null);

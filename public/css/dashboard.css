@@ -1089,6 +1089,10 @@
   color: color-mix(in srgb, var(--proj-tint) 72%, white);
 }
 
+[data-theme="light"] .proj-time {
+  color: color-mix(in srgb, var(--proj-tint) 74%, var(--text));
+}
+
 .proj-pace {
   font-size: 10px;
   color: var(--text-muted);

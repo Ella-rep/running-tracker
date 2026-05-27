@@ -485,8 +485,6 @@ class PlansController extends AbstractController
             ];
         }
 
-        ksort($weeks);
-
         $weekBlocks = [];
         foreach ($weeks as $weekNumber => $weekSessions) {
             usort($weekSessions, static function (array $a, array $b): int {
@@ -513,6 +511,16 @@ class PlansController extends AbstractController
                 'sessions' => $weekSessions,
             ];
         }
+
+        usort($weekBlocks, static function (array $a, array $b): int {
+            $aDate = $a['weekDate'] instanceof \DateTimeInterface ? $a['weekDate']->format('Y-m-d') : '9999-12-31';
+            $bDate = $b['weekDate'] instanceof \DateTimeInterface ? $b['weekDate']->format('Y-m-d') : '9999-12-31';
+            if ($aDate !== $bDate) {
+                return strcmp($aDate, $bDate);
+            }
+
+            return (int) (($a['weekNumber'] ?? 0) <=> ($b['weekNumber'] ?? 0));
+        });
 
         $name = $plan->getName();
 

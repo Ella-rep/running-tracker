@@ -30,6 +30,21 @@ class CoursesController extends AbstractController
         $user = $this->getUser();
         if ($user instanceof User) {
             $races = $raceRepository->findBy(['user' => $user], ['date' => 'ASC']);
+
+            usort($races, static function (Race $a, Race $b): int {
+                $aDone = $a->getStatusClass() === 'badge-done';
+                $bDone = $b->getStatusClass() === 'badge-done';
+                if ($aDone !== $bDone) {
+                    return $aDone ? 1 : -1;
+                }
+
+                $dateCompare = strcmp($a->getDate(), $b->getDate());
+                if ($dateCompare !== 0) {
+                    return $dateCompare;
+                }
+
+                return (int) (($a->getId() ?? 0) <=> ($b->getId() ?? 0));
+            });
         }
 
         return $this->render('courses/index.html.twig', [

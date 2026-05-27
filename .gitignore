@@ -24,4 +24,5 @@
 /runnning-tracker-db/
 
 /.github/
-
+./compose.override.yaml
+./docker/entrypoint.no-composer.sh

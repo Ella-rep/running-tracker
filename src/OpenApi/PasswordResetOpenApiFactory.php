@@ -96,8 +96,36 @@ final class PasswordResetOpenApiFactory implements OpenApiFactoryInterface
             ],
         );
 
+        $recomputeTrainingWeeksAdminOperation = new Operation(
+            operationId: 'postAdminRecomputeTrainingWeeks',
+            tags: ['Admin'],
+            summary: 'Recalculer les semaines d\'entrainement (tous les utilisateurs)',
+            description: 'Operation temporaire de maintenance. Recalcule les index de semaines d\'entrainement pour tous les plans de tous les utilisateurs. Necessite ROLE_ADMIN.',
+            responses: [
+                '200' => new Response(
+                    description: 'Recalcul termine.',
+                    content: new \ArrayObject([
+                        'application/json' => [
+                            'schema' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'message' => ['type' => 'string'],
+                                    'users' => ['type' => 'integer'],
+                                    'plans' => ['type' => 'integer'],
+                                    'sessions' => ['type' => 'integer'],
+                                ],
+                            ],
+                        ],
+                    ]),
+                ),
+                '401' => new Response(description: 'Utilisateur non authentifie.'),
+                '403' => new Response(description: 'Role admin requis.'),
+            ],
+        );
+
         $paths->addPath('/api/auth/reset-password/request', new PathItem(post: $requestResetOperation));
         $paths->addPath('/api/auth/reset-password/confirm', new PathItem(post: $confirmResetOperation));
+        $paths->addPath('/api/admin/plans/recompute-training-weeks', new PathItem(post: $recomputeTrainingWeeksAdminOperation));
 
         return $openApi;
     }

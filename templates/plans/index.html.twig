@@ -114,10 +114,7 @@
 
       <div class="plans-detail-actions">
         {% if hasSelectedPlan %}
-          <form method="post" action="{{ path('app_plans_session_add', { planId: selectedPlanView.id }) }}">
-            <input type="hidden" name="_token" value="{{ csrf_token('plans.session.add.' ~ selectedPlanView.id) }}">
-            <button class="btn btn-small plans-add-session-btn" id="plans-add-session-btn" type="submit">+ Ajouter séance</button>
-          </form>
+          <button class="btn btn-small plans-add-session-btn" id="plans-add-session-btn" type="button" onclick="addPlanSession({{ selectedPlanView.id }})">+ Ajouter séance</button>
         {% else %}
           <button class="btn btn-small plans-add-session-btn" id="plans-add-session-btn" onclick="addPlanSession(currentPlanId)">+ Ajouter séance</button>
         {% endif %}
@@ -221,7 +218,7 @@
 <div class="modal-overlay" id="plan-modal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('plan-modal')">✕</button>
-    <div class="modal-title">Modifier la séance</div>
+    <div class="modal-title" id="plan-modal-title">Modifier la séance</div>
     <input type="hidden" id="pm-statekey"><input type="hidden" id="pm-idx">
     <div class="form-grid form-grid-single">
       <div class="field"><label for="pm-format">Format</label><input type="text" id="pm-format"></div>
@@ -238,7 +235,7 @@
       </div>
       <div class="field"><label for="pm-date">Date</label><input type="date" id="pm-date" placeholder="jj/mm/yyyy" onclick="if(this.showPicker){this.showPicker();}"></div>
       <div class="field"><label for="pm-pe">PE</label><input type="text" id="pm-pe" placeholder="ex: 6/10"></div>
-      <div class="field"><label for="pm-total">Durée totale (min)</label><input type="number" id="pm-total"></div>
+      <div class="field"><label for="pm-total">Temps total (min ou hh:mm:ss)</label><input type="text" id="pm-total" placeholder="45 ou 01:15:00"></div>
       <div class="field field-inline">
         <label for="pm-opt" class="pm-opt-wrap">
           <input type="checkbox" id="pm-opt" class="pm-opt">
@@ -247,7 +244,7 @@
       </div>
     </div>
     <div class="modal-actions">
-      <button class="btn" onclick="savePlanEdit()">Enregistrer</button>
+      <button class="btn" id="plan-modal-save-btn" onclick="savePlanEdit()">Enregistrer</button>
       <button class="btn btn-ghost" onclick="closeModal('plan-modal')">Annuler</button>
     </div>
   </div>
