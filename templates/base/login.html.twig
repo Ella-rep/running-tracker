@@ -3,7 +3,7 @@
 
 {% block stylesheets %}
   <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
-  <link rel="stylesheet" href="{{ asset('css/login.css') }}?v=20260521-login7">
+  <link rel="stylesheet" href="{{ asset('css/login.css') }}?v=20260527-login8">
 {% endblock %}
 
 {% block body %}
@@ -30,6 +30,11 @@
     <div class="login-error" id="auth-error"></div>
     <div class="login-info" id="auth-info"></div>
 
+    <label class="login-remember" id="auth-remember-field">
+      <input type="checkbox" id="auth-remember" checked>
+      <span>Rester connecte (7 jours)</span>
+    </label>
+
     <button class="btn login-submit-btn" id="auth-btn">Se connecter</button>
 
     <div class="login-google-divider"><span>ou</span></div>
@@ -53,5 +58,5 @@
 {% endblock %}
 
 {% block javascripts %}
-  <script src="{{ asset('js/login.js') }}?v=20260521-login8" defer></script>
+  <script src="{{ asset('js/login.js') }}?v=20260527-loginremember1" defer></script>
 {% endblock %}

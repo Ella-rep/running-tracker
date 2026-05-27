@@ -20,7 +20,7 @@
 
     <div class="section-title">Journal de course</div>
     <div class="section-sub" id="log-sub">Chargement…</div>
-    <form class="form-card" method="post" action="{{ path('app_log_create') }}">
+    <form class="form-card" method="post" action="{{ path('app_log_create') }}" id="log-create-form">
       <input type="hidden" name="_token" value="{{ csrf_token('log.create') }}">
       <div class="form-card-head">
         <h3>➕ Ajouter une sortie</h3>
@@ -30,10 +30,18 @@
           <button type="button" id="log-entry-mode-calendar" class="log-entry-mode-btn" aria-pressed="false" onclick="setLogEntryMode('calendar', { openCalendarPicker: true })">Choisir sur le calendrier</button>
         </fieldset>
       </div>
-      <div class="form-grid">
+      <div class="form-grid form-grid-required">
         <div class="field"><label for="log-date">Date</label><input type="date" id="log-date" name="date" placeholder="jj/mm/yyyy"></div>
         <div class="field"><label for="log-km">Distance (km)</label><input type="number" id="log-km" name="km" step="0.01" placeholder="5.00"></div>
-        <div class="field"><label for="log-dur">Durée (hh:mm:ss)</label><input type="text" id="log-dur" name="duration" placeholder="00:45:00"></div>
+        <div class="field">
+          <div class="field-label-row">
+            <label for="log-dur">Durée</label>
+            <button type="button" class="field-help-icon" aria-label="Formats acceptés: 00:45:00, 45:00 ou 45 minutes" title="Formats: 00:45:00, 45:00 ou 45'"><svg class="field-help-icon-svg" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="7"></circle><line x1="8" y1="7" x2="8" y2="11"></line><circle cx="8" cy="4.6" r="0.8"></circle></svg></button>
+          </div>
+          <input type="text" id="log-dur" name="duration" placeholder="00:45:00">
+        </div>
+      </div>
+      <div class="form-grid form-grid-optional">
         <div class="field"><label for="log-dplus">D+ (mètres)</label><input type="number" id="log-dplus" name="dplus" placeholder="0"></div>
         <div class="field"><label for="log-bpm">BPM moy.</label><input type="number" id="log-bpm" name="bpm" placeholder="150"></div>
         <div class="field"><label for="log-type">Type</label>
@@ -64,10 +72,10 @@
           <div class="field-actions-inline">
             <input type="text" id="log-planned-session-text" placeholder="Aucune séance sélectionnée" readonly onclick="openPlannedSessionCalendarPicker('log-date','log-planned-session-text','log-planned-session-id')">
           </div>
-          <input type="hidden" id="log-planned-session-id">
+          <input type="hidden" id="log-planned-session-id" name="plannedSessionId">
         </div>
       </div>
-      <button class="btn" type="submit">Enregistrer</button>
+      <button class="btn" type="button" onclick="addLog()">Enregistrer</button>
     </form>
     <div class="log-toolbar">
       <div class="filter-bar">
@@ -112,14 +120,20 @@
                     <form method="post" action="{{ path('app_log_update', { id: r.id }) }}" style="margin-top:8px; min-width:360px; padding:10px; border:1px solid var(--line); border-radius:12px; background:var(--panel); display:grid; gap:8px;">
                       <input type="hidden" name="_token" value="{{ csrf_token('log.update.' ~ r.id) }}">
                       <div class="form-grid">
-                        <div class="field"><label>Date</label><input type="date" name="date" value="{{ r.date }}" required></div>
-                        <div class="field"><label>Distance (km)</label><input type="number" step="0.01" name="km" value="{{ r.km is not null ? r.km|number_format(2, '.', '') : '' }}" required></div>
-                        <div class="field"><label>Duree (hh:mm:ss)</label><input type="text" name="duration" value="{{ r.duration ?: '' }}" required></div>
-                        <div class="field"><label>D+ (metres)</label><input type="number" name="dplus" value="{{ r.dplus is not null ? r.dplus : '' }}"></div>
-                        <div class="field"><label>BPM moy.</label><input type="number" name="bpm" value="{{ r.bpm is not null ? r.bpm : '' }}"></div>
+                        <div class="field"><label for="log-inline-date-{{ r.id }}">Date</label><input id="log-inline-date-{{ r.id }}" type="date" name="date" value="{{ r.date }}" required></div>
+                        <div class="field"><label for="log-inline-km-{{ r.id }}">Distance (km)</label><input id="log-inline-km-{{ r.id }}" type="number" step="0.01" name="km" value="{{ r.km is not null ? r.km|number_format(2, '.', '') : '' }}" required></div>
                         <div class="field">
-                          <label>Type</label>
-                          <select name="runType">
+                          <div class="field-label-row">
+                            <label for="log-inline-duration-{{ r.id }}">Duree</label>
+                            <button type="button" class="field-help-icon" aria-label="Formats acceptés: 00:45:00, 45:00 ou 45 minutes" title="Formats: 00:45:00, 45:00 ou 45'"><svg class="field-help-icon-svg" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="7"></circle><line x1="8" y1="7" x2="8" y2="11"></line><circle cx="8" cy="4.6" r="0.8"></circle></svg></button>
+                          </div>
+                          <input id="log-inline-duration-{{ r.id }}" type="text" name="duration" value="{{ r.duration ?: '' }}" required>
+                        </div>
+                        <div class="field"><label for="log-inline-dplus-{{ r.id }}">D+ (metres)</label><input id="log-inline-dplus-{{ r.id }}" type="number" name="dplus" value="{{ r.dplus is not null ? r.dplus : '' }}"></div>
+                        <div class="field"><label for="log-inline-bpm-{{ r.id }}">BPM moy.</label><input id="log-inline-bpm-{{ r.id }}" type="number" name="bpm" value="{{ r.bpm is not null ? r.bpm : '' }}"></div>
+                        <div class="field">
+                          <label for="log-inline-type-{{ r.id }}">Type</label>
+                          <select id="log-inline-type-{{ r.id }}" name="runType">
                             <option value="" {{ r.runType is empty ? 'selected' : '' }}>—</option>
                             <option value="EF" {{ r.runType == 'EF' ? 'selected' : '' }}>EF – Endurance fondamentale</option>
                             <option value="FC" {{ r.runType == 'FC' ? 'selected' : '' }}>FC – Fractionne court</option>
@@ -129,10 +143,10 @@
                             <option value="Race" {{ r.runType == 'Race' ? 'selected' : '' }}>Course</option>
                           </select>
                         </div>
-                        <div class="field"><label>Nom de la course</label><input type="text" name="courseName" list="log-course-options" value="{{ r.courseName ?: '' }}"></div>
+                        <div class="field"><label for="log-inline-course-{{ r.id }}">Nom de la course</label><input id="log-inline-course-{{ r.id }}" type="text" name="courseName" list="log-course-options" value="{{ r.courseName ?: '' }}"></div>
                         <div class="field">
-                          <label>Ressenti</label>
-                          <select name="perceivedEffort">
+                          <label for="log-inline-effort-{{ r.id }}">Ressenti</label>
+                          <select id="log-inline-effort-{{ r.id }}" name="perceivedEffort">
                             <option value="" {{ r.perceivedEffort is empty ? 'selected' : '' }}>—</option>
                             <option value="facile" {{ r.perceivedEffort == 'facile' ? 'selected' : '' }}>Facile</option>
                             <option value="moderee" {{ r.perceivedEffort == 'moderee' ? 'selected' : '' }}>Modérée</option>
@@ -170,8 +184,8 @@
           <td class="notes-cell log-effort"></td>
           <td>
             <div class="action-btns">
-              <button class="action-btn log-edit">✏️</button>
-              <button class="action-btn del log-delete">🗑</button>
+              <button class="action-btn log-edit" type="button">✏️</button>
+              <button class="action-btn del log-delete" type="button">🗑</button>
             </div>
           </td>
         </tr>
@@ -184,6 +198,16 @@
 </main>
 
 <div class="notif" id="notif"></div>
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="modal">
+    <div class="modal-title" id="confirm-title">Confirmation</div>
+    <div id="confirm-msg"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="confirmDelete()">Confirmer</button>
+      <button class="btn btn-ghost" onclick="closeConfirm()">Annuler</button>
+    </div>
+  </div>
+</div>
 
 <div class="modal-overlay" id="log-modal">
   <div class="modal">
@@ -193,7 +217,13 @@
     <div class="form-grid">
       <div class="field"><label for="lm-date">Date</label><input type="date" id="lm-date" placeholder="jj/mm/yyyy"></div>
       <div class="field"><label for="lm-km">Distance (km)</label><input type="number" id="lm-km" step="0.01"></div>
-      <div class="field"><label for="lm-dur">Durée (hh:mm:ss)</label><input type="text" id="lm-dur"></div>
+      <div class="field">
+        <div class="field-label-row">
+          <label for="lm-dur">Durée</label>
+          <button type="button" class="field-help-icon" aria-label="Formats acceptés: 00:45:00, 45:00 ou 45 minutes" title="Formats: 00:45:00, 45:00 ou 45'"><svg class="field-help-icon-svg" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="7"></circle><line x1="8" y1="7" x2="8" y2="11"></line><circle cx="8" cy="4.6" r="0.8"></circle></svg></button>
+        </div>
+        <input type="text" id="lm-dur" placeholder="00:45:00">
+      </div>
       <div class="field"><label for="lm-dplus">D+ (mètres)</label><input type="number" id="lm-dplus"></div>
       <div class="field"><label for="lm-bpm">BPM moy.</label><input type="number" id="lm-bpm"></div>
       <div class="field"><label for="lm-type">Type</label>

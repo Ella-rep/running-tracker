@@ -2,7 +2,7 @@
 // API CLIENT — API Platform returns JSON-LD (hydra:member)
 // ============================================================
 const API = '/api';
-let authToken = globalThis.rtAuth?.getToken?.() || localStorage.getItem('rt_token') || null;
+let authToken = globalThis.rtAuth?.getToken?.() || null;
 
 async function apiFetch(path, options = {}) {
   const method = String(options.method || 'GET').toUpperCase();
@@ -10,7 +10,11 @@ async function apiFetch(path, options = {}) {
     'Content-Type': method === 'PATCH' ? 'application/merge-patch+json' : 'application/json',
   };
   if (options.headers) Object.assign(headers, options.headers);
-  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  if (globalThis.rtAuth?.buildAuthHeaders) {
+    Object.assign(headers, globalThis.rtAuth.buildAuthHeaders());
+  } else if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
 
   const res = await fetch(API + path, { ...options, headers });
 
@@ -57,6 +61,7 @@ function logout() {
     globalThis.rtAuth.clearToken();
   } else {
     localStorage.removeItem('rt_token');
+    sessionStorage.removeItem('rt_token');
   }
   authToken = null;
   globalThis.location.href = '/login';
@@ -3632,6 +3637,8 @@ async function toggleSession(stateKey, idx, row) {
     if (!ep) return;
     const previousDone = !!ep.done[idx];
     const nextDone = !previousDone;
+    const detailId = ep.sessions?.[idx]?.detailId;
+    const hasPersistedDetailId = Number.isFinite(Number(detailId));
     ep.done[idx] = nextDone;
     
     // Update UI immediately
@@ -3642,18 +3649,36 @@ async function toggleSession(stateKey, idx, row) {
     notify(nextDone ? '✓ Séance validée !' : 'Séance décochée');
     
     // Save in background (non-blocking)
-    const detailId = ep.sessions?.[idx]?.detailId;
-    const persistDone = Number.isFinite(Number(detailId))
+    const persistDone = hasPersistedDetailId
       ? setPlanSessionDoneInDb(ep.id, detailId, nextDone)
       : replacePlanSessionsInDb(ep.id, ep.sessions, ep.done);
 
     persistDone
-      .then(() => requestDashboardRefresh())
-      .catch((e) => {
+      .then(async () => {
+        if (!nextDone && hasPersistedDetailId) {
+          await deleteLogsLinkedToSession(Number(detailId));
+        }
+
+        await loadPlansFromDb();
+
+        if (String(currentPlanId) === String(ep.id)) {
+          openPlan(ep.id, { pushHistory: false });
+        } else {
+          renderPlansList();
+        }
+
+        requestDashboardRefresh();
+      })
+      .catch(async (e) => {
         ep.done[idx] = previousDone;
         c.classList.toggle('done', previousDone);
         c.textContent = previousDone ? '✓' : '';
-        renderPlansList();
+        await loadPlansFromDb();
+        if (String(currentPlanId) === String(ep.id)) {
+          openPlan(ep.id, { pushHistory: false });
+        } else {
+          renderPlansList();
+        }
         notify('⚠ Erreur de sauvegarde: ' + e.message);
       });
     return;
@@ -4399,6 +4424,19 @@ function fillLogCourseOptions() {
   );
 }
 
+function bindLogFormSubmit() {
+  const form = document.getElementById('log-create-form');
+  if (!(form instanceof HTMLFormElement)) return;
+  if (form.dataset.bound === '1') return;
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    void addLog();
+  });
+
+  form.dataset.bound = '1';
+}
+
 function updateCourseFieldVisibility(typeSelectId, fieldWrapperId, inputId) {
   const typeEl = document.getElementById(typeSelectId);
   const fieldEl = document.getElementById(fieldWrapperId);
@@ -4699,19 +4737,16 @@ async function deleteLog(id,dateStr) {
   askConfirm('Supprimer la sortie ?',formatDate(dateStr),async()=>{
     try {
       const log = logData.find(r => r.id === id);
-      const linkedDetailId = log ? Number(log.plannedSessionId) : NaN;
+      const linkedDetailId = log ? Number(log.plannedSessionId) : Number.NaN;
       await apiFetch(`/run_logs/${id}`,{method:'DELETE'});
       logData=logData.filter(r=>r.id!==id);
-      // Dévalider la séance planifiée liée si elle existe
+      // Dévalider la séance planifiée liée via l'API sessions (synchronise aussi plan_progress)
       if (Number.isFinite(linkedDetailId)) {
         try {
-          await apiFetch(`/plan_details/${linkedDetailId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/merge-patch+json' },
-            body: JSON.stringify({ isDone: false }),
-          });
-        } catch {
-          // Non bloquant
+          const linkedPlanId = await resolvePlanIdForCalendarItem({}, linkedDetailId);
+          await setPlanSessionDoneInDb(linkedPlanId, linkedDetailId, false);
+        } catch (e) {
+          console.warn('linked session invalidate failed', { detailId: linkedDetailId, error: e?.message || String(e) });
         }
       }
       renderLog(); requestDashboardRefresh();
@@ -5061,6 +5096,7 @@ async function initApp() {
   safeRender(renderDashboard, 'dashboard');
   safeRender(setupHomePlanModuleAccordion, 'home-plan-module-accordion');
   safeRender(renderLog, 'log');
+  safeRender(bindLogFormSubmit, 'log-submit-binding');
   safeRender(renderRaces, 'races');
   safeRender(consumeAdviceFocusFromUrl, 'advice-focus-url');
   safeRender(consumePlanEditIntentFromUrl, 'plan-edit-url');

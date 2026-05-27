@@ -25,4 +25,12 @@ class CalendarEventRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    public function countDistinctUsersWithEvents(): int
+    {
+        return (int) $this->createQueryBuilder('e')
+            ->select('COUNT(DISTINCT IDENTITY(e.user))')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
 }

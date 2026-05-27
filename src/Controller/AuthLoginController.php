@@ -26,6 +26,10 @@ final class AuthLoginController extends AbstractController
             $data = json_decode($request->getContent(), true, 512, \JSON_THROW_ON_ERROR);
             $email = strtolower(trim((string) ($data['email'] ?? '')));
             $password = (string) ($data['password'] ?? '');
+            $rememberMe = filter_var($data['rememberMe'] ?? true, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+            if (!is_bool($rememberMe)) {
+                $rememberMe = true;
+            }
             $result = $authLoginService->authenticate($email, $password);
             $response = $this->json($result['payload'], $result['status']);
 
@@ -35,7 +39,7 @@ final class AuthLoginController extends AbstractController
                     $response->headers->setCookie(new Cookie(
                         'BEARER',
                         $token,
-                        new \DateTimeImmutable('+7 days'),
+                        $rememberMe ? new \DateTimeImmutable('+7 days') : 0,
                         '/',
                         null,
                         $request->isSecure(),

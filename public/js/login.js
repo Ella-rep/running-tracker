@@ -88,6 +88,8 @@ function renderAuthMode() {
   const backBtn = document.getElementById('back-to-login-btn');
   const googleBtn = document.getElementById('google-login-btn');
   const googleDivider = document.querySelector('.login-google-divider');
+  const rememberField = document.getElementById('auth-remember-field');
+  const rememberInput = document.getElementById('auth-remember');
 
   document.getElementById('login-mode-label').textContent = config.label;
   document.getElementById('auth-btn').textContent = config.button;
@@ -100,6 +102,11 @@ function renderAuthMode() {
   if (backBtn) backBtn.hidden = !config.showBack;
   if (passwordLabel) passwordLabel.textContent = config.passwordLabel;
   if (passwordInput) passwordInput.autocomplete = getPasswordAutocomplete(mode);
+  if (rememberField) rememberField.hidden = mode !== 'login';
+  if (rememberInput && mode === 'login') {
+    const auth = getAuthHelper();
+    rememberInput.checked = auth?.getRememberPreference ? !!auth.getRememberPreference() : true;
+  }
   // Show Google button only on login screen
   const showGoogle = mode === 'login';
   if (googleBtn) googleBtn.hidden = !showGoogle;
@@ -216,11 +223,11 @@ async function handleReset(password) {
   renderAuthMode();
 }
 
-async function handleLogin(email, password) {
+async function handleLogin(email, password, rememberMe) {
   const loginResponse = await fetch(API + '/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, rememberMe }),
   });
 
   if (!loginResponse.ok) {
@@ -234,9 +241,14 @@ async function handleLogin(email, password) {
   }
   const auth = getAuthHelper();
   if (auth?.setToken) {
-    auth.setToken(token);
+    auth.setToken(token, rememberMe);
+    if (auth.setRememberPreference) {
+      auth.setRememberPreference(rememberMe);
+    }
   } else {
-    localStorage.setItem('rt_token', token);
+    const targetStorage = rememberMe ? localStorage : sessionStorage;
+    targetStorage.setItem('rt_token', token);
+    if (!rememberMe) localStorage.removeItem('rt_token');
   }
   globalThis.location.href = '/';
 }
@@ -245,6 +257,7 @@ async function submitAuth() {
   const username = document.getElementById('auth-username').value.trim();
   const email = document.getElementById('auth-email')?.value.trim() || '';
   const password = document.getElementById('auth-password').value;
+  const rememberMe = !!document.getElementById('auth-remember')?.checked;
   const btn = document.getElementById('auth-btn');
 
   if (!hasRequiredFields(mode, username, email, password)) {
@@ -270,7 +283,7 @@ async function submitAuth() {
       return;
     }
 
-    await handleLogin(email, password);
+    await handleLogin(email, password, rememberMe);
   } catch (error) {
     setFeedback(error.message, '');
     btn.textContent = getModeConfig(mode).button;
@@ -324,7 +337,7 @@ async function redirectIfAlreadyLoggedIn() {
       return;
     }
 
-    const token = localStorage.getItem('rt_token');
+    const token = auth?.getToken ? auth.getToken() : (localStorage.getItem('rt_token') || sessionStorage.getItem('rt_token'));
     if (!token) {
       return;
     }
@@ -339,30 +352,47 @@ async function redirectIfAlreadyLoggedIn() {
   }
 }
 
-function initLoginPage() {
-  const params = new URLSearchParams(globalThis.location.search);
+function applySavedTheme() {
+  if (typeof globalThis.applyTheme === 'function') {
+    globalThis.applyTheme(localStorage.getItem('rt_theme') || 'dark');
+  }
+}
 
-  // Handle Google OAuth callback
+function hydrateGoogleToken(googleToken) {
+  const auth = getAuthHelper();
+  const rememberMe = auth?.getRememberPreference ? !!auth.getRememberPreference() : true;
+  if (auth?.setToken) {
+    auth.setToken(googleToken, rememberMe);
+  } else {
+    (rememberMe ? localStorage : sessionStorage).setItem('rt_token', googleToken);
+    if (!rememberMe) localStorage.removeItem('rt_token');
+  }
+}
+
+function handleGoogleAuthParams(params) {
   const googleToken = params.get('google_token');
   if (googleToken) {
-    const auth = getAuthHelper();
-    if (auth?.setToken) {
-      auth.setToken(googleToken);
-    } else {
-      localStorage.setItem('rt_token', googleToken);
-    }
+    hydrateGoogleToken(googleToken);
     globalThis.location.replace('/');
-    return;
+    return true;
   }
 
   const googleError = params.get('google_error');
   if (googleError) {
-    if (typeof globalThis.applyTheme === 'function') {
-      globalThis.applyTheme(localStorage.getItem('rt_theme') || 'dark');
-    }
+    applySavedTheme();
     bindLoginEvents();
     renderAuthMode();
     setFeedback('Connexion Google échouée : ' + googleError, '');
+    return true;
+  }
+
+  return false;
+}
+
+function initLoginPage() {
+  const params = new URLSearchParams(globalThis.location.search);
+
+  if (handleGoogleAuthParams(params)) {
     return;
   }
 
@@ -372,9 +402,7 @@ function initLoginPage() {
     mode = 'reset';
   }
 
-  if (typeof globalThis.applyTheme === 'function') {
-    globalThis.applyTheme(localStorage.getItem('rt_theme') || 'dark');
-  }
+  applySavedTheme();
   bindLoginEvents();
   renderAuthMode();
   redirectIfAlreadyLoggedIn();

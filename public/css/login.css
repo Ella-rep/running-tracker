@@ -79,6 +79,21 @@ body {
   width: 100%;
 }
 
+.login-remember {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: 'Space Mono', monospace;
+}
+
+.login-remember input {
+  width: 14px;
+  height: 14px;
+}
+
 .login-actions {
   margin-top: 12px;
   text-align: center;

@@ -213,15 +213,40 @@ class LogController extends AbstractController
             return null;
         }
 
-        $parts = array_map('intval', explode(':', trim($duration)));
-        if (count($parts) === 3) {
-            return $parts[0] * 3600 + $parts[1] * 60 + $parts[2];
-        }
-        if (count($parts) === 2) {
-            return $parts[0] * 60 + $parts[1];
+        $raw = trim($duration);
+        if ($raw === '') {
+            return null;
         }
 
-        return null;
+        $candidates = [$raw];
+        if (str_contains($raw, '/')) {
+            foreach (explode('/', $raw) as $part) {
+                $part = trim($part);
+                if ($part !== '') {
+                    $candidates[] = $part;
+                }
+            }
+        }
+
+        $seconds = null;
+        foreach (array_unique($candidates) as $value) {
+            if (preg_match("/^(\\d+)[\\'’]?$/", $value, $m) === 1) {
+                $seconds = (int) $m[1] * 60;
+                break;
+            }
+
+            if (preg_match('/^(\d{1,3}):([0-5]\d):([0-5]\d)$/', $value, $m) === 1) {
+                $seconds = ((int) $m[1]) * 3600 + ((int) $m[2]) * 60 + (int) $m[3];
+                break;
+            }
+
+            if (preg_match('/^(\d{1,3}):([0-5]\d)$/', $value, $m) === 1) {
+                $seconds = ((int) $m[1]) * 60 + (int) $m[2];
+                break;
+            }
+        }
+
+        return $seconds;
     }
 
     private function secondsToMinSec(int $seconds): string

@@ -165,6 +165,100 @@
   white-space: nowrap;
 }
 
+#log-create-form .form-grid {
+  margin-bottom: 12px;
+}
+
+#log-create-form .form-grid-optional {
+  border-top: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  padding-top: 10px;
+  margin-top: 2px;
+  margin-bottom: 20px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+#log-create-form .form-grid-required {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#log .field-label-row {
+  display: block;
+  margin-bottom: 6px;
+  line-height: 1;
+}
+
+#log .field-label-row > label {
+  display: inline;
+  margin-bottom: 0;
+}
+
+#log .field-help-icon {
+  appearance: none;
+  background: color-mix(in srgb, var(--surface2) 72%, var(--surface));
+  padding: 0;
+  display: inline-flex;
+  vertical-align: middle;
+  align-items: center;
+  justify-content: center;
+  width: 10px;
+  height: 10px;
+  margin-left: 4px;
+  margin-top: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  color: color-mix(in srgb, var(--text-muted) 80%, var(--text));
+  cursor: help;
+  transition: border-color .16s ease, color .16s ease, background-color .16s ease, transform .16s ease;
+}
+
+#log .field-help-icon:hover,
+#log .field-help-icon:focus-visible {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent2) 14%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent2) 55%, var(--border));
+  outline: none;
+}
+
+#log .field-help-icon-svg {
+  width: 7px;
+  height: 7px;
+}
+
+#log-create-form .form-grid-required .field > label,
+#log-create-form .form-grid-required .field > .field-label-row {
+  min-height: 16px;
+  display: flex;
+  align-items: center;
+}
+
+#log .field-help-icon-svg circle,
+#log .field-help-icon-svg line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#log .field-help-icon-svg circle:last-child {
+  fill: currentColor;
+  stroke: none;
+}
+
+@media (max-width: 1100px) {
+  #log-create-form .form-grid-required,
+  #log-create-form .form-grid-optional {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  #log-create-form .form-grid-required,
+  #log-create-form .form-grid-optional {
+    grid-template-columns: 1fr;
+  }
+}
+
 .form-card-head {
   display: flex;
   align-items: center;

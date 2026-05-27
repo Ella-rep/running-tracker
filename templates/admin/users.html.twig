@@ -4,11 +4,12 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
-<link rel="stylesheet" href="{{ asset('css/admin.css') }}?v=20260526-admincompact1">
+<link rel="stylesheet" href="{{ asset('css/admin.css') }}?v=20260527-kpi-fixed">
 {% endblock %}
 
 {% block body %}
 {% include 'components/_app_header.html.twig' with { current_page: current_page, username: username } %}
+{% set k = kpis|default({}) %}
 
 <main>
   <section class="admin-users-page visible">
@@ -24,19 +25,68 @@
     <div class="admin-kpi-grid">
       <article class="chart-wrap admin-kpi-card">
         <div class="chart-title">Utilisateurs totaux</div>
-        <div class="admin-kpi-value">{{ kpis.total_users }}</div>
-        <div class="admin-kpi-sub">+{{ kpis.new_users_7d }} sur 7 jours</div>
+        <div class="admin-kpi-value">{{ k.total_users|default(0) }}</div>
+        <div class="admin-kpi-sub">+{{ k.new_users_24h|default(0) }} sur 24h · +{{ k.new_users_7d|default(0) }} sur 7 jours</div>
       </article>
       <article class="chart-wrap admin-kpi-card">
         <div class="chart-title">Runners actifs (7j)</div>
-        <div class="admin-kpi-value">{{ kpis.active_runners_7d }}</div>
-        <div class="admin-kpi-sub">{{ kpis.run_logs_7d }} logs enregistres</div>
+        <div class="admin-kpi-value">{{ k.active_runners_7d|default(0) }}</div>
+        <div class="admin-kpi-sub">{{ k.engagement_rate_7d|default(0) }}% d engagement · {{ k.inactive_users_7d|default(0) }} inactifs</div>
       </article>
       <article class="chart-wrap admin-kpi-card">
         <div class="chart-title">Completion plans</div>
-        <div class="admin-kpi-value">{{ kpis.plan_rate }}%</div>
-        <div class="admin-kpi-sub">{{ kpis.plan_done }} / {{ kpis.plan_total }} seances cochees</div>
+        <div class="admin-kpi-value">{{ k.plan_rate|default(0) }}%</div>
+        <div class="admin-kpi-sub">{{ k.plan_done|default(0) }} / {{ k.plan_total|default(0) }} plans termines</div>
       </article>
+      <article class="chart-wrap admin-kpi-card">
+        <div class="chart-title">Plans ajoutes</div>
+        <div class="admin-kpi-value">{{ k.plans_total|default(0) }}</div>
+        <div class="admin-kpi-sub">{{ k.plans_tracked|default(0) }} suivis dashboard · {{ k.plans_untracked|default(0) }} inactifs</div>
+      </article>
+      <article class="chart-wrap admin-kpi-card">
+        <div class="chart-title">Adoption plan users</div>
+        <div class="admin-kpi-value">{{ k.plan_adoption_rate|default(0) }}%</div>
+        <div class="admin-kpi-sub">{{ k.users_with_plans|default(0) }} users avec plan · {{ k.users_following_plans|default(0) }} avec progression done</div>
+      </article>
+      <article class="chart-wrap admin-kpi-card">
+        <div class="chart-title">Suivi plan inactif</div>
+        <div class="admin-kpi-value">{{ k.users_inactive_plan_progress|default(0) }}</div>
+        <div class="admin-kpi-sub">users avec progression commencée mais jamais terminee</div>
+      </article>
+      <article class="chart-wrap admin-kpi-card">
+        <div class="chart-title">Actions user (7j)</div>
+        <div class="admin-kpi-value">{{ k.user_actions_7d_total|default(0) }}</div>
+        <div class="admin-kpi-sub">Creations: {{ k.user_creates_7d|default(0) }} · Resets: {{ k.password_resets_7d|default(0) }} · Suppressions: {{ k.user_deletions_7d|default(0) }} · {{ k.run_logs_7d|default(0) }} logs</div>
+      </article>
+      <article class="chart-wrap admin-kpi-card">
+        <div class="chart-title">Action dominante (7j)</div>
+        <div class="admin-kpi-value admin-kpi-value-sm">{{ k.top_action_7d_label|default('Aucune action') }}</div>
+        <div class="admin-kpi-sub">{{ k.top_action_7d_count|default(0) }} occurrences</div>
+      </article>
+    </div>
+
+    <div class="chart-wrap admin-feature-usage-card">
+      <div class="chart-title">Utilisation des fonctionnalites (users)</div>
+      <div class="admin-feature-usage-list">
+        {% for feature in feature_usage|default([]) %}
+          {% set feature_total = feature.used + feature.unused %}
+          {% set feature_used_rate = feature_total > 0 ? ((feature.used * 100 / feature_total)|round(1)) : 0 %}
+          <div class="admin-feature-usage-row">
+            <span class="admin-feature-name">{{ feature.name }}</span>
+            <span class="admin-feature-stat">Utilise: <strong>{{ feature.used }}</strong></span>
+            <span class="admin-feature-stat">Non utilise: <strong>{{ feature.unused }}</strong></span>
+            <svg class="admin-feature-graph" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true">
+              <rect class="admin-feature-graph-bg" x="0" y="0" width="100" height="8"></rect>
+              <rect class="admin-feature-graph-fill" x="0" y="0" width="{{ feature_used_rate }}" height="8"></rect>
+            </svg>
+            <span class="admin-feature-graph-label">{{ feature_used_rate }}% utilises</span>
+          </div>
+        {% else %}
+          <div class="admin-feature-usage-row">
+            <span class="admin-feature-name">Aucune donnee d usage disponible pour le moment.</span>
+          </div>
+        {% endfor %}
+      </div>
     </div>
 
     <div class="chart-wrap admin-alerts-card">
@@ -186,6 +236,12 @@
             </td>
             <td>
               <div class="action-btns admin-action-btns admin-action-stack">
+                <button
+                  type="button"
+                  class="action-btn action-btn-text admin-user-kpi-btn"
+                  data-user-id="{{ user.id }}"
+                  data-user-name="{{ user.userIdentifier }}"
+                >KPI</button>
                 <form method="post" action="{{ path('app_admin_users_toggle_admin', { id: user.id, q: search_query, page: page }) }}" class="admin-action-form" onsubmit="return confirm('{{ is_admin ? 'Retirer le role admin de cet utilisateur ?' : 'Donner le role admin a cet utilisateur ?' }}');">
                   <input type="hidden" name="_token" value="{{ csrf_token('admin_toggle_' ~ user.id) }}">
                   <button class="action-btn action-btn-text" type="submit">{{ is_admin ? 'Retirer admin' : 'Passer admin' }}</button>
@@ -281,6 +337,32 @@
         <a class="btn btn-ghost {{ audit_page >= audit_total_pages ? 'is-disabled' : '' }}" href="{{ path('app_admin_users', { q: search_query, page: page, audit_action: audit_filters.action, audit_admin: audit_filters.admin, audit_from: audit_filters.from, audit_to: audit_filters.to, audit_page: audit_next_page }) }}" aria-disabled="{{ audit_page >= audit_total_pages ? 'true' : 'false' }}">Suiv →</a>
       </div>
     </div>
+
+    <div class="modal-overlay" id="admin-user-kpi-modal" aria-hidden="true">
+      <div class="modal admin-user-kpi-modal">
+        <button class="modal-close" type="button" onclick="closeAdminUserKpiModal()">✕</button>
+        <div class="modal-title" id="admin-user-kpi-title">KPI utilisateur</div>
+        <div id="admin-user-kpi-status" class="admin-user-kpi-status">Chargement…</div>
+        <div class="admin-user-kpi-grid" id="admin-user-kpi-grid" hidden>
+          <article class="admin-user-kpi-item">
+            <h4>Plans</h4>
+            <div id="admin-user-kpi-plans"></div>
+          </article>
+          <article class="admin-user-kpi-item">
+            <h4>Logs</h4>
+            <div id="admin-user-kpi-logs"></div>
+          </article>
+          <article class="admin-user-kpi-item">
+            <h4>Courses</h4>
+            <div id="admin-user-kpi-races"></div>
+          </article>
+          <article class="admin-user-kpi-item">
+            <h4>Calendrier</h4>
+            <div id="admin-user-kpi-calendar"></div>
+          </article>
+        </div>
+      </div>
+    </div>
   </section>
 </main>
 {% endblock %}
@@ -298,19 +380,13 @@ async function adminRecomputeTrainingWeeks() {
   status.innerHTML = '';
 
   try {
-    const token = localStorage.getItem('rt_token');
-    if (!token) {
-      status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur:</strong> Token non trouve. Recharge la page.</span>`;
-      btn.disabled = false;
-      btn.textContent = 'Recalculer maintenant';
-      return;
-    }
+    const authHeaders = globalThis.rtAuth?.buildAuthHeaders ? globalThis.rtAuth.buildAuthHeaders() : {};
 
     const response = await fetch('/api/admin/plans/recompute-training-weeks', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + token,
+        ...authHeaders,
       },
       body: '{}',
     });
@@ -349,5 +425,215 @@ async function adminRecomputeTrainingWeeks() {
     btn.textContent = 'Recalculer maintenant';
   }
 }
+
+function closeAdminUserKpiModal() {
+  const overlay = document.getElementById('admin-user-kpi-modal');
+  if (!(overlay instanceof HTMLElement)) return;
+  overlay.classList.remove('open');
+  overlay.setAttribute('aria-hidden', 'true');
+}
+
+function openAdminUserKpiModal() {
+  const overlay = document.getElementById('admin-user-kpi-modal');
+  if (!(overlay instanceof HTMLElement)) return;
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden', 'false');
+}
+
+function setAdminUserKpiStatus(message, isError = false) {
+  const status = document.getElementById('admin-user-kpi-status');
+  const grid = document.getElementById('admin-user-kpi-grid');
+  if (!(status instanceof HTMLElement)) return;
+  status.textContent = message;
+  status.classList.toggle('is-error', isError);
+  if (grid instanceof HTMLElement) {
+    grid.hidden = true;
+  }
+}
+
+function renderAdminUserKpi(data) {
+  const grid = document.getElementById('admin-user-kpi-grid');
+  const status = document.getElementById('admin-user-kpi-status');
+  if (!(grid instanceof HTMLElement) || !(status instanceof HTMLElement)) return;
+
+  const plans = data?.plans || {};
+  const logs = data?.logs || {};
+  const races = data?.courses || {};
+  const calendar = data?.calendar || {};
+  const activePlan = plans?.activePlan || null;
+
+  const planStatusBadge = activePlan 
+    ? `<span class="admin-user-kpi-badge">Plan actif: ${activePlan.name}</span>`
+    : `<span class="admin-user-kpi-badge is-empty">Aucun plan en cours</span>`;
+
+  const plansHtml = `
+    <div class="admin-user-kpi-value">${plans.tracked || 0}</div>
+    <div class="admin-user-kpi-sublabel">plans suivis</div>
+    ${planStatusBadge}
+    <div class="admin-user-kpi-breakdown">
+      <div>Seances: <strong>${plans.sessionsDone || 0}/${plans.sessionsTotal || 0}</strong> (${plans.sessionRate || 0}%)</div>
+    </div>
+  `;
+
+  const logsHtml = `
+    <div class="admin-user-kpi-value">${logs.total || 0}</div>
+    <div class="admin-user-kpi-sublabel">logs au total</div>
+    <div class="admin-user-kpi-breakdown">
+      <div>7j: <strong>${logs.logs7d || 0}</strong></div>
+      <div>Km: <strong>${logs.totalKm || 0}</strong></div>
+      <div>Dernier: <strong>${logs.lastDate || '—'}</strong></div>
+    </div>
+  `;
+
+  const racesHtml = `
+    <div class="admin-user-kpi-value">${races.total || 0}</div>
+    <div class="admin-user-kpi-sublabel">courses planifiees</div>
+    <div class="admin-user-kpi-breakdown">
+      <div>Terminees: <strong>${races.completed || 0}</strong></div>
+      <div>Planifiees: <strong>${races.planned || 0}</strong></div>
+      <div>A venir: <strong>${races.upcoming || 0}</strong></div>
+    </div>
+  `;
+
+  const calendarHtml = `
+    <div class="admin-user-kpi-value">${calendar.events || 0}</div>
+    <div class="admin-user-kpi-sublabel">evenements</div>
+  `;
+
+  const plansEl = document.getElementById('admin-user-kpi-plans');
+  const logsEl = document.getElementById('admin-user-kpi-logs');
+  const racesEl = document.getElementById('admin-user-kpi-races');
+  const calendarEl = document.getElementById('admin-user-kpi-calendar');
+
+  if (plansEl) {
+    plansEl.innerHTML = '';
+    const val = document.createElement('div');
+    val.className = 'admin-user-kpi-value';
+    val.textContent = plans.tracked || 0;
+    plansEl.appendChild(val);
+
+    const label = document.createElement('div');
+    label.className = 'admin-user-kpi-sublabel';
+    label.textContent = 'plans suivis';
+    plansEl.appendChild(label);
+
+    const badge = document.createElement('span');
+    badge.className = activePlan ? 'admin-user-kpi-badge' : 'admin-user-kpi-badge is-empty';
+    badge.textContent = activePlan ? `Plan actif: ${activePlan.name}` : 'Aucun plan en cours';
+    plansEl.appendChild(badge);
+
+    const breakdown = document.createElement('div');
+    breakdown.className = 'admin-user-kpi-breakdown';
+    breakdown.innerHTML = `<div>Seances: <strong>${plans.sessionsDone || 0}/${plans.sessionsTotal || 0}</strong> (${plans.sessionRate || 0}%)</div>`;
+    plansEl.appendChild(breakdown);
+  }
+
+  if (logsEl) {
+    logsEl.innerHTML = '';
+    const val = document.createElement('div');
+    val.className = 'admin-user-kpi-value';
+    val.textContent = logs.total || 0;
+    logsEl.appendChild(val);
+
+    const label = document.createElement('div');
+    label.className = 'admin-user-kpi-sublabel';
+    label.textContent = 'logs total';
+    logsEl.appendChild(label);
+
+    const breakdown = document.createElement('div');
+    breakdown.className = 'admin-user-kpi-breakdown';
+    breakdown.innerHTML = `<div>7j: <strong>${logs.logs7d || 0}</strong></div><div>Km: <strong>${logs.totalKm || 0}</strong></div><div>Dernier: <strong>${logs.lastDate || '—'}</strong></div>`;
+    logsEl.appendChild(breakdown);
+  }
+
+  if (racesEl) {
+    racesEl.innerHTML = '';
+    const val = document.createElement('div');
+    val.className = 'admin-user-kpi-value';
+    val.textContent = races.total || 0;
+    racesEl.appendChild(val);
+
+    const label = document.createElement('div');
+    label.className = 'admin-user-kpi-sublabel';
+    label.textContent = 'courses';
+    racesEl.appendChild(label);
+
+    const breakdown = document.createElement('div');
+    breakdown.className = 'admin-user-kpi-breakdown';
+    breakdown.innerHTML = `<div>Terminees: <strong>${races.completed || 0}</strong></div><div>Planifiees: <strong>${races.planned || 0}</strong></div><div>A venir: <strong>${races.upcoming || 0}</strong></div>`;
+    racesEl.appendChild(breakdown);
+  }
+
+  if (calendarEl) {
+    calendarEl.innerHTML = '';
+    const val = document.createElement('div');
+    val.className = 'admin-user-kpi-value';
+    val.textContent = calendar.events || 0;
+    calendarEl.appendChild(val);
+
+    const label = document.createElement('div');
+    label.className = 'admin-user-kpi-sublabel';
+    label.textContent = 'evenements';
+    calendarEl.appendChild(label);
+  }
+
+  status.textContent = '';
+  status.classList.remove('is-error');
+  grid.hidden = false;
+}
+
+async function loadAdminUserKpi(userId, username) {
+  const title = document.getElementById('admin-user-kpi-title');
+  if (title) {
+    title.textContent = `KPI utilisateur · ${username}`;
+  }
+
+  setAdminUserKpiStatus('Chargement…');
+  openAdminUserKpiModal();
+
+  try {
+    const response = await fetch(`/admin/users/${userId}/kpis`, {
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      setAdminUserKpiStatus(`Erreur ${response.status} lors du chargement des KPI.`, true);
+      return;
+    }
+
+    const payload = await response.json();
+    renderAdminUserKpi(payload || {});
+  } catch (e) {
+    setAdminUserKpiStatus(`Erreur reseau: ${e?.message || 'inconnue'}`, true);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.admin-user-kpi-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const userId = Number.parseInt(btn.getAttribute('data-user-id') || '', 10);
+      const username = String(btn.getAttribute('data-user-name') || 'utilisateur');
+      if (!Number.isFinite(userId)) return;
+      loadAdminUserKpi(userId, username);
+    });
+  });
+
+  const overlay = document.getElementById('admin-user-kpi-modal');
+  if (overlay) {
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) {
+        closeAdminUserKpiModal();
+      }
+    });
+  }
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeAdminUserKpiModal();
+    }
+  });
+});
 </script>
 {% endblock %}

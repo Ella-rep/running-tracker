@@ -7,7 +7,10 @@ use App\Entity\AdminAuditLog;
 use App\Entity\User;
 use App\Repository\AdminAnnouncementRepository;
 use App\Repository\AdminAuditLogRepository;
+use App\Repository\CalendarEventRepository;
+use App\Repository\PlanRepository;
 use App\Repository\PlanProgressRepository;
+use App\Repository\RaceRepository;
 use App\Repository\RunLogRepository;
 use App\Repository\UserRepository;
 use DateTimeImmutable;
@@ -26,6 +29,9 @@ class AdminUserController extends AbstractController
     private const CSRF_ERROR_MESSAGE = 'Token CSRF invalide.';
     private const PER_PAGE = 12;
     private const AUDIT_PER_PAGE = 25;
+    private const LOOKBACK_7_DAYS = '-7 days';
+    private const LOOKBACK_24_HOURS = '-24 hours';
+    private const LOOKBACK_48_HOURS = '-48 hours';
 
     #[Route('', name: 'app_admin_users', methods: ['GET'])]
     public function index(
@@ -33,7 +39,10 @@ class AdminUserController extends AbstractController
         UserRepository $userRepository,
         AdminAuditLogRepository $auditLogs,
         RunLogRepository $runLogRepository,
+        PlanRepository $planRepository,
         PlanProgressRepository $planProgressRepository,
+        RaceRepository $raceRepository,
+        CalendarEventRepository $calendarEventRepository,
         AdminAnnouncementRepository $announcementRepository
     ): Response {
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
@@ -92,20 +101,19 @@ class AdminUserController extends AbstractController
         );
 
         $now = new DateTimeImmutable();
-        $since7d = $now->modify('-7 days');
-        $completion = $planProgressRepository->getCompletionStats();
-        $kpis = [
-            'total_users' => $totalUsers,
-            'new_users_7d' => $userRepository->countCreatedSince($since7d),
-            'active_runners_7d' => $runLogRepository->countDistinctUsersSinceDate($since7d->format('Y-m-d')),
-            'run_logs_7d' => $runLogRepository->countSinceDate($since7d->format('Y-m-d')),
-            'plan_done' => $completion['done'],
-            'plan_total' => $completion['total'],
-            'plan_rate' => $completion['rate'],
-        ];
+        $kpiTotalUsers = (int) $userRepository->count([]);
+        $kpiBundle = $this->buildUserKpiBundle($kpiTotalUsers, $now, [
+            'user' => $userRepository,
+            'audit' => $auditLogs,
+            'runLog' => $runLogRepository,
+            'plan' => $planRepository,
+            'progress' => $planProgressRepository,
+            'race' => $raceRepository,
+            'calendar' => $calendarEventRepository,
+        ]);
 
         $alerts = [];
-        $reset24h = $auditLogs->countActionSince('user_reset_password', $now->modify('-24 hours'));
+        $reset24h = $auditLogs->countActionSince('user_reset_password', $now->modify(self::LOOKBACK_24_HOURS));
         if ($reset24h >= 5) {
             $alerts[] = [
                 'level' => 'warning',
@@ -114,7 +122,7 @@ class AdminUserController extends AbstractController
             ];
         }
 
-        $deletions24h = $auditLogs->countActionSince('user_delete', $now->modify('-24 hours'));
+        $deletions24h = $auditLogs->countActionSince('user_delete', $now->modify(self::LOOKBACK_24_HOURS));
         if ($deletions24h >= 3) {
             $alerts[] = [
                 'level' => 'critical',
@@ -123,7 +131,7 @@ class AdminUserController extends AbstractController
             ];
         }
 
-        if (!$runLogRepository->hasAnyCreatedSince($now->modify('-48 hours'))) {
+        if (!$runLogRepository->hasAnyCreatedSince($now->modify(self::LOOKBACK_48_HOURS))) {
             $alerts[] = [
                 'level' => 'warning',
                 'title' => 'Activite log faible',
@@ -150,7 +158,7 @@ class AdminUserController extends AbstractController
             'per_page' => self::PER_PAGE,
             'total_users' => $totalUsers,
             'total_pages' => $totalPages,
-            'kpis' => $kpis,
+            'kpis' => $kpiBundle['kpis'],
             'alerts' => $alerts,
             'audit_logs' => $auditEntries,
             'audit_total' => $totalAudit,
@@ -164,7 +172,98 @@ class AdminUserController extends AbstractController
             ],
             'audit_actions' => $auditLogs->findDistinctActions(),
             'latest_announcement' => $latestAnnouncement,
+            'feature_usage' => $kpiBundle['feature_usage'],
         ]);
+    }
+
+    /**
+     * @return array{
+     *   kpis: array<string, int|float|string>,
+     *   feature_usage: list<array{name: string, used: int, unused: int}>
+     * }
+     */
+    private function buildUserKpiBundle(int $totalUsers, DateTimeImmutable $now, array $repositories): array {
+        /** @var UserRepository $userRepository */
+        $userRepository = $repositories['user'];
+        /** @var AdminAuditLogRepository $auditLogs */
+        $auditLogs = $repositories['audit'];
+        /** @var RunLogRepository $runLogRepository */
+        $runLogRepository = $repositories['runLog'];
+        /** @var PlanRepository $planRepository */
+        $planRepository = $repositories['plan'];
+        /** @var PlanProgressRepository $planProgressRepository */
+        $planProgressRepository = $repositories['progress'];
+        /** @var RaceRepository $raceRepository */
+        $raceRepository = $repositories['race'];
+        /** @var CalendarEventRepository $calendarEventRepository */
+        $calendarEventRepository = $repositories['calendar'];
+
+        $since7d = $now->modify(self::LOOKBACK_7_DAYS);
+        $since24h = $now->modify(self::LOOKBACK_24_HOURS);
+        $completion = $planRepository->getTrackedPlanCompletionStats();
+        $userActionSummary7d = $auditLogs->getUserActionSummarySince($since7d);
+        $runLogs7d = $runLogRepository->countSinceDate($since7d->format('Y-m-d'));
+        $userActionsCounters7d = [
+            'user_create' => (int) ($userActionSummary7d['create'] ?? 0),
+            'user_reset_password' => (int) ($userActionSummary7d['reset_password'] ?? 0),
+            'user_delete' => (int) ($userActionSummary7d['delete'] ?? 0),
+            'run_log_create' => $runLogs7d,
+        ];
+        $topUserAction7d = $this->resolveTopUserAction($userActionsCounters7d);
+        $userActionsTotal7d = array_sum($userActionsCounters7d);
+        $activeRunners7d = $runLogRepository->countDistinctUsersSinceDate($since7d->format('Y-m-d'));
+        $newUsers24h = $userRepository->countCreatedSince($since24h);
+        $inactiveUsers7d = max(0, $totalUsers - $activeRunners7d);
+        $engagementRate7d = $totalUsers > 0 ? (int) round(($activeRunners7d / $totalUsers) * 100) : 0;
+        $totalPlans = $planRepository->countAllPlans();
+        $trackedPlans = $planRepository->countTrackedPlans();
+        $untrackedPlans = $planRepository->countUntrackedPlans();
+        $usersWithPlans = $planRepository->countDistinctUsersWithPlans();
+        $usersWithAnyProgress = $planProgressRepository->countDistinctUsersWithProgress();
+        $usersFollowingPlans = $planProgressRepository->countDistinctUsersWithDoneProgress();
+        $usersWithInactivePlanProgress = $planProgressRepository->countDistinctUsersWithOnlyUndoneProgress();
+        $usersUsingLogs = $runLogRepository->countDistinctUsersAllTime();
+        $usersUsingRaces = $raceRepository->countDistinctUsersWithRaces();
+        $usersUsingCalendar = $calendarEventRepository->countDistinctUsersWithEvents();
+        $planAdoptionRate = $totalUsers > 0 ? (int) round(($usersWithPlans / $totalUsers) * 100) : 0;
+
+        $featureUsage = [
+            ['name' => 'Journal de sorties', 'used' => $usersUsingLogs, 'unused' => max(0, $totalUsers - $usersUsingLogs)],
+            ['name' => 'Plans d entrainement', 'used' => $usersWithPlans, 'unused' => max(0, $totalUsers - $usersWithPlans)],
+            ['name' => 'Suivi de progression', 'used' => $usersWithAnyProgress, 'unused' => max(0, $totalUsers - $usersWithAnyProgress)],
+            ['name' => 'Courses (objectifs)', 'used' => $usersUsingRaces, 'unused' => max(0, $totalUsers - $usersUsingRaces)],
+            ['name' => 'Calendrier', 'used' => $usersUsingCalendar, 'unused' => max(0, $totalUsers - $usersUsingCalendar)],
+        ];
+
+        return [
+            'kpis' => [
+                'total_users' => $totalUsers,
+                'new_users_7d' => $userRepository->countCreatedSince($since7d),
+                'new_users_24h' => $newUsers24h,
+                'active_runners_7d' => $activeRunners7d,
+                'inactive_users_7d' => $inactiveUsers7d,
+                'engagement_rate_7d' => $engagementRate7d,
+                'run_logs_7d' => $runLogs7d,
+                'plan_done' => $completion['done'],
+                'plan_total' => $completion['total'],
+                'plan_rate' => $completion['rate'],
+                'user_creates_7d' => $userActionSummary7d['create'],
+                'password_resets_7d' => $userActionSummary7d['reset_password'],
+                'user_deletions_7d' => $userActionSummary7d['delete'],
+                'user_actions_7d_total' => $userActionsTotal7d,
+                'top_action_7d' => $topUserAction7d['action'],
+                'top_action_7d_label' => $this->humanizeAuditAction($topUserAction7d['action']),
+                'top_action_7d_count' => $topUserAction7d['count'],
+                'plans_total' => $totalPlans,
+                'plans_tracked' => $trackedPlans,
+                'plans_untracked' => $untrackedPlans,
+                'users_with_plans' => $usersWithPlans,
+                'users_following_plans' => $usersFollowingPlans,
+                'users_inactive_plan_progress' => $usersWithInactivePlanProgress,
+                'plan_adoption_rate' => $planAdoptionRate,
+            ],
+            'feature_usage' => $featureUsage,
+        ];
     }
 
     #[Route('/audit-export.csv', name: 'app_admin_users_audit_export', methods: ['GET'])]
@@ -641,5 +740,41 @@ class AdminUserController extends AbstractController
         }
 
         return $error;
+    }
+
+    private function humanizeAuditAction(?string $action): string
+    {
+        if ($action === null || $action === '') {
+            return 'Aucune action';
+        }
+
+        $labels = [
+            'user_create' => 'Creation utilisateur',
+            'user_reset_password' => 'Reset mot de passe',
+            'user_delete' => 'Suppression utilisateur',
+            'run_log_create' => 'Enregistrement log',
+            'user_toggle_admin' => 'Changement role admin',
+            'announcement_upsert' => 'Mise a jour annonce',
+            'announcement_deactivate' => 'Desactivation annonce',
+        ];
+
+        return $labels[$action] ?? str_replace('_', ' ', $action);
+    }
+
+    /**
+     * @param array<string, int> $summary
+     * @return array{action: string, count: int}
+     */
+    private function resolveTopUserAction(array $summary): array
+    {
+        arsort($summary);
+        $action = (string) array_key_first($summary);
+        $count = (int) ($summary[$action] ?? 0);
+
+        if ($count <= 0) {
+            return ['action' => '', 'count' => 0];
+        }
+
+        return ['action' => $action, 'count' => $count];
     }
 }

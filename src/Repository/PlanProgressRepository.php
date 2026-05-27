@@ -8,6 +8,8 @@ use Doctrine\Persistence\ManagerRegistry;
 
 class PlanProgressRepository extends ServiceEntityRepository
 {
+    private const COUNT_DISTINCT_USERS_EXPR = 'COUNT(DISTINCT IDENTITY(p.user))';
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, PlanProgress::class);
@@ -33,5 +35,34 @@ class PlanProgressRepository extends ServiceEntityRepository
             'total' => $total,
             'rate' => $rate,
         ];
+    }
+
+    public function countDistinctUsersWithProgress(): int
+    {
+        return (int) $this->createQueryBuilder('p')
+            ->select(self::COUNT_DISTINCT_USERS_EXPR)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    public function countDistinctUsersWithDoneProgress(): int
+    {
+        return (int) $this->createQueryBuilder('p')
+            ->select(self::COUNT_DISTINCT_USERS_EXPR)
+            ->andWhere('p.done = true')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    public function countDistinctUsersWithOnlyUndoneProgress(): int
+    {
+        $qb = $this->createQueryBuilder('p')
+            ->select(self::COUNT_DISTINCT_USERS_EXPR)
+            ->andWhere('p.done = false')
+            ->andWhere('IDENTITY(p.user) NOT IN (
+                SELECT IDENTITY(p2.user) FROM App\\Entity\\PlanProgress p2 WHERE p2.done = true
+            )');
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
     }
 }

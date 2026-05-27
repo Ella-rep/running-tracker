@@ -52,6 +52,14 @@ class RunLogRepository extends ServiceEntityRepository {
             ->getSingleScalarResult();
     }
 
+    public function countDistinctUsersAllTime(): int
+    {
+        return (int) $this->createQueryBuilder('r')
+            ->select('COUNT(DISTINCT IDENTITY(r.user))')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     public function hasAnyCreatedSince(DateTimeImmutable $since): bool
     {
         $result = (int) $this->createQueryBuilder('r')

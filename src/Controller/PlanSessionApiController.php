@@ -7,9 +7,12 @@ namespace App\Controller;
 use App\Entity\Plan;
 use App\Entity\PlanDetails;
 use App\Entity\User;
+use App\Entity\PlanProgress;
 use App\Repository\PlanDetailsRepository;
+use App\Repository\PlanProgressRepository;
 use App\Repository\PlanRepository;
 use App\Service\PlanSessionReplaceService;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -26,7 +29,9 @@ final class PlanSessionApiController extends AbstractController
     public function __construct(
         private readonly PlanRepository $planRepository,
         private readonly PlanDetailsRepository $planDetailsRepository,
+        private readonly PlanProgressRepository $planProgressRepository,
         private readonly PlanSessionReplaceService $replaceService,
+        private readonly EntityManagerInterface $entityManager,
     ) {
     }
 
@@ -78,6 +83,31 @@ final class PlanSessionApiController extends AbstractController
             : $targetRow->isDone();
 
         $this->replaceService->replaceForPlan($plan, $user, $sessions, $doneMap);
+
+        if (array_key_exists('done', $patch)) {
+            $planKey = (string) ($plan->getId() ?? '');
+            if ($planKey !== '') {
+                $done = (bool) $doneMap[$sessionIndex];
+                $existing = $this->planProgressRepository->findOneBy([
+                    'user' => $user,
+                    'planKey' => $planKey,
+                    'sessionIndex' => $sessionIndex,
+                ]);
+
+                if ($existing instanceof PlanProgress) {
+                    $existing->setDone($done);
+                    $this->entityManager->flush();
+                } elseif ($done) {
+                    $progress = (new PlanProgress())
+                        ->setUser($user)
+                        ->setPlanKey($planKey)
+                        ->setSessionIndex($sessionIndex)
+                        ->setDone(true);
+                    $this->entityManager->persist($progress);
+                    $this->entityManager->flush();
+                }
+            }
+        }
 
         return $this->json(['message' => 'Session updated.']);
     }
