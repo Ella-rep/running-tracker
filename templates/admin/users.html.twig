@@ -55,7 +55,8 @@
       <div class="chart-title">Centre de communication</div>
       {% if latest_announcement %}
         <p class="admin-announce-current">
-          Derniere annonce: <strong>{{ latest_announcement.message }}</strong>
+          Derniere annonce: <strong class="admin-announce-current-title">{{ latest_announcement.title ?: 'Annonce' }}</strong>
+          <span class="admin-announce-current-message">{{ latest_announcement.message|e|nl2br }}</span>
           (niveau {{ latest_announcement.level }},
           {{ latest_announcement.isActive ? 'active' : 'inactive' }})
         </p>
@@ -63,6 +64,10 @@
 
       <form method="post" action="{{ path('app_admin_announcement_upsert', { q: search_query, page: page }) }}" class="admin-announce-form">
         <input type="hidden" name="_token" value="{{ csrf_token('admin_announcement_upsert') }}">
+        <label class="admin-field">
+          <span>Titre annonce</span>
+          <input type="text" name="title" maxlength="120" value="{{ latest_announcement and latest_announcement.title ? latest_announcement.title : 'Annonce' }}" placeholder="Annonce">
+        </label>
         <label class="admin-field admin-announce-message">
           <span>Message global</span>
           <textarea name="message" minlength="6" maxlength="800" required>{{ latest_announcement ? latest_announcement.message : '' }}</textarea>
@@ -134,6 +139,16 @@
         <button type="submit" class="btn">Rechercher</button>
         <a class="btn btn-ghost" href="{{ path('app_admin_users') }}">Reset</a>
       </form>
+    </div>
+
+    <div class="chart-wrap admin-maintenance-card">
+      <div class="chart-title">Maintenance</div>
+      <div class="admin-maintenance-section">
+        <h4>Recalculer les semaines d'entrainement</h4>
+        <p class="admin-maintenance-desc">Recompute le numero de semaine pour tous les plans de tous les utilisateurs selon les dates de seance. Operation necessaire apres changement de la logique de calcul.</p>
+        <button id="admin-recompute-btn" class="btn" onclick="adminRecomputeTrainingWeeks()">Recalculer maintenant</button>
+        <div id="admin-recompute-status" style="margin-top:12px;"></div>
+      </div>
     </div>
 
     <div class="table-wrap admin-users-table-wrap">
@@ -268,4 +283,71 @@
     </div>
   </section>
 </main>
+{% endblock %}
+
+{% block javascripts %}
+<script src="{{ asset('js/app.js') }}?v=20260527-adminnav1"></script>
+<script>
+async function adminRecomputeTrainingWeeks() {
+  const btn = document.getElementById('admin-recompute-btn');
+  const status = document.getElementById('admin-recompute-status');
+  if (!btn || !status) return;
+
+  btn.disabled = true;
+  btn.textContent = 'En cours...';
+  status.innerHTML = '';
+
+  try {
+    const token = localStorage.getItem('rt_token');
+    if (!token) {
+      status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur:</strong> Token non trouve. Recharge la page.</span>`;
+      btn.disabled = false;
+      btn.textContent = 'Recalculer maintenant';
+      return;
+    }
+
+    const response = await fetch('/api/admin/plans/recompute-training-weeks', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+      },
+      body: '{}',
+    });
+
+    let result;
+    try {
+      result = await response.json();
+    } catch (e) {
+      status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur ${response.status}:</strong> Reponse invalide (pas du JSON)</span>`;
+      btn.disabled = false;
+      btn.textContent = 'Recalculer maintenant';
+      return;
+    }
+
+    if (!response.ok) {
+      status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur ${response.status}:</strong> ${result.message || 'Echec inconnu'}</span>`;
+      btn.disabled = false;
+      btn.textContent = 'Recalculer maintenant';
+      return;
+    }
+
+    const html = `
+      <div style="color:var(--z1);padding:12px;background:color-mix(in srgb, var(--z1) 16%, var(--surface2));border-radius:4px;">
+        <strong>✓ Succes</strong><br>
+        Utilisateurs: ${result.users || 0}<br>
+        Plans: ${result.plans || 0}<br>
+        Seances: ${result.sessions || 0}
+      </div>
+    `;
+    status.innerHTML = html;
+    btn.disabled = false;
+    btn.textContent = 'Recalculer maintenant';
+  } catch (e) {
+    status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur reseau:</strong> ${e.message}</span>`;
+    btn.disabled = false;
+    btn.textContent = 'Recalculer maintenant';
+  }
+}
+</script>
 {% endblock %}

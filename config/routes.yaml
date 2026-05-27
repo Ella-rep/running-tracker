@@ -1,3 +1,7 @@
+admin_routes:
+    resource: ../config/routes/admin.yaml
+    type: yaml
+
 controllers:
     resource:
         path: ../src/Controller/

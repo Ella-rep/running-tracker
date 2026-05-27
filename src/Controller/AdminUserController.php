@@ -366,41 +366,28 @@ class AdminUserController extends AbstractController
         }
 
         $message = trim((string) $request->request->get('message', ''));
+        $title = trim((string) $request->request->get('title', 'Annonce'));
         $levelInput = trim((string) $request->request->get('level', 'info'));
         $level = strtolower($levelInput);
         $isActive = $request->request->getBoolean('is_active', true);
         $startsAtRaw = trim((string) $request->request->get('starts_at', ''));
         $endsAtRaw = trim((string) $request->request->get('ends_at', ''));
 
-        if ($error === null && ($message === '' || mb_strlen($message) < 6)) {
-            $error = 'Annonce trop courte (minimum 6 caracteres).';
+        if ($error === null) {
+            $error = $this->validateAnnouncementText($message, $title);
         }
 
         if ($error === null) {
-            $levelAliases = [
-                'critical' => 'danger',
-                'error' => 'danger',
-                'ok' => 'success',
-            ];
-            $level = $levelAliases[$level] ?? $level;
-
-            if (!in_array($level, ['success', 'info', 'warning', 'danger'], true)) {
+            $level = $this->normalizeAnnouncementLevel($level);
+            if ($level === null) {
                 $error = 'Niveau d annonce invalide.';
             }
         }
 
         $startsAt = $this->parseDateTimeLocal($startsAtRaw);
         $endsAt = $this->parseDateTimeLocal($endsAtRaw);
-        if ($error === null && $startsAtRaw !== '' && $startsAt === null) {
-            $error = 'Date de debut invalide.';
-        }
-
-        if ($error === null && $endsAtRaw !== '' && $endsAt === null) {
-            $error = 'Date de fin invalide.';
-        }
-
-        if ($error === null && $startsAt instanceof DateTimeImmutable && $endsAt instanceof DateTimeImmutable && $endsAt < $startsAt) {
-            $error = 'La date de fin doit etre apres la date de debut.';
+        if ($error === null) {
+            $error = $this->validateAnnouncementDates($startsAtRaw, $endsAtRaw, $startsAt, $endsAt);
         }
 
         if ($error !== null) {
@@ -419,9 +406,13 @@ class AdminUserController extends AbstractController
             $announcement->setCreatedByAdminId($currentUser->getId());
         }
 
+        if (method_exists($announcement, 'setTitle')) {
+            $announcement->setTitle($title);
+        }
+
         $announcement
             ->setMessage($message)
-            ->setLevel($level)
+            ->setLevel((string) $level)
             ->setIsActive($isActive)
             ->setStartsAt($startsAt)
             ->setEndsAt($endsAt)
@@ -601,5 +592,54 @@ class AdminUserController extends AbstractController
         }
 
         return $parsed;
+    }
+
+    private function validateAnnouncementText(string $message, string $title): ?string
+    {
+        if ($message === '' || mb_strlen($message) < 6) {
+            return 'Annonce trop courte (minimum 6 caracteres).';
+        }
+
+        if (mb_strlen($title) > 120) {
+            return 'Titre annonce trop long (120 caracteres max).';
+        }
+
+        return null;
+    }
+
+    private function normalizeAnnouncementLevel(string $level): ?string
+    {
+        $levelAliases = [
+            'critical' => 'danger',
+            'error' => 'danger',
+            'ok' => 'success',
+        ];
+
+        $normalizedLevel = $levelAliases[$level] ?? $level;
+
+        if (!in_array($normalizedLevel, ['success', 'info', 'warning', 'danger'], true)) {
+            return null;
+        }
+
+        return $normalizedLevel;
+    }
+
+    private function validateAnnouncementDates(
+        string $startsAtRaw,
+        string $endsAtRaw,
+        ?DateTimeImmutable $startsAt,
+        ?DateTimeImmutable $endsAt
+    ): ?string {
+        $error = null;
+
+        if ($startsAtRaw !== '' && $startsAt === null) {
+            $error = 'Date de debut invalide.';
+        } elseif ($endsAtRaw !== '' && $endsAt === null) {
+            $error = 'Date de fin invalide.';
+        } elseif ($startsAt instanceof DateTimeImmutable && $endsAt instanceof DateTimeImmutable && $endsAt < $startsAt) {
+            $error = 'La date de fin doit etre apres la date de debut.';
+        }
+
+        return $error;
     }
 }

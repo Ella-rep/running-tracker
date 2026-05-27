@@ -135,6 +135,7 @@ GEO_KEY=
 # Email sortant Symfony Mailer
 MAILER_FROM=no-reply@running-dashboard.app
 MAILER_DSN=smtp://${BREVO_SMTP_LOGIN}:${BREVO_SMTP_KEY}@smtp-relay.brevo.com:587?encryption=tls&auth_mode=login
+CONTACT_EMAIL_TO=contact@exemple.tld
 
 # SMTP Brevo (obligatoire)
 BREVO_SMTP_LOGIN=
@@ -215,6 +216,7 @@ Si vous déployez l'image sans Docker Compose, il faut fournir explicitement les
 | `BREVO_SMTP_KEY` | Oui | Secret | Cle SMTP Brevo |
 | `MAILER_DSN` | Oui | ConfigMap/Secret | DSN Symfony Mailer (construit avec Brevo) |
 | `MAILER_FROM` | Oui | ConfigMap | Expediteur des emails |
+| `CONTACT_EMAIL_TO` | Oui | ConfigMap/Secret | Destinataire interne du formulaire de contact (jamais affiche en UI) |
 
 Variables optionnelles:
 
@@ -252,7 +254,8 @@ kubectl create secret generic runtracker-secrets \
 # Configuration mailer obligatoire (Symfony Mailer + Brevo)
 kubectl create configmap runtracker-mailer \
   --from-literal=MAILER_FROM='no-reply@running-dashboard.app' \
-  --from-literal=MAILER_DSN='smtp://<BREVO_SMTP_LOGIN>:<BREVO_SMTP_KEY>@smtp-relay.brevo.com:587?encryption=tls&auth_mode=login'
+  --from-literal=MAILER_DSN='smtp://<BREVO_SMTP_LOGIN>:<BREVO_SMTP_KEY>@smtp-relay.brevo.com:587?encryption=tls&auth_mode=login' \
+  --from-literal=CONTACT_EMAIL_TO='contact@exemple.tld'
 
 # Clés JWT montées en fichiers
 kubectl create secret generic runtracker-jwt-keys \

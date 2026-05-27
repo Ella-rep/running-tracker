@@ -118,6 +118,31 @@ function setupMobileHeaderNav() {
   });
 }
 
+function setupAnnouncementDismiss() {
+  const announcement = document.querySelector('[data-announcement]');
+  if (!(announcement instanceof HTMLElement)) {
+    return;
+  }
+
+  const signature = String(announcement.dataset.announcementSignature || '').trim();
+  if (signature !== '' && localStorage.getItem('announcement_dismissed_' + signature) === '1') {
+    announcement.remove();
+    return;
+  }
+
+  const dismissBtn = announcement.querySelector('[data-announcement-dismiss]');
+  if (!(dismissBtn instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  dismissBtn.addEventListener('click', () => {
+    if (signature !== '') {
+      localStorage.setItem('announcement_dismissed_' + signature, '1');
+    }
+    announcement.remove();
+  });
+}
+
 
 // ============================================================
 // DATA
@@ -428,15 +453,140 @@ function sessionDateValue(session) {
   return session?.date ?? session?.sessionDate ?? session?.session_date ?? null;
 }
 
+function parseSessionTotalMinutes(raw) {
+  if (raw === null || raw === undefined) return null;
+  const text = String(raw).trim();
+  if (!text) return null;
+
+  if (/^\d+$/.test(text)) {
+    const minutes = Number.parseInt(text, 10);
+    return Number.isFinite(minutes) ? minutes : null;
+  }
+
+  const hms = /^(\d{1,2}):([0-5]\d):([0-5]\d)$/.exec(text);
+  if (hms) {
+    const hours = Number.parseInt(hms[1], 10);
+    const minutes = Number.parseInt(hms[2], 10);
+    const seconds = Number.parseInt(hms[3], 10);
+    const totalSeconds = (hours * 3600) + (minutes * 60) + seconds;
+    return Math.round(totalSeconds / 60);
+  }
+
+  return null;
+}
+
+function formatHmsFromMinutes(totalMinutes) {
+  const minutes = Number.parseInt(totalMinutes, 10);
+  if (!Number.isFinite(minutes) || minutes < 0) return null;
+  const totalSeconds = minutes * 60;
+  const hours = Math.floor(totalSeconds / 3600);
+  const mins = Math.floor((totalSeconds % 3600) / 60);
+  const secs = totalSeconds % 60;
+  return `${hours}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+function formatDurationDualFromMinutes(totalMinutes) {
+  const minutes = Number.parseInt(totalMinutes, 10);
+  if (!Number.isFinite(minutes) || minutes < 0) return null;
+  const hms = formatHmsFromMinutes(minutes);
+  if (!hms) return null;
+  return `${minutes}' / ${hms}`;
+}
+
+function formatDurationDualFromRaw(raw) {
+  const minutes = parseSessionTotalMinutes(raw);
+  if (minutes === null) {
+    const fallback = String(raw || '').trim();
+    return fallback || null;
+  }
+  return formatDurationDualFromMinutes(minutes);
+}
+
+function ensureDurationHintNode(inputId) {
+  const input = document.getElementById(inputId);
+  if (!(input instanceof HTMLInputElement)) return null;
+
+  const hintId = `${inputId}-dual-hint`;
+  let hint = document.getElementById(hintId);
+  if (!(hint instanceof HTMLElement)) {
+    hint = document.createElement('div');
+    hint.id = hintId;
+    hint.style.fontSize = '12px';
+    hint.style.opacity = '0.8';
+    hint.style.marginTop = '4px';
+    hint.style.color = 'var(--text-muted)';
+    input.after(hint);
+  }
+
+  return hint;
+}
+
+function renderDurationDualHint(inputId) {
+  const input = document.getElementById(inputId);
+  const hint = ensureDurationHintNode(inputId);
+  if (!(input instanceof HTMLInputElement) || !(hint instanceof HTMLElement)) return;
+
+  const dual = formatDurationDualFromRaw(input.value);
+  hint.textContent = dual ? `Apercu: ${dual}` : '';
+}
+
+function setupDurationDualHints() {
+  ['pm-total', 'log-dur', 'lm-dur'].forEach((inputId) => {
+    const input = document.getElementById(inputId);
+    if (!(input instanceof HTMLInputElement)) return;
+
+    if (input.dataset.dualHintBound === '1') {
+      renderDurationDualHint(inputId);
+      return;
+    }
+
+    input.addEventListener('input', () => renderDurationDualHint(inputId));
+    input.addEventListener('change', () => renderDurationDualHint(inputId));
+    input.dataset.dualHintBound = '1';
+    renderDurationDualHint(inputId);
+  });
+}
+
 function sessionTotalMinutesValue(session) {
   const raw = session?.total ?? session?.totalMin ?? session?.total_min ?? null;
-  if (raw === null || raw === '') return null;
-  const parsed = Number.parseInt(raw, 10);
-  return Number.isFinite(parsed) ? parsed : null;
+  return parseSessionTotalMinutes(raw);
 }
 
 function sessionOptionalValue(session) {
   return !!(session?.isOptional ?? session?.is_optional ?? session?.optional ?? session?.opt);
+}
+
+function computeSessionWeekNumber(sessions, isoDate, ignoreIndex = null) {
+  const rows = Array.isArray(sessions) ? sessions : [];
+  const datedRows = rows
+    .map((row, idx) => ({ row, idx }))
+    .filter(({ idx }) => ignoreIndex === null || idx !== ignoreIndex)
+    .map(({ row }) => normalizeDateForStorage(sessionDateValue(row)))
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+
+  if (isoDate && datedRows.length) {
+    const toMonday = (iso) => {
+      const d = new Date(`${iso}T00:00:00Z`);
+      const day = d.getUTCDay();
+      const shift = day === 0 ? -6 : 1 - day;
+      d.setUTCDate(d.getUTCDate() + shift);
+      d.setUTCHours(0, 0, 0, 0);
+      return d;
+    };
+
+    const startMonday = toMonday(datedRows[0]);
+    const targetMonday = toMonday(isoDate);
+    const diffDays = Math.round((targetMonday.getTime() - startMonday.getTime()) / 86400000);
+    return Math.max(1, Math.floor(diffDays / 7) + 1);
+  }
+
+  const semValues = rows
+    .map((row, idx) => ({ sem: Number(row?.sem), idx }))
+    .filter(({ sem, idx }) => Number.isFinite(sem) && sem > 0 && (ignoreIndex === null || idx !== ignoreIndex))
+    .map(({ sem }) => sem);
+
+  return semValues.length ? Math.max(...semValues) : 1;
 }
 
 function normalizePlan(r) {
@@ -481,11 +631,11 @@ async function setPlanDashboardTracked(planId, tracked) {
     }
   }
 
-  if (persistedTracked !== null) {
+  if (persistedTracked === null) {
+    notify('⚠ Synchronisation impossible (etat conserve localement)');
+  } else {
     setPlanTrackingOverride(normalizedPlanId, persistedTracked);
     applyPlanTrackedToLocal(normalizedPlanId, persistedTracked);
-  } else {
-    notify('⚠ Synchronisation impossible (etat conserve localement)');
   }
 
   await loadDashboardMetrics();
@@ -563,25 +713,58 @@ async function replacePlanSessionsInDb(planId, sessions, doneMap = {}) {
   });
 }
 
-async function updatePlanDetailInDb(detailId, session) {
+function buildPlanSessionPayload(session) {
+  return {
+    format: session?.format || "45'@Z2",
+    date: normalizeDateForStorage(sessionDateValue(session)) || null,
+    sessionType: normalizeSessionType(session?.sessionType ?? session?.session_type ?? session?.type),
+    pe: session?.pe || null,
+    totalMin: sessionTotalMinutesValue(session),
+    isOptional: sessionOptionalValue(session),
+    optional: sessionOptionalValue(session),
+    opt: sessionOptionalValue(session),
+  };
+}
+
+async function createPlanSessionInDb(planId, session) {
+  await apiFetch(`/plans/${Number(planId)}/sessions`, {
+    method: 'POST',
+    body: JSON.stringify(buildPlanSessionPayload(session)),
+  });
+}
+
+async function updatePlanSessionInDb(planId, detailId, session) {
   const normalizedDetailId = Number(detailId);
   if (!Number.isFinite(normalizedDetailId)) {
-    throw new Error('Seance invalide');
+    throw new TypeError('Seance invalide');
   }
 
-  await apiFetch(`/plan_details/${normalizedDetailId}`, {
+  await apiFetch(`/plans/${Number(planId)}/sessions/${normalizedDetailId}`, {
     method: 'PATCH',
-    body: JSON.stringify({
-      sem: session?.sem ?? null,
-      sessionDate: normalizeDateForStorage(sessionDateValue(session)) || null,
-      format: session?.format || "45'@Z2",
-      sessionType: normalizeSessionType(session?.sessionType ?? session?.session_type ?? session?.type),
-      pe: session?.pe || null,
-      totalMin: sessionTotalMinutesValue(session),
-      isOptional: sessionOptionalValue(session),
-      optional: sessionOptionalValue(session),
-      done: !!session?.isDone,
-    }),
+    body: JSON.stringify(buildPlanSessionPayload(session)),
+  });
+}
+
+async function deletePlanSessionInDb(planId, detailId) {
+  const normalizedDetailId = Number(detailId);
+  if (!Number.isFinite(normalizedDetailId)) {
+    throw new TypeError('Seance invalide');
+  }
+
+  await apiFetch(`/plans/${Number(planId)}/sessions/${normalizedDetailId}`, {
+    method: 'DELETE',
+  });
+}
+
+async function setPlanSessionDoneInDb(planId, detailId, done) {
+  const normalizedDetailId = Number(detailId);
+  if (!Number.isFinite(normalizedDetailId)) {
+    throw new TypeError('Seance invalide');
+  }
+
+  await apiFetch(`/plans/${Number(planId)}/sessions/${normalizedDetailId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ done: !!done }),
   });
 }
 
@@ -2968,7 +3151,7 @@ function getInitialPlanIdFromUrlOrDom() {
 
   const root = document.getElementById('plans');
   if (!root) return null;
-  const raw = String(root.getAttribute('data-initial-plan-id') || '').trim();
+  const raw = String(root.dataset.initialPlanId || '').trim();
   if (!raw) return null;
   const id = Number.parseInt(raw, 10);
   return Number.isFinite(id) ? id : null;
@@ -3223,20 +3406,24 @@ function addPlanSession(planId) {
     notify('⚠ Plan non trouvé');
     return;
   }
-  ep.sessions.push({ sem: 1, date: null, format: "45'@Z2", sessionType: 'EF', pe: '3/10', total: 45, opt: false });
-  replacePlanSessionsInDb(planId, ep.sessions, ep.done)
-    .then(async () => {
-      // Reload plans from DB to ensure sync
-      await loadPlansFromDb();
-      const reloadedPlan = getExtraPlan(planId);
-      if (reloadedPlan) {
-        renderPlan('plans-detail-weeks', reloadedPlan.sessions, `extra:${planId}`);
-      }
-      renderPlansList();
-      requestDashboardRefresh();
-      notify('✓ Séance ajoutée');
-    })
-    .catch((e) => notify(`⚠ ${e.message}`));
+
+  const stateKey = `extra:${planId}`;
+  document.getElementById('pm-statekey').value = stateKey;
+  document.getElementById('pm-idx').value = '-1';
+  document.getElementById('pm-format').value = '';
+  document.getElementById('pm-type').value = '';
+  document.getElementById('pm-date').value = '';
+  document.getElementById('pm-pe').value = '';
+  document.getElementById('pm-total').value = '';
+  renderDurationDualHint('pm-total');
+  document.getElementById('pm-opt').checked = false;
+
+  const titleEl = document.getElementById('plan-modal-title');
+  if (titleEl) titleEl.textContent = 'Nouvelle séance';
+  const saveBtn = document.getElementById('plan-modal-save-btn');
+  if (saveBtn) saveBtn.textContent = 'Créer';
+
+  openModal('plan-modal');
 }
 
 function deletePlan(planId) {
@@ -3282,39 +3469,66 @@ function renderPlan(containerId, data, stateKey) {
     return (a?.__idx ?? 0) - (b?.__idx ?? 0);
   });
 
+  const firstSessionIdx = (block) => {
+    const idx = sortSessionsByDate(block?.sessions || [])[0]?.__idx;
+    return Number.isFinite(Number(idx)) ? Number(idx) : Number.POSITIVE_INFINITY;
+  };
+
   const weekNodes = [];
   const blocks = [];
-  let i = 0;
+  const datedGroups = new Map();
 
-  while (i < data.length) {
-    const sem = Number.isFinite(Number(data[i]?.sem)) ? Number(data[i].sem) : null;
-
-    // Fallback for undated/legacy rows without sem: preserve previous chunking by 4.
-    if (sem === null) {
-      const chunk = data.slice(i, Math.min(i + 4, data.length)).map((s, offset) => ({
-        ...s,
-        __idx: i + offset,
-      }));
-      blocks.push({ sem: null, sessions: chunk });
-      i += 4;
-      continue;
+  data.forEach((session, idx) => {
+    const semValue = Number(session?.sem);
+    if (!Number.isFinite(semValue)) return;
+    if (!datedGroups.has(semValue)) {
+      datedGroups.set(semValue, []);
     }
-
-    const start = i;
-    while (i < data.length && Number(data[i]?.sem) === sem) {
-      i += 1;
-    }
-
-    blocks.push({
-      sem,
-      sessions: data.slice(start, i).map((s, offset) => ({
-        ...s,
-        __idx: start + offset,
-      })),
+    datedGroups.get(semValue).push({
+      ...session,
+      __idx: idx,
     });
+  });
+
+  Array.from(datedGroups.entries())
+    .sort((a, b) => a[0] - b[0])
+    .forEach(([sem, sessions]) => {
+      blocks.push({ sem, sessions });
+    });
+
+  const undated = data
+    .map((session, idx) => ({ session, idx }))
+    .filter(({ session }) => !Number.isFinite(Number(session?.sem)));
+
+  for (let i = 0; i < undated.length; i += 4) {
+    const chunk = undated.slice(i, i + 4).map(({ session, idx }) => ({
+      ...session,
+      __idx: idx,
+    }));
+    blocks.push({ sem: null, sessions: chunk });
   }
 
-  blocks.forEach((block, blockIndex) => {
+  const sortedBlocks = blocks.slice().sort((a, b) => {
+    const aHasSem = Number.isFinite(Number(a.sem));
+    const bHasSem = Number.isFinite(Number(b.sem));
+
+    if (aHasSem && bHasSem) {
+      const semDiff = Number(a.sem) - Number(b.sem);
+      if (semDiff !== 0) return semDiff;
+    } else if (aHasSem !== bHasSem) {
+      // Always keep numbered training weeks before legacy/undated blocks.
+      return aHasSem ? -1 : 1;
+    }
+
+    const aDate = sortSessionsByDate(a.sessions).map((s) => normalizeDateForStorage(sessionDateValue(s))).find(Boolean);
+    const bDate = sortSessionsByDate(b.sessions).map((s) => normalizeDateForStorage(sessionDateValue(s))).find(Boolean);
+    const aValue = aDate ? Date.parse(`${aDate}T00:00:00Z`) : Number.POSITIVE_INFINITY;
+    const bValue = bDate ? Date.parse(`${bDate}T00:00:00Z`) : Number.POSITIVE_INFINITY;
+    if (aValue !== bValue) return aValue - bValue;
+    return firstSessionIdx(a) - firstSessionIdx(b);
+  });
+
+  sortedBlocks.forEach((block, blockIndex) => {
     const sortedSessions = sortSessionsByDate(block.sessions);
     const wd = sortedSessions.map((s) => normalizeDateForStorage(sessionDateValue(s))).find(Boolean);
     const week = cloneTemplate('plan-week-card-template') || document.createElement('div');
@@ -3355,14 +3569,14 @@ function renderPlan(containerId, data, stateKey) {
       }
       if (dateEl) {
         const sessionDate = normalizeDateForStorage(sessionDateValue(s));
-        dateEl.hidden = !sessionDate;
+        dateEl.hidden = false;
         dateEl.classList.toggle('session-meta-slot--empty', !sessionDate);
         dateEl.setAttribute('aria-hidden', sessionDate ? 'false' : 'true');
         dateEl.textContent = sessionDate ? formatDate(sessionDate) : '';
       }
       if (typeEl) {
         const sessionType = normalizeSessionType(s.sessionType ?? s.session_type ?? s.type) || '';
-        typeEl.hidden = !sessionType;
+        typeEl.hidden = false;
         typeEl.classList.toggle('session-meta-slot--empty', !sessionType);
         typeEl.setAttribute('aria-hidden', sessionType ? 'false' : 'true');
         typeEl.textContent = sessionType;
@@ -3373,23 +3587,23 @@ function renderPlan(containerId, data, stateKey) {
         }
       }
       if (peEl) {
-        peEl.hidden = !s.pe;
+        peEl.hidden = false;
         peEl.classList.toggle('session-meta-slot--empty', !s.pe);
         peEl.setAttribute('aria-hidden', s.pe ? 'false' : 'true');
         peEl.textContent = s.pe ? `PE ${s.pe}` : '';
       }
       if (durEl) {
         const totalMinutes = sessionTotalMinutesValue(s);
-        durEl.hidden = !totalMinutes;
+        durEl.hidden = false;
         durEl.classList.toggle('session-meta-slot--empty', !totalMinutes);
         durEl.setAttribute('aria-hidden', totalMinutes ? 'false' : 'true');
-        durEl.textContent = totalMinutes ? `${totalMinutes}'` : '';
+        durEl.textContent = totalMinutes ? (formatDurationDualFromMinutes(totalMinutes) || `${totalMinutes}'`) : '';
       }
       if (optEl) {
         optEl.hidden = false;
         optEl.classList.toggle('session-meta-slot--empty', !realDuration);
         optEl.setAttribute('aria-hidden', realDuration ? 'false' : 'true');
-        optEl.textContent = realDuration ? `Reel ${realDuration}` : '';
+        optEl.textContent = realDuration ? `Reel ${formatDurationDualFromRaw(realDuration) || realDuration}` : '';
       }
       row.addEventListener('click', () => toggleSession(stateKey, idx, row));
       if (editBtn) {
@@ -3416,20 +3630,32 @@ async function toggleSession(stateKey, idx, row) {
   if (stateKey.startsWith('extra:')) {
     const ep = getExtraPlan(stateKey.slice(6));
     if (!ep) return;
-    ep.done[idx] = !ep.done[idx];
+    const previousDone = !!ep.done[idx];
+    const nextDone = !previousDone;
+    ep.done[idx] = nextDone;
     
     // Update UI immediately
     const c = row.querySelector('.session-check');
-    c.classList.toggle('done', !!ep.done[idx]);
-    c.textContent = ep.done[idx] ? '✓' : '';
+    c.classList.toggle('done', nextDone);
+    c.textContent = nextDone ? '✓' : '';
     renderPlansList();
-    notify(ep.done[idx] ? '✓ Séance validée !' : 'Séance décochée');
+    notify(nextDone ? '✓ Séance validée !' : 'Séance décochée');
     
     // Save in background (non-blocking)
-    replacePlanSessionsInDb(ep.id, ep.sessions, ep.done)
-      .then(() => savePlanProgress(String(ep.id), idx, ep.done[idx]))
+    const detailId = ep.sessions?.[idx]?.detailId;
+    const persistDone = Number.isFinite(Number(detailId))
+      ? setPlanSessionDoneInDb(ep.id, detailId, nextDone)
+      : replacePlanSessionsInDb(ep.id, ep.sessions, ep.done);
+
+    persistDone
       .then(() => requestDashboardRefresh())
-      .catch(e => notify('⚠ Erreur de sauvegarde: ' + e.message));
+      .catch((e) => {
+        ep.done[idx] = previousDone;
+        c.classList.toggle('done', previousDone);
+        c.textContent = previousDone ? '✓' : '';
+        renderPlansList();
+        notify('⚠ Erreur de sauvegarde: ' + e.message);
+      });
     return;
   }
 
@@ -3463,62 +3689,141 @@ function openPlanEdit(stateKey, idx) {
   document.getElementById('pm-date').value = normalizeDateForStorage(sessionDateValue(s));
   document.getElementById('pm-pe').value = s.pe || '';
   document.getElementById('pm-total').value = sessionTotalMinutesValue(s) ?? '';
+  renderDurationDualHint('pm-total');
   document.getElementById('pm-opt').checked = sessionOptionalValue(s);
+
+  const titleEl = document.getElementById('plan-modal-title');
+  if (titleEl) titleEl.textContent = 'Modifier la séance';
+  const saveBtn = document.getElementById('plan-modal-save-btn');
+  if (saveBtn) saveBtn.textContent = 'Enregistrer';
+
   openModal('plan-modal');
+}
+
+function readPlanEditPayload() {
+  const format = String(document.getElementById('pm-format').value || '').trim();
+  if (!format) {
+    notify('⚠ Le format est obligatoire');
+    return null;
+  }
+
+  const dateInput = document.getElementById('pm-date').value;
+  const isoDate = normalizeDateForStorage(dateInput);
+  if (dateInput && !isoDate) {
+    notify('⚠ Date invalide (format attendu: yyyy-mm-dd)');
+    return null;
+  }
+
+  const totalRaw = document.getElementById('pm-total').value;
+  const totalMinutes = parseSessionTotalMinutes(totalRaw);
+  if (String(totalRaw || '').trim() !== '' && totalMinutes === null) {
+    notify('⚠ Temps total invalide (attendu: minutes ou hh:mm:ss)');
+    return null;
+  }
+
+  return {
+    format,
+    sessionType: normalizeSessionType(document.getElementById('pm-type').value),
+    date: isoDate || null,
+    pe: String(document.getElementById('pm-pe').value || '').trim() || null,
+    totalMin: totalMinutes,
+    isOptional: document.getElementById('pm-opt').checked,
+    optional: document.getElementById('pm-opt').checked,
+    opt: document.getElementById('pm-opt').checked,
+  };
+}
+
+async function saveExtraPlanEdit(planId, idx, isCreate, sessions, nextSession) {
+  if (isCreate) {
+    await createPlanSessionInDb(planId, nextSession);
+    return;
+  }
+
+  if (Number.isFinite(Number(sessions[idx]?.detailId))) {
+    await updatePlanSessionInDb(planId, sessions[idx].detailId, nextSession);
+    return;
+  }
+
+  if (!sessions[idx]) {
+    throw new TypeError('Seance introuvable');
+  }
+
+  sessions[idx] = {
+    ...sessions[idx],
+    ...nextSession,
+    sem: computeSessionWeekNumber(sessions, nextSession.date, idx),
+  };
+
+  await replacePlanSessionsInDb(planId, sessions, getExtraPlan(planId)?.done || {});
+}
+
+function applyLocalPlanEdit(sessions, idx, isCreate, nextSession) {
+  if (isCreate) {
+    nextSession.sem = computeSessionWeekNumber(sessions, nextSession.date);
+    sessions.push(nextSession);
+    return true;
+  }
+
+  if (!sessions[idx]) {
+    return false;
+  }
+
+  nextSession.sem = computeSessionWeekNumber(sessions, nextSession.date, idx);
+  if (Number.isFinite(Number(sessions[idx]?.detailId))) {
+    nextSession.detailId = sessions[idx].detailId;
+  }
+  sessions[idx] = { ...sessions[idx], ...nextSession };
+  return true;
+}
+
+async function refreshPlanViewAfterSave(planId, stateKey, sessions) {
+  await loadPlansFromDb();
+  const reloadedPlan = getExtraPlan(planId);
+  if (reloadedPlan) {
+    renderPlan('plans-detail-weeks', reloadedPlan.sessions, stateKey);
+  } else {
+    renderPlan('plans-detail-weeks', sessions, stateKey);
+  }
 }
 
 async function savePlanEdit() {
   const sk = document.getElementById('pm-statekey').value;
   const idx = Number.parseInt(document.getElementById('pm-idx').value, 10);
+  const isCreate = !Number.isFinite(idx) || idx < 0;
   const isExtra = sk.startsWith('extra:');
   const planId = isExtra ? sk.slice(6) : null;
   const d = isExtra ? getExtraPlan(planId)?.sessions : [];
-  if (!d?.[idx]) return;
+  if (!Array.isArray(d)) return;
 
-  d[idx].format = document.getElementById('pm-format').value;
-  d[idx].sessionType = normalizeSessionType(document.getElementById('pm-type').value);
-  const dateInput = document.getElementById('pm-date').value;
-  const isoDate = normalizeDateForStorage(dateInput);
-  if (dateInput && !isoDate) {
-    notify('⚠ Date invalide (format attendu: dd/mm/yyyy)');
-    return;
-  }
-  d[idx].date = isoDate || null;
-  d[idx].pe = document.getElementById('pm-pe').value;
-  const totalMinutes = Number.parseInt(document.getElementById('pm-total').value, 10);
-  d[idx].total = Number.isFinite(totalMinutes) ? totalMinutes : null;
-  d[idx].totalMin = d[idx].total;
-  const isOptional = document.getElementById('pm-opt').checked;
-  d[idx].isOptional = isOptional;
-  d[idx].opt = isOptional;
+  const nextSession = readPlanEditPayload();
+  if (!nextSession) return;
 
   if (isExtra) {
     try {
-      if (Number.isFinite(Number(d[idx]?.detailId))) {
-        await updatePlanDetailInDb(d[idx].detailId, d[idx]);
-      } else {
-        // Fallback for transient rows without persisted detail id.
-        await replacePlanSessionsInDb(planId, d, getExtraPlan(planId)?.done || {});
-      }
-      await loadPlansFromDb();
-      const reloadedPlan = getExtraPlan(planId);
-      if (reloadedPlan) {
-        renderPlan('plans-detail-weeks', reloadedPlan.sessions, sk);
-      } else {
-        renderPlan('plans-detail-weeks', d, sk);
-      }
+      await saveExtraPlanEdit(planId, idx, isCreate, d, nextSession);
+      await refreshPlanViewAfterSave(planId, sk, d);
     } catch (e) {
       notify(`⚠ ${e.message}`);
       return;
     }
-  } else {
-    renderPlan('plans-detail-weeks', d, sk);
+
+    renderPlansList();
+    requestDashboardRefresh();
+    closeModal('plan-modal');
+    notify(isCreate ? '✓ Séance créée' : '✓ Séance modifiée');
+    return;
   }
+
+  if (!applyLocalPlanEdit(d, idx, isCreate, nextSession)) {
+    return;
+  }
+
+  renderPlan('plans-detail-weeks', d, sk);
 
   renderPlansList();
   requestDashboardRefresh();
   closeModal('plan-modal');
-  notify('✓ Séance modifiée');
+  notify(isCreate ? '✓ Séance créée' : '✓ Séance modifiée');
 }
 
 function deletePlanSession(sk, idx) {
@@ -3528,20 +3833,39 @@ function deletePlanSession(sk, idx) {
   if (!d?.[idx]) return;
 
   askConfirm('Supprimer la séance ?', `"${d[idx].format}"`, async () => {
-    d.splice(idx, 1);
-
     if (isExtra) {
-      const ep = getExtraPlan(planId);
-      const nextDone = {};
-      Object.entries(ep.done || {}).forEach(([k, v]) => {
-        const ki = Number.parseInt(k, 10);
-        if (ki < idx) nextDone[ki] = v;
-        if (ki > idx) nextDone[ki - 1] = v;
-      });
-      ep.done = nextDone;
-      await replacePlanSessionsInDb(planId, d, ep.done);
+      try {
+        const detailId = d[idx]?.detailId;
+        if (Number.isFinite(Number(detailId))) {
+          await deletePlanSessionInDb(planId, detailId);
+        } else {
+          d.splice(idx, 1);
+          const ep = getExtraPlan(planId);
+          const nextDone = {};
+          Object.entries(ep.done || {}).forEach(([k, v]) => {
+            const ki = Number.parseInt(k, 10);
+            if (ki < idx) nextDone[ki] = v;
+            if (ki > idx) nextDone[ki - 1] = v;
+          });
+          ep.done = nextDone;
+          await replacePlanSessionsInDb(planId, d, ep.done);
+        }
+
+        await loadPlansFromDb();
+        const reloadedPlan = getExtraPlan(planId);
+        if (reloadedPlan) {
+          renderPlan('plans-detail-weeks', reloadedPlan.sessions, sk);
+        }
+        renderPlansList();
+        requestDashboardRefresh();
+        notify('✓ Séance supprimée');
+      } catch (e) {
+        notify(`⚠ ${e.message}`);
+      }
+      return;
     }
 
+    d.splice(idx, 1);
     renderPlan('plans-detail-weeks', d, sk);
     renderPlansList();
     requestDashboardRefresh();
@@ -3788,54 +4112,11 @@ async function toggleSessionDoneFromCalendar(item, nextDone) {
   }
 
   try {
-    const current = await apiFetch(`/plan_details/${detailId}`);
-    let planRef = null;
-    if (typeof current?.plan === 'string') {
-      planRef = current.plan;
-    } else {
-      const rawPlanId = iriToId(current?.plan?.['@id'] || current?.plan?.id);
-      if (Number.isFinite(rawPlanId)) {
-        planRef = `/api/plans/${rawPlanId}`;
-      }
-    }
-    if (!planRef) throw new Error('Plan introuvable');
-
-    const payload = {
-      plan: planRef,
-      position: Number(current?.position || 1),
-      sem: current?.sem ?? null,
-      sessionDate: normalizeDateForStorage(current?.sessionDate) || null,
-      format: current?.format || "45'@Z2",
-      sessionType: normalizeSessionType(current?.sessionType ?? current?.session_type ?? current?.type),
-      pe: current?.pe || null,
-      totalMin: current?.totalMin ?? null,
-      isOptional: !!current?.isOptional,
-      isDone: !!nextDone,
-    };
-
-    await apiFetch(`/plan_details/${detailId}`, {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    });
+    const planId = await resolvePlanIdForCalendarItem(item, detailId);
+    await setPlanSessionDoneInDb(planId, detailId, nextDone);
 
     // Si on dévalide, supprimer les logs liés à cette séance
-    let deletedLogCount = 0;
-    if (!nextDone) {
-      const linkedLogs = (Array.isArray(logData) ? logData : []).filter(
-        (r) => Number(r.plannedSessionId) === detailId,
-      );
-      for (const log of linkedLogs) {
-        try {
-          await apiFetch(`/run_logs/${log.id}`, { method: 'DELETE' });
-          deletedLogCount++;
-        } catch {
-          // Suppression silencieuse en cas d'erreur individuelle
-        }
-      }
-      if (deletedLogCount > 0) {
-        logData = logData.filter((r) => Number(r.plannedSessionId) !== detailId);
-      }
-    }
+    const deletedLogCount = nextDone ? 0 : await deleteLogsLinkedToSession(detailId);
 
     closeModal('calendar-action-modal');
     if (nextDone) {
@@ -3849,6 +4130,44 @@ async function toggleSessionDoneFromCalendar(item, nextDone) {
   } catch (e) {
     notify('⚠ ' + e.message);
   }
+}
+
+async function resolvePlanIdForCalendarItem(item, detailId) {
+  const planIdFromItem = Number.parseInt(item?.planId, 10);
+  if (Number.isFinite(planIdFromItem)) return planIdFromItem;
+
+  const current = await apiFetch(`/plan_details/${detailId}`);
+  if (typeof current?.plan === 'string') {
+    const planIdFromIri = iriToId(current.plan);
+    if (Number.isFinite(planIdFromIri)) return planIdFromIri;
+  }
+
+  const nestedPlanId = iriToId(current?.plan?.['@id'] || current?.plan?.id);
+  if (Number.isFinite(nestedPlanId)) return nestedPlanId;
+
+  throw new Error('Plan introuvable');
+}
+
+async function deleteLogsLinkedToSession(detailId) {
+  const linkedLogs = (Array.isArray(logData) ? logData : []).filter(
+    (r) => Number(r.plannedSessionId) === detailId,
+  );
+
+  let deletedLogCount = 0;
+  for (const log of linkedLogs) {
+    try {
+      await apiFetch(`/run_logs/${log.id}`, { method: 'DELETE' });
+      deletedLogCount++;
+    } catch (e) {
+      console.warn('run_log delete failed', { id: log.id, error: e?.message || String(e) });
+    }
+  }
+
+  if (deletedLogCount > 0) {
+    logData = logData.filter((r) => Number(r.plannedSessionId) !== detailId);
+  }
+
+  return deletedLogCount;
 }
 
 async function saveRaceResultFromCalendar(item, rawResult) {
@@ -4202,7 +4521,7 @@ function buildLogRow(r) {
 
   if (dateEl) dateEl.textContent = formatDate(r.date);
   if (kmEl) kmEl.textContent = r.km?.toFixed(2) || '—';
-  if (durEl) durEl.textContent = r.duration || '—';
+  if (durEl) durEl.textContent = formatDurationDualFromRaw(r.duration) || '—';
   if (allureEl) {
     allureEl.classList.add(ac);
     allureEl.textContent = `${r.allure || '—'}/km`;
@@ -4307,6 +4626,7 @@ async function addLog() {
     await syncPlannedSessionDate(plannedSessionId, date);
     renderLog(); requestDashboardRefresh();
     ['log-km','log-dur','log-dplus','log-bpm','log-course-name'].forEach(id=>document.getElementById(id).value='');
+    renderDurationDualHint('log-dur');
     document.getElementById('log-type').value='';
     document.getElementById('log-effort').value='';
     document.getElementById('log-planned-session-text').value='';
@@ -4335,6 +4655,7 @@ function openLogEdit(id) {
   dateEl.value=r.date||'';
   kmEl.value=r.km||'';
   durEl.value=r.duration||'';
+  renderDurationDualHint('lm-dur');
   dplusEl.value=r.dplus||'';
   bpmEl.value=r.bpm||'';
   typeEl.value=r.run_type||'';
@@ -4638,6 +4959,7 @@ function ensureRaceModals() {
 // ============================================================
 async function initApp() {
   setupMobileHeaderNav();
+  setupAnnouncementDismiss();
 
     // Pré-remplissage du formulaire de log si paramètres dans l’URL
     const urlParams = new URLSearchParams(globalThis.location.search);
@@ -4771,6 +5093,8 @@ async function initApp() {
       });
     }
   });
+
+  setupDurationDualHints();
 
   // Phase 2: deferred loads (non-critical for first paint)
   setDashboardLoadingState(true);

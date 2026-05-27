@@ -180,40 +180,41 @@
 }
 
 .admin-users-table-wrap {
-  overflow-x: auto;
+  overflow-x: hidden;
 }
 
 .admin-users-table {
   width: 100%;
-  min-width: 1180px;
-  table-layout: fixed;
+  min-width: 0;
+  table-layout: auto;
 }
 
 .admin-users-table th,
 .admin-users-table td {
   vertical-align: top;
+  overflow-wrap: anywhere;
 }
 
 .admin-users-table th:nth-child(1),
-.admin-users-table td:nth-child(1) { width: 56px; }
+.admin-users-table td:nth-child(1) { width: auto; }
 
 .admin-users-table th:nth-child(2),
-.admin-users-table td:nth-child(2) { width: 150px; }
+.admin-users-table td:nth-child(2) { width: auto; }
 
 .admin-users-table th:nth-child(3),
-.admin-users-table td:nth-child(3) { width: 220px; word-break: break-word; }
+.admin-users-table td:nth-child(3) { width: auto; word-break: break-word; }
 
 .admin-users-table th:nth-child(4),
-.admin-users-table td:nth-child(4) { width: 98px; }
+.admin-users-table td:nth-child(4) { width: auto; }
 
 .admin-users-table th:nth-child(5),
-.admin-users-table td:nth-child(5) { width: 118px; }
+.admin-users-table td:nth-child(5) { width: auto; }
 
 .admin-users-table th:nth-child(6),
-.admin-users-table td:nth-child(6) { width: 300px; }
+.admin-users-table td:nth-child(6) { width: auto; }
 
 .admin-users-table th:nth-child(7),
-.admin-users-table td:nth-child(7) { width: 240px; }
+.admin-users-table td:nth-child(7) { width: auto; }
 
 .admin-audit-table-wrap {
   overflow-x: auto;
@@ -221,12 +222,13 @@
 
 .admin-reset-form {
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   align-items: center;
 }
 
 .admin-reset-form input {
+  min-width: 0;
   width: 100%;
   background: var(--surface2);
   color: var(--text);
@@ -238,9 +240,21 @@
 .admin-action-btns form,
 .admin-action-form {
   display: grid;
-  grid-template-columns: auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   align-items: center;
+  min-width: 0;
+  width: 100%;
+}
+
+.admin-action-btns .action-btn.action-btn-text,
+.admin-reset-form .action-btn.action-btn-text {
+  width: 100%;
+  min-height: 30px;
+  height: auto;
+  line-height: 1.2;
+  white-space: normal;
+  justify-content: center;
 }
 
 .admin-action-btns input,
@@ -310,6 +324,34 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.admin-maintenance-card {
+  margin-bottom: 24px;
+}
+
+.admin-maintenance-section h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.admin-maintenance-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.admin-announce-current-message {
+  display: block;
+  white-space: pre-line;
+  margin: 4px 0 2px;
+}
+
+.admin-announce-current-title {
+  display: inline-block;
 }
 
 .admin-role {

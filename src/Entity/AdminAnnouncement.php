@@ -9,6 +9,8 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'admin_announcement')]
 class AdminAnnouncement
 {
+    public const DEFAULT_TITLE = 'Annonce';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -16,6 +18,9 @@ class AdminAnnouncement
 
     #[ORM\Column(type: 'text')]
     private string $message = '';
+
+    #[ORM\Column(length: 120, options: ['default' => 'Annonce'])]
+    private string $title = self::DEFAULT_TITLE;
 
     #[ORM\Column(length: 16)]
     private string $level = 'info';
@@ -58,6 +63,19 @@ class AdminAnnouncement
     public function setMessage(string $message): static
     {
         $this->message = trim($message);
+
+        return $this;
+    }
+
+    public function getTitle(): string
+    {
+        return $this->title;
+    }
+
+    public function setTitle(?string $title): static
+    {
+        $clean = trim((string) $title);
+        $this->title = $clean !== '' ? $clean : self::DEFAULT_TITLE;
 
         return $this;
     }

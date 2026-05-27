@@ -23,34 +23,49 @@ final class AdminAnnouncementExtension extends AbstractExtension
     }
 
     /**
-     * @return array{message:string,level:string,endsAt:?string}|null
+     * @return array{title:string,message:string,level:string,endsAt:?string,signature:string}|null
      */
     public function getActiveAdminAnnouncement(): ?array
     {
-        if ($this->cachedAnnouncement !== null) {
-            return $this->cachedAnnouncement;
+        $result = $this->cachedAnnouncement;
+
+        if ($result === null) {
+            $announcement = null;
+            try {
+                $announcement = $this->announcementRepository->findCurrent();
+            } catch (TableNotFoundException) {
+                $announcement = null;
+            } catch (\Throwable) {
+                // Keep header rendering resilient during partial schema updates.
+                $announcement = null;
+            }
+
+            if ($announcement !== null) {
+                $title = method_exists($announcement, 'getTitle')
+                    ? (string) $announcement->getTitle()
+                    : 'Annonce';
+                $endsAt = $announcement->getEndsAt()?->format('d/m/Y H:i');
+                $signature = sha1(
+                    implode('|', [
+                        $title,
+                        $announcement->getLevel(),
+                        $announcement->getMessage(),
+                        $endsAt ?? '',
+                    ])
+                );
+
+                $result = [
+                    'title' => $title,
+                    'message' => $announcement->getMessage(),
+                    'level' => $announcement->getLevel(),
+                    'endsAt' => $endsAt,
+                    'signature' => $signature,
+                ];
+                $this->cachedAnnouncement = $result;
+            }
         }
 
-        try {
-            $announcement = $this->announcementRepository->findCurrent();
-        } catch (TableNotFoundException) {
-            return null;
-        } catch (\Throwable) {
-            // Keep header rendering resilient during partial schema updates.
-            return null;
-        }
-
-        if ($announcement === null) {
-            return null;
-        }
-
-        $this->cachedAnnouncement = [
-            'message' => $announcement->getMessage(),
-            'level' => $announcement->getLevel(),
-            'endsAt' => $announcement->getEndsAt()?->format('d/m/Y H:i'),
-        ];
-
-        return $this->cachedAnnouncement;
+        return $result;
     }
 }
 

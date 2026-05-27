@@ -1,0 +1,69 @@
+.contact-page {
+  display: block;
+  -webkit-overflow-scrolling: touch;
+}
+
+.contact-form {
+  margin-top: 18px;
+}
+
+.contact-flash {
+  margin: 10px 0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+}
+
+.contact-flash-success {
+  background: rgba(39, 176, 124, 0.12);
+  border-color: rgba(39, 176, 124, 0.28);
+  color: var(--text);
+}
+
+.contact-flash-error {
+  background: rgba(217, 106, 116, 0.14);
+  border-color: rgba(217, 106, 116, 0.32);
+  color: var(--text);
+}
+
+.contact-honeypot {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+#contact-message {
+  resize: vertical;
+  min-height: 180px;
+}
+
+@media (max-width: 720px) {
+  html,
+  body {
+    height: auto;
+    overflow-y: auto;
+  }
+
+  main {
+    overflow: visible;
+    -webkit-overflow-scrolling: touch;
+    padding: 18px 14px 28px;
+  }
+
+  .contact-page {
+    min-height: calc(100dvh - 120px);
+    padding-bottom: 12px;
+  }
+
+  .contact-form {
+    overflow: visible;
+  }
+
+  .contact-page .form-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -55,6 +55,7 @@ services:
       BREVO_SMTP_LOGIN: ${BREVO_SMTP_LOGIN:-}
       BREVO_SMTP_KEY: ${BREVO_SMTP_KEY:-}
       MAILER_FROM: ${MAILER_FROM:-no-reply@running-dashboard.app}
+      CONTACT_EMAIL_TO: ${CONTACT_EMAIL_TO:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       

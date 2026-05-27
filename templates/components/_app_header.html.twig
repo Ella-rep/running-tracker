@@ -21,6 +21,7 @@
     <a href="{{ path('app_plans') }}" class="nav-link{{ current_page == 'plans' ? ' active' : '' }}">Plans</a>
     <a href="{{ path('app_log') }}" class="nav-link{{ current_page == 'log' ? ' active' : '' }}">Log</a>
     <a href="{{ path('app_courses') }}" class="nav-link{{ current_page == 'courses' ? ' active' : '' }}">Courses</a>
+    <a href="{{ path('app_contact') }}" class="nav-link{{ current_page == 'contact' ? ' active' : '' }}">Contact</a>
     {% if is_granted('ROLE_ADMIN') %}
       <a
         id="admin-nav-link"
@@ -40,13 +41,27 @@
 
 {% set announcement = active_admin_announcement() %}
 {% if announcement %}
-  <output class="global-announcement announcement-{{ announcement.level|default('info') }}" aria-live="polite">
+  {% set level = announcement.level|default('info') %}
+  {% set bs_level = level %}
+  {% if level == 'critical' %}
+    {% set bs_level = 'danger' %}
+  {% endif %}
+  <output
+    class="global-announcement alert alert-{{ bs_level }} alert-dismissible fade show"
+    data-announcement
+    data-announcement-signature="{{ announcement.signature|default('') }}"
+    aria-live="polite"
+    role="alert"
+  >
     <div class="global-announcement-inner">
-      <span class="global-announcement-label">Annonce</span>
-      <span>{{ announcement.message }}</span>
+      <div class="global-announcement-content">
+        <span class="global-announcement-label">{{ announcement.title|default('Annonce') }}</span>
+        <span class="global-announcement-message">{{ announcement.message|e|nl2br }}</span>
+      </div>
       {% if announcement.endsAt %}
         <span class="global-announcement-expiry">Jusqu'au {{ announcement.endsAt }}</span>
       {% endif %}
+      <button type="button" class="global-announcement-close" data-announcement-dismiss aria-label="Fermer l'annonce">×</button>
     </div>
   </output>
 {% endif %}

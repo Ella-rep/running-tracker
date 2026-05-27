@@ -77,94 +77,110 @@
   }
 
   .global-announcement {
-    width: 100%;
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
+    width: min(1200px, calc(100% - 64px));
+    margin: 12px auto 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
     background: var(--surface);
     color: var(--text);
   }
 
-  .announcement-success {
-    border-top-color: #badbcc;
-    border-bottom-color: #badbcc;
-    background: #d1e7dd;
+  .global-announcement.alert-success {
+    border-color: #badbcc;
+    background: #d4edda;
     color: #0f5132;
   }
 
-  .announcement-info {
-    border-top-color: #b6effb;
-    border-bottom-color: #b6effb;
-    background: #cff4fc;
+  .global-announcement.alert-info {
+    border-color: #b6effb;
+    background: #d1ecf1;
     color: #055160;
   }
 
-  .announcement-warning {
-    border-top-color: #ffecb5;
-    border-bottom-color: #ffecb5;
+  .global-announcement.alert-warning {
+    border-color: #ffecb5;
     background: #fff3cd;
     color: #664d03;
   }
 
-  .announcement-danger,
-  .announcement-critical {
-    border-top-color: #f5c2c7;
-    border-bottom-color: #f5c2c7;
+  .global-announcement.alert-danger {
+    border-color: #f5c2c7;
     background: #f8d7da;
     color: #842029;
   }
 
   .global-announcement-inner {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 10px 32px;
+    max-width: none;
+    margin: 0;
+    padding: 12px 14px;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 10px;
     font-size: 13px;
     line-height: 1.4;
   }
 
+  .global-announcement.alert {
+    border-radius: 12px;
+    margin: 12px auto 0;
+  }
+
+  .global-announcement-message {
+    flex: 1 1 auto;
+    white-space: pre-line;
+  }
+
+  .global-announcement-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
   .global-announcement-label {
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 700;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    padding: 2px 7px;
-    border-radius: 999px;
-    border: 1px solid transparent;
+    letter-spacing: 0;
+    text-transform: none;
+    padding: 0;
+    border-radius: 0;
+    border: none;
+    background: transparent;
   }
 
   .global-announcement-expiry {
-    margin-left: auto;
+    margin-left: 10px;
     font-size: 12px;
     color: currentColor;
     opacity: 0.9;
+    white-space: nowrap;
   }
 
-  .announcement-success .global-announcement-label {
-    color: #0f5132;
-    border-color: #75b798;
-    background: #bfdccc;
+  .global-announcement-close {
+    margin-left: 8px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.7;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    flex: 0 0 auto;
   }
 
-  .announcement-info .global-announcement-label {
-    color: #055160;
-    border-color: #6edff6;
-    background: #b9edf7;
+  .global-announcement-close:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.08);
   }
 
-  .announcement-warning .global-announcement-label {
-    color: #664d03;
-    border-color: #ffda6a;
-    background: #ffe9a6;
-  }
-
-  .announcement-danger .global-announcement-label,
-  .announcement-critical .global-announcement-label {
-    color: #842029;
-    border-color: #ea868f;
-    background: #f1c2c7;
-  }
+  .global-announcement.alert-success .global-announcement-label { color: #0f5132; }
+  .global-announcement.alert-info .global-announcement-label { color: #055160; }
+  .global-announcement.alert-warning .global-announcement-label { color: #664d03; }
+  .global-announcement.alert-danger .global-announcement-label { color: #842029; }
 
   /* MAIN */
   main {
@@ -181,14 +197,31 @@
   }
 
   @media (max-width: 640px) {
+    .global-announcement {
+      width: calc(100% - 24px);
+      margin-top: 10px;
+      border-radius: 10px;
+    }
+
     .global-announcement-inner {
-      padding: 10px 14px;
+      padding: 10px 12px;
       flex-wrap: wrap;
+    }
+
+    .global-announcement-message {
+      width: 100%;
+      order: 2;
     }
 
     .global-announcement-expiry {
       margin-left: 0;
       width: 100%;
+      order: 3;
+    }
+
+    .global-announcement-close {
+      margin-left: auto;
+      order: 1;
     }
   }
 
@@ -314,6 +347,29 @@
     font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     text-align: center;
     line-height: 1.2;
+  }
+
+  @media (max-width: 480px) {
+    .bar-chart {
+      gap: 3px;
+      height: 100px;
+    }
+
+    .bar-label {
+      font-size: 7px;
+      line-height: 1;
+      word-break: break-word;
+    }
+
+    .bar-value {
+      font-size: 10px;
+      top: 4px;
+    }
+
+    .bar--tiny .bar-value {
+      font-size: 8px;
+      bottom: calc(100% + 3px);
+    }
   }
 
   /* COURSES TABLE */

@@ -1,0 +1,62 @@
+{% extends 'base/layout.html.twig' %}
+{% block title %}Contact - Running Tracker{% endblock %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
+<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
+<link rel="stylesheet" href="{{ asset('css/contact.css') }}?v=20260527-contact1">
+{% endblock %}
+
+{% block body %}
+{% include 'components/_app_header.html.twig' with { current_page: 'contact', username: username } %}
+
+<main>
+  <section class="contact-page visible">
+    <div class="section-title">Contact</div>
+    <div class="section-sub">Un besoin, une idee, un bug, une question ? Envoie-nous un message.</div>
+
+    {% for label, messages in app.flashes %}
+      {% for message in messages %}
+        <div class="contact-flash contact-flash-{{ label == 'error' ? 'error' : 'success' }}">{{ message }}</div>
+      {% endfor %}
+    {% endfor %}
+
+    <form class="form-card contact-form" method="post" action="{{ path('app_contact_send') }}">
+      <input type="hidden" name="_token" value="{{ csrf_token('contact.send') }}">
+      <input type="hidden" name="started_at" value="{{ contactStartedAt }}">
+      <div class="contact-honeypot" aria-hidden="true">
+        <label for="contact-company">Entreprise</label>
+        <input id="contact-company" type="text" name="company" tabindex="-1" autocomplete="off">
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label for="contact-motif">Motif</label>
+          <select id="contact-motif" name="motif" required>
+            <option value="">Selectionner</option>
+            {% for value, label in motifs %}
+              <option value="{{ value }}" {{ oldForm.motif|default('') == value ? 'selected' : '' }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="contact-subject">Sujet</label>
+          <input id="contact-subject" type="text" name="subject" maxlength="180" required placeholder="Ex: Proposer un nouveau widget" value="{{ oldForm.subject|default('') }}">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="contact-message">Message</label>
+        <textarea id="contact-message" name="message" rows="8" maxlength="5000" required placeholder="Decris ton besoin de facon detaillee...">{{ oldForm.message|default('') }}</textarea>
+      </div>
+
+      <button class="btn" type="submit">Envoyer</button>
+    </form>
+  </section>
+</main>
+{% endblock %}
+
+{% block javascripts %}
+<script src="{{ asset('js/app.js') }}?v=20260527-contact1"></script>
+{% endblock %}
