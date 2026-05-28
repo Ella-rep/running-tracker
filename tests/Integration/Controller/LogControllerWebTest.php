@@ -35,6 +35,7 @@ final class LogControllerWebTest extends WebTestCase
         }
 
         $this->client = static::createClient();
+        $this->client->disableReboot();
         $this->entityManager = static::getContainer()->get(EntityManagerInterface::class);
         $this->connection = $this->entityManager->getConnection();
 
