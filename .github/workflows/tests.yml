@@ -27,6 +27,7 @@ jobs:
 
     env:
       APP_ENV: test
+      APP_DEBUG: 1
       APP_SECRET: ci_test_secret
       DATABASE_HOST: 127.0.0.1
       DATABASE_PORT: 5432
@@ -37,6 +38,7 @@ jobs:
       MAILER_DSN: null://null
       MAILER_FROM: no-reply@example.test
       CONTACT_EMAIL_TO: contact@example.test
+      GEO_KEY: test
       GOOGLE_CLIENT_ID: dummy
       GOOGLE_CLIENT_SECRET: dummy
       GOOGLE_REDIRECT_URI: http://localhost/connect/google/check

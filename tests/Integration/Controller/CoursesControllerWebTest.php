@@ -10,6 +10,8 @@ use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
@@ -168,8 +170,20 @@ final class CoursesControllerWebTest extends WebTestCase
      */
     private function csrf(string $tokenId): string
     {
-        $tokenManager = static::getContainer()->get(CsrfTokenManagerInterface::class);
+        /** @var RequestStack $requestStack */
+        $requestStack = static::getContainer()->get(RequestStack::class);
+        $session = $this->client->getRequest()->getSession();
+        $session->start();
 
-        return $tokenManager->getToken($tokenId)->getValue();
+        $request = Request::create('/');
+        $request->setSession($session);
+        $requestStack->push($request);
+
+        $tokenManager = static::getContainer()->get(CsrfTokenManagerInterface::class);
+        $value = $tokenManager->getToken($tokenId)->getValue();
+
+        $requestStack->pop();
+
+        return $value;
     }
 }
