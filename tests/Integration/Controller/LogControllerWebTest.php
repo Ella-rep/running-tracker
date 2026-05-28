@@ -100,6 +100,7 @@ final class LogControllerWebTest extends WebTestCase
 
         self::assertResponseRedirects('/log');
 
+    $this->entityManager->clear();
         $updated = $this->entityManager->getRepository(RunLog::class)->find($log->getId());
         self::assertInstanceOf(RunLog::class, $updated);
         self::assertSame('2026-05-21', $updated->getDate());

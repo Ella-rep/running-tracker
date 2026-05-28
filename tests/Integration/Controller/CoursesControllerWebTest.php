@@ -100,6 +100,7 @@ final class CoursesControllerWebTest extends WebTestCase
 
         self::assertResponseRedirects('/courses');
 
+        $this->entityManager->clear();
         $updated = $this->entityManager->getRepository(Race::class)->find($race->getId());
         self::assertInstanceOf(Race::class, $updated);
         self::assertSame('Semi de Test', $updated->getName());
