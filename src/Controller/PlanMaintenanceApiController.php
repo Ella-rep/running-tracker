@@ -4,16 +4,15 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
-use App\Entity\Plan;
-use App\Entity\PlanDetails;
 use App\Entity\User;
-use App\Repository\PlanDetailsRepository;
-use App\Repository\PlanRepository;
-use App\Service\PlanSessionReplaceService;
+use App\Service\GoogleOAuthErrorReportService;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\Email;
 
 /**
  * Handles bulk plan maintenance operations.
@@ -21,62 +20,53 @@ use Symfony\Component\Routing\Attribute\Route;
 final class PlanMaintenanceApiController extends AbstractController
 {
     public function __construct(
-        private readonly PlanRepository $planRepository,
-        private readonly PlanDetailsRepository $planDetailsRepository,
-        private readonly PlanSessionReplaceService $replaceService,
+        private readonly GoogleOAuthErrorReportService $googleOAuthErrorReportService,
+        private readonly MailerInterface $mailer,
+        #[Autowire('%env(string:CONTACT_EMAIL_TO)%')] private readonly string $contactEmailTo,
+        #[Autowire('%env(string:MAILER_FROM)%')] private readonly string $mailerFrom,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
     /**
-     * Recomputes compact training week indices for every plan in the system.
+     * Sends a Gmail/OAuth operational error report to the internal contact mailbox.
      * Route is defined in config/routes/admin.yaml to avoid caching issues.
      */
-    // #[Route('/api/admin/plans/recompute-training-weeks', name: 'api_admin_plans_recompute_training_weeks', methods: ['POST'])]
-    public function recomputeTrainingWeeksForAllUsers(): JsonResponse
+    public function sendGoogleOAuthErrorReport(): JsonResponse
     {
         try {
-            $user = $this->requireAdminUser();
+            $admin = $this->requireAdminUser();
 
-            /** @var array<int, Plan> $plans */
-            $plans = $this->planRepository->findBy([], ['id' => 'ASC']);
+            $report = $this->googleOAuthErrorReportService->collectRecentErrors();
+            $body = $this->googleOAuthErrorReportService->buildReportBody($report);
 
-            $updatedPlans = 0;
-            $updatedSessions = 0;
-            $usersTouched = [];
+            $email = (new Email())
+                ->from($this->mailerFrom)
+                ->to($this->contactEmailTo)
+                ->subject(sprintf('[Admin] Rapport erreurs Gmail OAuth (%d erreurs)', (int) $report['count']))
+                ->text($body);
 
-            foreach ($plans as $plan) {
-                $owner = $plan->getUser();
-                $ownerId = $owner->getId();
-                if ($ownerId !== null) {
-                    $usersTouched[$ownerId] = true;
-                }
+            $this->mailer->send($email);
 
-                $details = $this->planDetailsRepository->findBy(
-                    ['plan' => $plan, 'user' => $owner],
-                    ['position' => 'ASC']
-                );
-
-                $sessions = $this->mapDetailsToSessions($details);
-                $doneMap = $this->mapDoneByIndex($details);
-
-                $this->replaceService->replaceForPlan($plan, $owner, $sessions, $doneMap);
-
-                $updatedPlans++;
-                $updatedSessions += count($sessions);
-            }
+            $this->logger->error('Admin maintenance: Google OAuth error report sent.', [
+                'admin' => $admin->getUserIdentifier(),
+                'errors_count' => $report['count'],
+                'window_hours' => $report['window_hours'],
+                'target' => $this->contactEmailTo,
+            ]);
 
             return $this->json([
-                'message' => 'Training weeks recomputed for all users.',
-                'users' => count($usersTouched),
-                'plans' => $updatedPlans,
-                'sessions' => $updatedSessions,
+                'message' => 'Rapport erreurs Gmail envoye.',
+                'errors' => $report['count'],
+                'window_hours' => $report['window_hours'],
+                'codes' => $report['codes'],
             ]);
         } catch (AccessDeniedHttpException $e) {
             return $this->json([
                 'message' => $e->getMessage(),
                 'error' => 'access_denied',
             ], 403);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return $this->json([
                 'message' => $e->getMessage(),
                 'error' => 'internal_error',
@@ -110,43 +100,6 @@ final class PlanMaintenanceApiController extends AbstractController
         return $user;
     }
 
-    /**
-     * @param array<int, PlanDetails> $details
-     * @return array<int, array<string, mixed>>
-     */
-    private function mapDetailsToSessions(array $details): array
-    {
-        $sessions = [];
-
-        foreach ($details as $row) {
-            $sessions[] = [
-                'sem' => $row->getSem(),
-                'date' => $row->getSessionDate()?->format('Y-m-d'),
-                'format' => $row->getFormat(),
-                'sessionType' => $row->getSessionType(),
-                'pe' => $row->getPe(),
-                'totalMin' => $row->getTotalMin(),
-                'isOptional' => $row->isOptional(),
-            ];
-        }
-
-        return $sessions;
-    }
-
-    /**
-     * @param array<int, PlanDetails> $details
-     * @return array<int, bool>
-     */
-    private function mapDoneByIndex(array $details): array
-    {
-        $doneMap = [];
-
-        foreach ($details as $row) {
-            $doneMap[] = $row->isDone();
-        }
-
-        return $doneMap;
-    }
 }
 
 

@@ -194,10 +194,10 @@
     <div class="chart-wrap admin-maintenance-card">
       <div class="chart-title">Maintenance</div>
       <div class="admin-maintenance-section">
-        <h4>Recalculer les semaines d'entrainement</h4>
-        <p class="admin-maintenance-desc">Recompute le numero de semaine pour tous les plans de tous les utilisateurs selon les dates de seance. Operation necessaire apres changement de la logique de calcul.</p>
-        <button id="admin-recompute-btn" class="btn" onclick="adminRecomputeTrainingWeeks()">Recalculer maintenant</button>
-        <div id="admin-recompute-status" style="margin-top:12px;"></div>
+        <h4>Rapport erreurs Gmail/OAuth</h4>
+        <p class="admin-maintenance-desc">Collecte les erreurs OAuth Google des logs recents et envoie un rapport detaille a l'adresse interne de contact.</p>
+        <button id="admin-gmail-report-btn" class="btn btn-ghost" onclick="adminSendGmailErrorReport()">Envoyer rapport Gmail</button>
+        <div id="admin-gmail-report-status" style="margin-top:12px;"></div>
       </div>
     </div>
 
@@ -370,9 +370,9 @@
 {% block javascripts %}
 <script src="{{ asset('js/app.js') }}?v=20260528-sessionlabel2"></script>
 <script>
-async function adminRecomputeTrainingWeeks() {
-  const btn = document.getElementById('admin-recompute-btn');
-  const status = document.getElementById('admin-recompute-status');
+async function adminSendGmailErrorReport() {
+  const btn = document.getElementById('admin-gmail-report-btn');
+  const status = document.getElementById('admin-gmail-report-status');
   if (!btn || !status) return;
 
   btn.disabled = true;
@@ -382,7 +382,7 @@ async function adminRecomputeTrainingWeeks() {
   try {
     const authHeaders = globalThis.rtAuth?.buildAuthHeaders ? globalThis.rtAuth.buildAuthHeaders() : {};
 
-    const response = await fetch('/api/admin/plans/recompute-training-weeks', {
+    const response = await fetch('/api/admin/maintenance/gmail-errors/report', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -397,32 +397,35 @@ async function adminRecomputeTrainingWeeks() {
     } catch (e) {
       status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur ${response.status}:</strong> Reponse invalide (pas du JSON)</span>`;
       btn.disabled = false;
-      btn.textContent = 'Recalculer maintenant';
+      btn.textContent = 'Envoyer rapport Gmail';
       return;
     }
 
     if (!response.ok) {
       status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur ${response.status}:</strong> ${result.message || 'Echec inconnu'}</span>`;
       btn.disabled = false;
-      btn.textContent = 'Recalculer maintenant';
+      btn.textContent = 'Envoyer rapport Gmail';
       return;
     }
 
-    const html = `
+    const topCodes = result.codes && typeof result.codes === 'object'
+      ? Object.entries(result.codes).slice(0, 3).map(([code, hits]) => `${code}: ${hits}`).join(' · ')
+      : 'aucun code detaille';
+
+    status.innerHTML = `
       <div style="color:var(--z1);padding:12px;background:color-mix(in srgb, var(--z1) 16%, var(--surface2));border-radius:4px;">
-        <strong>✓ Succes</strong><br>
-        Utilisateurs: ${result.users || 0}<br>
-        Plans: ${result.plans || 0}<br>
-        Seances: ${result.sessions || 0}
+        <strong>✓ Rapport envoye</strong><br>
+        Erreurs detectees (24h): ${result.errors || 0}<br>
+        Codes: ${topCodes}
       </div>
     `;
-    status.innerHTML = html;
+
     btn.disabled = false;
-    btn.textContent = 'Recalculer maintenant';
+    btn.textContent = 'Envoyer rapport Gmail';
   } catch (e) {
     status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur reseau:</strong> ${e.message}</span>`;
     btn.disabled = false;
-    btn.textContent = 'Recalculer maintenant';
+    btn.textContent = 'Envoyer rapport Gmail';
   }
 }
 

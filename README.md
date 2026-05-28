@@ -152,6 +152,25 @@ Important pour Google OAuth:
 - Elle doit etre strictement identique (scheme http/https, domaine, port, chemin).
 - URI attendue par l'app: `/connect/google/check`.
 
+Alertes operationnelles (admin/users):
+
+- Le bloc "Alertes operationnelles" affiche dans `templates/admin/users.html.twig` (section autour de la ligne 92) sert a donner un etat rapide securite + activite aux admins.
+- Il est alimente cote backend par `alerts` construit dans `App\Controller\AdminUserController::index`.
+- Regles actuelles d'affichage:
+  - `warning` si resets mot de passe >= 5 sur 24h.
+  - `critical` si suppressions utilisateurs >= 3 sur 24h.
+  - `warning` si aucune nouvelle seance (run log) sur 48h.
+  - `warning` ou `critical` si erreurs OAuth Google detectees dans les logs sur 24h.
+  - `ok` (message de stabilite) si aucune alerte metier n'est declenchee.
+
+Parametres relies aux alertes OAuth Google:
+
+- Les echecs OAuth Google sont journalises en niveau `error` avec le message `Google OAuth authentication failure.`
+- Champs traces dans le contexte log: `route`, `message`, `oauth_error`, `oauth_error_description`
+- Le rapport detaille se base sur `var/log/<APP_ENV>*.log` (fenetre 24h)
+- Envoi email du rapport: `MAILER_FROM` -> `CONTACT_EMAIL_TO`
+- Endpoint reserve admin (`ROLE_ADMIN`): `POST /api/admin/maintenance/gmail-errors/report`
+
 Exemple `MAILER_DSN` avec Brevo (recommande):
 
 ```bash
