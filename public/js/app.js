@@ -1309,14 +1309,16 @@ function setWeatherCitySuggestion(detectedCity, statusMessage = '', statusKind =
   const suggestion = document.getElementById('weather-city-suggestion');
   const useDetectedBtn = document.getElementById('weather-city-use-detected');
   const detectStatusEl = document.getElementById('weather-city-detect-status');
-  if (!suggestion || !useDetectedBtn || !detectStatusEl) return;
+  if (!suggestion || !useDetectedBtn) return;
 
   const city = String(detectedCity || '').trim();
   const message = String(statusMessage || '').trim();
   const kind = String(statusKind || '').trim();
 
-  detectStatusEl.textContent = message;
-  detectStatusEl.classList.toggle('is-error', kind === 'error');
+  if (detectStatusEl) {
+    detectStatusEl.textContent = message;
+    detectStatusEl.classList.toggle('is-error', kind === 'error');
+  }
 
   if (!city) {
     suggestion.hidden = true;

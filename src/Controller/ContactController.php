@@ -10,6 +10,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
@@ -24,6 +25,16 @@ final class ContactController extends AbstractController
     private const FLASH_SUCCESS = 'success';
     private const OLD_FORM_SESSION_KEY = 'contact.old_form';
     private const MIN_SUBMIT_DELAY_SECONDS = 3;
+    private const MAX_ATTACHMENTS = 3;
+    private const MAX_ATTACHMENT_SIZE_BYTES = 5_000_000;
+
+    /** @var array<string, string> */
+    private const ALLOWED_ATTACHMENT_MIME_TYPES = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+        'image/gif' => 'gif',
+    ];
 
     /** @var array<string, string> */
     private const MOTIF_LABELS = [
@@ -71,8 +82,9 @@ final class ContactController extends AbstractController
         $motif = trim((string) $request->request->get('motif', ''));
         $subject = trim((string) $request->request->get('subject', ''));
         $message = trim((string) $request->request->get('message', ''));
-        $outcome = $this->analyzeSubmission($request, $motif, $subject, $message);
-        $outcome = $this->dispatchWhenAllowed($mailer, $motif, $subject, $message, $outcome);
+        $attachments = $this->collectAttachmentFiles($request);
+        $outcome = $this->analyzeSubmission($request, $motif, $subject, $message, $attachments);
+        $outcome = $this->dispatchWhenAllowed($mailer, $motif, $subject, $message, $attachments, $outcome);
         $this->storeOldFormWhenNeeded($request, $outcome);
         $this->flashOutcome($outcome);
 
@@ -83,10 +95,10 @@ final class ContactController extends AbstractController
      * @param array{canSend: bool, storeOldForm: bool, errorMessage: ?string, successMessage: ?string} $outcome
      * @return array{canSend: bool, storeOldForm: bool, errorMessage: ?string, successMessage: ?string}
      */
-    private function dispatchWhenAllowed(MailerInterface $mailer, string $motif, string $subject, string $message, array $outcome): array
+    private function dispatchWhenAllowed(MailerInterface $mailer, string $motif, string $subject, string $message, array $attachments, array $outcome): array
     {
         if ((bool) $outcome['canSend']) {
-            return $this->dispatchContactEmail($mailer, $motif, $subject, $message, $outcome);
+            return $this->dispatchContactEmail($mailer, $motif, $subject, $message, $attachments, $outcome);
         }
 
         return $outcome;
@@ -120,7 +132,7 @@ final class ContactController extends AbstractController
     /**
      * @return array{canSend: bool, storeOldForm: bool, errorMessage: ?string, successMessage: ?string}
      */
-    private function analyzeSubmission(Request $request, string $motif, string $subject, string $message): array
+    private function analyzeSubmission(Request $request, string $motif, string $subject, string $message, array $attachments): array
     {
         $botField = trim((string) $request->request->get('company', ''));
         $startedAt = (int) $request->request->get('started_at', 0);
@@ -147,7 +159,7 @@ final class ContactController extends AbstractController
         }
 
         if ($canSend) {
-            $validationError = $this->validationError($motif, $subject, $message);
+            $validationError = $this->validationError($motif, $subject, $message, $attachments);
             if ($validationError !== null) {
                 $canSend = false;
                 $storeOldForm = true;
@@ -167,7 +179,7 @@ final class ContactController extends AbstractController
      * @param array{canSend: bool, storeOldForm: bool, errorMessage: ?string, successMessage: ?string} $outcome
      * @return array{canSend: bool, storeOldForm: bool, errorMessage: ?string, successMessage: ?string}
      */
-    private function dispatchContactEmail(MailerInterface $mailer, string $motif, string $subject, string $message, array $outcome): array
+    private function dispatchContactEmail(MailerInterface $mailer, string $motif, string $subject, string $message, array $attachments, array $outcome): array
     {
         $actor = $this->getUser();
         $senderIdentifier = $actor?->getUserIdentifier() ?? 'visiteur';
@@ -184,6 +196,16 @@ final class ContactController extends AbstractController
                 $subject,
                 $message
             ));
+
+        foreach ($attachments as $attachment) {
+            $path = $attachment->getRealPath();
+            if (!is_string($path) || $path === '') {
+                continue;
+            }
+
+            $safeName = $this->sanitizeAttachmentFilename($attachment);
+            $email->attachFromPath($path, $safeName, $attachment->getMimeType() ?: 'application/octet-stream');
+        }
 
         if (is_string($senderEmail) && $senderEmail !== '') {
             $email->replyTo($senderEmail);
@@ -209,7 +231,7 @@ final class ContactController extends AbstractController
         ]);
     }
 
-    private function validationError(string $motif, string $subject, string $message): ?string
+    private function validationError(string $motif, string $subject, string $message, array $attachments): ?string
     {
         $errorMessage = null;
 
@@ -219,6 +241,8 @@ final class ContactController extends AbstractController
             $errorMessage = 'Sujet requis (180 caracteres max).';
         } elseif ($message === '' || mb_strlen($message) > 5000) {
             $errorMessage = 'Message requis (5000 caracteres max).';
+        } elseif (($attachmentError = $this->attachmentsValidationError($attachments)) !== null) {
+            $errorMessage = $attachmentError;
         } elseif ($this->contactEmailTo === '') {
             $errorMessage = 'Configuration contact absente.';
         }
@@ -244,5 +268,72 @@ final class ContactController extends AbstractController
             'Message:',
             $message,
         ]);
+    }
+
+    /** @return array<int, UploadedFile> */
+    private function collectAttachmentFiles(Request $request): array
+    {
+        $input = $request->files->all('attachments');
+        if ($input instanceof UploadedFile) {
+            return [$input];
+        }
+
+        if (!is_array($input)) {
+            return [];
+        }
+
+        $files = [];
+        foreach ($input as $item) {
+            if ($item instanceof UploadedFile) {
+                $files[] = $item;
+            }
+        }
+
+        return $files;
+    }
+
+    /** @param array<int, UploadedFile> $attachments */
+    private function attachmentsValidationError(array $attachments): ?string
+    {
+        $errorMessage = null;
+
+        if (count($attachments) > self::MAX_ATTACHMENTS) {
+            $errorMessage = sprintf('Maximum %d images autorisees.', self::MAX_ATTACHMENTS);
+        } else {
+            foreach ($attachments as $attachment) {
+                if (!$attachment->isValid()) {
+                    $errorMessage = 'Une image jointe est invalide. Reessaie l\'envoi.';
+                    break;
+                }
+
+                if ($attachment->getSize() > self::MAX_ATTACHMENT_SIZE_BYTES) {
+                    $errorMessage = 'Une image depasse 5 Mo. Reduis sa taille puis reessaie.';
+                    break;
+                }
+
+                $mimeType = (string) $attachment->getMimeType();
+                if (!isset(self::ALLOWED_ATTACHMENT_MIME_TYPES[$mimeType])) {
+                    $errorMessage = 'Format image non pris en charge (jpg, png, webp, gif).';
+                    break;
+                }
+            }
+        }
+
+        return $errorMessage;
+    }
+
+    private function sanitizeAttachmentFilename(UploadedFile $file): string
+    {
+        $base = pathinfo((string) $file->getClientOriginalName(), PATHINFO_FILENAME);
+        $base = preg_replace('/[^a-z0-9_-]/i', '_', (string) $base) ?: 'capture';
+        $base = trim($base, '_');
+        $base = $base !== '' ? substr($base, 0, 60) : 'capture';
+
+        $mimeType = (string) $file->getMimeType();
+        $ext = self::ALLOWED_ATTACHMENT_MIME_TYPES[$mimeType] ?? strtolower((string) $file->guessExtension());
+        $ext = preg_replace('/[^a-z0-9]/i', '', (string) $ext);
+        $ext = $ext !== '' ? $ext : 'bin';
+
+        return sprintf('%s_%s.%s', $base, substr(sha1(uniqid('', true)), 0, 8), $ext);
     }
 }

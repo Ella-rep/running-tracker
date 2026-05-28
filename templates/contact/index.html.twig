@@ -21,7 +21,7 @@
       {% endfor %}
     {% endfor %}
 
-    <form class="form-card contact-form" method="post" action="{{ path('app_contact_send') }}">
+    <form class="form-card contact-form" method="post" action="{{ path('app_contact_send') }}" enctype="multipart/form-data">
       <input type="hidden" name="_token" value="{{ csrf_token('contact.send') }}">
       <input type="hidden" name="started_at" value="{{ contactStartedAt }}">
       <div class="contact-honeypot" aria-hidden="true">
@@ -49,6 +49,18 @@
       <div class="field">
         <label for="contact-message">Message</label>
         <textarea id="contact-message" name="message" rows="8" maxlength="5000" required placeholder="Decris ton besoin de facon detaillee...">{{ oldForm.message|default('') }}</textarea>
+      </div>
+
+      <div class="field">
+        <label for="contact-attachments">Captures d'ecran (optionnel)</label>
+        <input
+          id="contact-attachments"
+          type="file"
+          name="attachments[]"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          multiple
+        >
+        <div class="field-hint">Jusqu'a 3 images (jpg, png, webp, gif), 5 Mo max par image.</div>
       </div>
 
       <button class="btn" type="submit">Envoyer</button>
