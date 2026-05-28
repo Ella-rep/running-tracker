@@ -23,6 +23,6 @@
 ###< phpunit/phpunit ###
 /runnning-tracker-db/
 
-/.github/
+/.github/copilot-instructions.md
 ./compose.override.yaml
 /docker/entrypoint.no-composer.sh
