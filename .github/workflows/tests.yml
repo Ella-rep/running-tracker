@@ -48,6 +48,7 @@ jobs:
       JWT_PUBLIC_KEY: ${{ github.workspace }}/config/jwt/public.pem
       JWT_PASSPHRASE: test
       JWT_TTL: 3600
+      COVERAGE_MIN_LINES_SOFT: 20
 
     steps:
       - name: Checkout
@@ -82,6 +83,10 @@ jobs:
             --coverage-text \
             --coverage-clover var/coverage/clover.xml \
             --coverage-html var/coverage/html
+
+      - name: Report coverage soft target
+        run: |
+          php -r '$min=(float)getenv("COVERAGE_MIN_LINES_SOFT"); $xml=simplexml_load_file("var/coverage/clover.xml"); if(!$xml){echo "::warning::Unable to parse clover.xml for coverage summary."; exit(0);} $metrics=$xml->project->metrics; $statements=(int)$metrics["statements"]; $covered=(int)$metrics["coveredstatements"]; $rate=$statements>0?($covered*100/$statements):0; printf("Line coverage: %.2f%% (%d/%d)\n",$rate,$covered,$statements); if($rate<$min){echo "::warning::Line coverage below soft target {$min}% (current ".number_format($rate,2)."%)."; }'
 
       - name: Upload coverage artifact
         if: always()
