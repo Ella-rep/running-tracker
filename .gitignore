@@ -25,4 +25,4 @@
 
 /.github/
 ./compose.override.yaml
-./docker/entrypoint.no-composer.sh
+/docker/entrypoint.no-composer.sh

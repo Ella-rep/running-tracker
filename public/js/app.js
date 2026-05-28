@@ -1554,6 +1554,42 @@ function renderDashboardAdvice(metrics = {}) {
 
   const load = metrics?.trainingLoad;
   if (load?.hasData) {
+    const recommendation = String(load.recommendation || '').trim();
+
+    const levelByKey = {
+      under: 'faible',
+      balanced: 'equilibree',
+      watch: 'moderee',
+      high: 'intense',
+      initial: 'moderee',
+    };
+    const level = levelByKey[load.statusKey] || 'moderee';
+    const titleByKey = {
+      under: 'Charge faible',
+      balanced: 'Charge equilibree',
+      watch: 'Charge moderee',
+      high: 'Charge intense',
+      initial: 'Charge moderee',
+    };
+    const title = titleByKey[load.statusKey] || 'Charge moderee';
+
+    const comparisonByKey = {
+      under: 'Semaine legere.',
+      balanced: 'Semaine bien equilibree.',
+      watch: 'Charge en hausse cette semaine.',
+      high: 'Semaine tres chargee.',
+      initial: 'Charge en cours de stabilisation.',
+    };
+    let comparisonText = comparisonByKey[load.statusKey] || 'Charge stable cette semaine.';
+
+    if (load.statusKey === 'watch') {
+      comparisonText += ' Garde une sortie tres facile et privilegie une bonne nuit de sommeil.';
+    } else if (load.statusKey === 'high') {
+      comparisonText += ' Passe 24-48h en recuperation: hydratation, sommeil et sortie tres douce.';
+    }
+
+    const loadDetails = comparisonText;
+
     const toneByKey = {
       balanced: 'success',
       watch: 'warning',
@@ -1572,8 +1608,9 @@ function renderDashboardAdvice(metrics = {}) {
     items.unshift({
       tone: toneByKey[load.statusKey] || 'info',
       icon: iconByKey[load.statusKey] || '⚖️',
-      title: `Charge d'entrainement · ${load.statusLabel || 'Statut'}`,
-      text: `${load.recommendation || ''} (7j: ${Number(load.acute || 0).toFixed(0)} · base: ${Number(load.chronic || 0).toFixed(0)})`,
+      title,
+      text: recommendation ? `${recommendation} ${loadDetails}` : loadDetails,
+      badge: `Charge ${level}`,
     });
   }
 

@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use KnpU\OAuth2ClientBundle\Client\ClientRegistry;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\Routing\Attribute\Route;
@@ -12,15 +13,29 @@ use Symfony\Component\Routing\Attribute\Route;
  */
 final class GoogleController extends AbstractController
 {
+    public function __construct(
+        #[Autowire('%env(default::GOOGLE_REDIRECT_URI)%')]
+        private readonly string $googleRedirectUri,
+    ) {}
+
     /**
      * Starts Google OAuth by redirecting to Google's authorization page.
      */
     #[Route('/connect/google', name: 'connect_google')]
     public function connectAction(ClientRegistry $clientRegistry): RedirectResponse
     {
+        $options = [
+            'prompt' => 'select_account',
+        ];
+
+        $configuredRedirectUri = trim($this->googleRedirectUri);
+        if ($configuredRedirectUri !== '') {
+            $options['redirect_uri'] = $configuredRedirectUri;
+        }
+
         return $clientRegistry
             ->getClient('google')
-            ->redirect(['email', 'profile'], []);
+            ->redirect(['openid', 'email', 'profile'], $options);
     }
 
     /**

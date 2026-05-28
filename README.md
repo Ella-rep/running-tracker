@@ -128,6 +128,10 @@ Puis renseigner les variables d'integration externes (obligatoires):
 # OAuth Google (connexion avec Google)
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
+# Optionnel mais recommande: URI de callback explicite pour eviter redirect_uri_mismatch
+# Exemple local:  http://localhost:8080/connect/google/check
+# Exemple prod:   https://rt.lavergne.online/connect/google/check
+GOOGLE_REDIRECT_URI=
 
 # Geolocalisation IP (dashboard meteo)
 GEO_KEY=
@@ -141,6 +145,12 @@ CONTACT_EMAIL_TO=contact@exemple.tld
 BREVO_SMTP_LOGIN=
 BREVO_SMTP_KEY=
 ```
+
+Important pour Google OAuth:
+
+- Dans Google Cloud Console, ajoutez l'URI exacte dans "Authorized redirect URIs".
+- Elle doit etre strictement identique (scheme http/https, domaine, port, chemin).
+- URI attendue par l'app: `/connect/google/check`.
 
 Exemple `MAILER_DSN` avec Brevo (recommande):
 

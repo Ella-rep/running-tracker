@@ -296,7 +296,7 @@ final class DashboardAdviceService
                 'badge' => $nextRace->getName(),
             ],
             $nextRaceDays === 1 => [
-                'title' => 'Course demain - repos absolu',
+                'title' => 'Course demain',
                 'text' => sprintf(
                     'La %s (%s) est demain. Aucune sortie aujourd\'hui: jambes au repos, bonne hydratation, dors tot.',
                     $nextRace->getName(),
@@ -305,22 +305,22 @@ final class DashboardAdviceService
                 'tone' => 'info',
                 'icon' => '😴',
                 'color' => self::COLOR_INFO,
-                'badge' => $nextRace->getName() . ' J-1',
+                'badge' => $nextRace->getName() . ' · Demain',
             ],
             $nextRaceDays === 2 => [
-                'title' => 'Activation legere J-2',
+                'title' => 'Course dans 2 jours',
                 'text' => sprintf(
-                    'J-2 avant la %s (%s). Si tu sors: 20-30 min tres facile (< 9:00/km) pour activer les jambes.',
+                    'La %s (%s) est dans 2 jours. Si tu sors: 20-30 min tres facile (< 9:00/km) pour activer les jambes.',
                     $nextRace->getName(),
                     $nextRace->getDistance() ?: self::DIST_DEFAULT
                 ),
                 'tone' => 'info',
                 'icon' => '🧘',
                 'color' => self::COLOR_INFO,
-                'badge' => $nextRace->getName() . ' J-2',
+                'badge' => $nextRace->getName() . ' · Dans 2 jours',
             ],
             $nextRaceDays <= 6 => [
-                'title' => 'Course proche - charge reduite',
+                'title' => 'Course bientot - charge reduite',
                 'text' => sprintf(
                     'La %s (%s) arrive %s. Reduis le volume, garde quelques accelerations courtes, evite la longue.',
                     $nextRace->getName(),
@@ -358,15 +358,13 @@ final class DashboardAdviceService
         } elseif ($daysSince >= 3) {
             $advice = $this->buildNoRunForDaysAdvice($latestRun, $daysSince);
         } elseif ($daysSince === 1 && !$this->isIntenseRun($yesterdayRun) && $weekKm < 35) {
-            $km = $yesterdayRun?->getKm() !== null ? number_format((float) $yesterdayRun->getKm(), 1, '.', '') : '?';
-            $allure = $yesterdayRun?->getAllure() ?: self::PACE_DEFAULT;
             $advice = [
                 'title' => 'Bonne journee pour courir',
-                'text' => sprintf('Hier: %s km a %s/km (recuperation OK). Tu peux enchainer: EF ou tempo selon ton plan.', $km, $allure),
+                'text' => $this->buildYesterdayRunSummary($yesterdayRun) . ' Recuperation correcte. Tu peux faire une sortie facile ou suivre ta seance prevue.',
                 'tone' => 'encourage',
                 'icon' => '👟',
                 'color' => self::COLOR_SUCCESS,
-                'badge' => 'J-1 facile',
+                'badge' => 'Sortie facile hier',
             ];
         }
 
@@ -376,12 +374,11 @@ final class DashboardAdviceService
     /** @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string} */
     private function buildTodayDoneAdvice(RunLog $todayRun): array
     {
-        $km = $todayRun->getKm() !== null ? number_format((float) $todayRun->getKm(), 1, '.', '') : '?';
-        $allure = $todayRun->getAllure() ?: self::PACE_DEFAULT;
+        $summary = $this->buildRunSummary($todayRun, 'Sortie du jour');
 
         return [
             'title' => 'Seance effectuee',
-            'text' => sprintf('%s km a %s/km. Bien recuperer: hydratation et etirements.', $km, $allure),
+            'text' => $summary . ' Pense a bien recuperer: hydratation et etirements.',
             'tone' => 'success',
             'icon' => '✅',
             'color' => self::COLOR_SUCCESS,
@@ -392,35 +389,76 @@ final class DashboardAdviceService
     /** @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string} */
     private function buildYesterdayIntenseAdvice(?RunLog $yesterdayRun): array
     {
-        $km = $yesterdayRun?->getKm() !== null ? number_format((float) $yesterdayRun->getKm(), 1, '.', '') : '?';
-        $allure = $yesterdayRun?->getAllure() ?: self::PACE_DEFAULT;
+        $summary = $this->buildYesterdayRunSummary($yesterdayRun);
         $type = $yesterdayRun?->getRunType();
         $typeSuffix = $type ? ' (' . $type . ')' : '';
 
         return [
             'title' => 'Recuperation conseillee',
-            'text' => sprintf('Hier: %s km a %s/km%s. Laisse tes muscles recuperer aujourd\'hui.', $km, $allure, $typeSuffix),
+            'text' => sprintf('%s Seance intense%s: allege la journee pour laisser les muscles recuperer.', $summary, $typeSuffix),
             'tone' => 'info',
             'icon' => '🛌',
             'color' => self::COLOR_INFO,
-            'badge' => 'J-1 intense',
+            'badge' => 'Sortie intense hier',
         ];
     }
 
     /** @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string} */
     private function buildNoRunForDaysAdvice(?RunLog $latestRun, int $daysSince): array
     {
-        $lastKm = $latestRun?->getKm() !== null ? number_format((float) $latestRun->getKm(), 1, '.', '') : '?';
-        $lastDate = $latestRun?->getDate() ?: 'inconnue';
+        $lastDate = $this->formatRunDate($latestRun);
+        $lastKm = $latestRun?->getKm() !== null ? number_format((float) $latestRun->getKm(), 1, '.', '') . ' km' : null;
+        $lastRunDetails = 'Derniere sortie non detaillee';
+        if ($lastKm !== null && $lastDate !== null) {
+            $lastRunDetails = sprintf('Derniere sortie: %s le %s', $lastKm, $lastDate);
+        } elseif ($lastKm !== null) {
+            $lastRunDetails = sprintf('Derniere sortie: %s', $lastKm);
+        } elseif ($lastDate !== null) {
+            $lastRunDetails = sprintf('Derniere sortie le %s', $lastDate);
+        }
 
         return [
             'title' => 'Il est temps de sortir !',
-            'text' => sprintf('Derniere sortie il y a %d jours (%s km le %s). Le corps est repose: une EF 45-60 min est ideale.', $daysSince, $lastKm, $lastDate),
+            'text' => sprintf('%s. Cela fait %d jours sans courir: une sortie facile de 45 a 60 min est ideale.', $lastRunDetails, $daysSince),
             'tone' => 'encourage',
             'icon' => '🚀',
             'color' => self::COLOR_SUCCESS,
             'badge' => $daysSince . ' jours sans sortie',
         ];
+    }
+
+    private function buildYesterdayRunSummary(?RunLog $run): string
+    {
+        return $this->buildRunSummary($run, 'Hier');
+    }
+
+    private function buildRunSummary(?RunLog $run, string $label): string
+    {
+        $distance = $run?->getKm() !== null ? number_format((float) $run->getKm(), 1, '.', '') . ' km' : null;
+        $pace = trim((string) ($run?->getAllure() ?? ''));
+        $paceLabel = ($pace !== '' && $pace !== self::PACE_DEFAULT) ? ($pace . '/km') : null;
+        $summary = sprintf('%s: sortie enregistree.', $label);
+
+        if ($distance !== null && $paceLabel !== null) {
+            $summary = sprintf('%s: %s a %s.', $label, $distance, $paceLabel);
+        } elseif ($distance !== null) {
+            $summary = sprintf('%s: %s.', $label, $distance);
+        } elseif ($paceLabel !== null) {
+            $summary = sprintf('%s: allure moyenne %s.', $label, $paceLabel);
+        }
+
+        return $summary;
+    }
+
+    private function formatRunDate(?RunLog $run): ?string
+    {
+        $date = trim((string) ($run?->getDate() ?? ''));
+        if ($date === '') {
+            return null;
+        }
+
+        $dt = \DateTimeImmutable::createFromFormat('Y-m-d', $date);
+        return $dt instanceof \DateTimeImmutable ? $dt->format('d/m/Y') : $date;
     }
 
     /** @param array<string,mixed> $ctx @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string}|null */

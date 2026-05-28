@@ -113,10 +113,23 @@ final class GoogleAuthenticator extends OAuth2Authenticator
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
     {
         $message = strtr($exception->getMessageKey(), $exception->getMessageData());
+        $oauthError = trim((string) $request->query->get('error', ''));
+        $oauthErrorDescription = trim((string) $request->query->get('error_description', ''));
+
+        if ($oauthError !== '' || $oauthErrorDescription !== '') {
+            $details = $oauthError;
+            if ($oauthErrorDescription !== '') {
+                $details = $details !== '' ? $details . ': ' . $oauthErrorDescription : $oauthErrorDescription;
+            }
+
+            $message = 'OAuth Google: ' . $details;
+        }
 
         $this->logger->warning('Google OAuth authentication failure.', [
             'route' => $request->attributes->get('_route'),
             'message' => $message,
+            'oauth_error' => $oauthError !== '' ? $oauthError : null,
+            'oauth_error_description' => $oauthErrorDescription !== '' ? $oauthErrorDescription : null,
         ]);
 
         return new RedirectResponse('/login?google_error=' . urlencode($message));

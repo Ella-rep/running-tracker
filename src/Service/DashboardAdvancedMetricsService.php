@@ -471,9 +471,9 @@ final class DashboardAdvancedMetricsService
         } elseif ($ratio !== null && $ratio <= 1.3) {
             $status = ['key' => 'balanced', 'label' => 'Equilibre', 'color' => self::COLOR_Z1, 'recommendation' => 'Charge bien equilibree: garde le cap et privilegie la regularite.'];
         } elseif ($ratio !== null && $ratio <= 1.5) {
-            $status = ['key' => 'watch', 'label' => 'Vigilance', 'color' => 'var(--z3)', 'recommendation' => 'Legere hausse de charge: conserve une seance facile de recuperation.'];
+            $status = ['key' => 'watch', 'label' => 'Vigilance', 'color' => 'var(--z3)', 'recommendation' => 'Legere hausse de charge: allege un peu et garde une seance tres facile.'];
         } elseif ($ratio !== null) {
-            $status = ['key' => 'high', 'label' => 'Surcharge', 'color' => self::COLOR_ACCENT3, 'recommendation' => 'Hausse trop rapide: allege 24-48h et evite une grosse seance intense.'];
+            $status = ['key' => 'high', 'label' => 'Surcharge', 'color' => self::COLOR_ACCENT3, 'recommendation' => 'Charge trop elevee: fais 24-48h de recuperation et reporte l\'intensite.'];
         }
         return $status;
     }
