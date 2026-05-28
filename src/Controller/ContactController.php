@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Entity\User;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -47,6 +48,7 @@ final class ContactController extends AbstractController
     public function __construct(
         #[Autowire('%env(string:CONTACT_EMAIL_TO)%')] private readonly string $contactEmailTo,
         #[Autowire('%env(string:MAILER_FROM)%')] private readonly string $mailerFrom,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -181,41 +183,53 @@ final class ContactController extends AbstractController
      */
     private function dispatchContactEmail(MailerInterface $mailer, string $motif, string $subject, string $message, array $attachments, array $outcome): array
     {
-        $actor = $this->getUser();
-        $senderIdentifier = $actor?->getUserIdentifier() ?? 'visiteur';
-        $senderEmail = $actor instanceof User ? $actor->getEmail() : null;
+        try {
+            $actor = $this->getUser();
+            $senderIdentifier = $actor?->getUserIdentifier() ?? 'visiteur';
+            $senderEmail = $actor instanceof User ? $actor->getEmail() : null;
 
-        $email = (new Email())
-            ->from($this->mailerFrom)
-            ->to($this->contactEmailTo)
-            ->subject(sprintf('[Contact:%s] %s', strtoupper($motif), $subject))
-            ->text($this->buildBodyText(
-                self::MOTIF_LABELS[$motif],
-                $senderIdentifier,
-                $senderEmail,
-                $subject,
-                $message
-            ));
+            $email = (new Email())
+                ->from($this->mailerFrom)
+                ->to($this->contactEmailTo)
+                ->subject(sprintf('[Contact:%s] %s', strtoupper($motif), $subject))
+                ->text($this->buildBodyText(
+                    self::MOTIF_LABELS[$motif],
+                    $senderIdentifier,
+                    $senderEmail,
+                    $subject,
+                    $message
+                ));
 
-        foreach ($attachments as $attachment) {
-            $path = $attachment->getRealPath();
-            if (!is_string($path) || $path === '') {
-                continue;
+            foreach ($attachments as $attachment) {
+                $path = $attachment->getRealPath();
+                if (!is_string($path) || $path === '' || !is_readable($path)) {
+                    $outcome['errorMessage'] = 'Impossible de lire une image jointe. Reessaie avec une autre image.';
+                    $outcome['storeOldForm'] = true;
+
+                    return $outcome;
+                }
+
+                $safeName = $this->sanitizeAttachmentFilename($attachment);
+                $email->attachFromPath($path, $safeName, $attachment->getMimeType() ?: 'application/octet-stream');
             }
 
-            $safeName = $this->sanitizeAttachmentFilename($attachment);
-            $email->attachFromPath($path, $safeName, $attachment->getMimeType() ?: 'application/octet-stream');
-        }
+            if (is_string($senderEmail) && $senderEmail !== '') {
+                $email->replyTo($senderEmail);
+            }
 
-        if (is_string($senderEmail) && $senderEmail !== '') {
-            $email->replyTo($senderEmail);
-        }
-
-        try {
             $mailer->send($email);
             $outcome['successMessage'] = 'Message envoye. Merci pour ton retour.';
         } catch (TransportExceptionInterface) {
             $outcome['errorMessage'] = 'Echec envoi email. Reessaie plus tard.';
+            $outcome['storeOldForm'] = true;
+        } catch (\Throwable $exception) {
+            $this->logger->error('Unexpected contact email failure.', [
+                'exception_class' => $exception::class,
+                'exception_message' => $exception->getMessage(),
+                'attachments_count' => count($attachments),
+            ]);
+
+            $outcome['errorMessage'] = 'Echec de traitement des images jointes. Reessaie avec une image plus legere.';
             $outcome['storeOldForm'] = true;
         }
 

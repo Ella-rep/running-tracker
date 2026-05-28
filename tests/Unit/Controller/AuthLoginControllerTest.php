@@ -5,9 +5,14 @@ declare(strict_types=1);
 namespace App\Tests\Unit\Controller;
 
 use App\Controller\AuthLoginController;
+use App\Entity\User;
+use App\Repository\UserRepository;
 use App\Service\AuthLoginService;
+use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
  * Unit tests for AuthLoginController.
@@ -20,7 +25,7 @@ final class AuthLoginControllerTest extends TestCase
     public function testInvokeReturnsBadRequestForInvalidJson(): void
     {
         $controller = new AuthLoginController();
-        $service = $this->createMock(AuthLoginService::class);
+        $service = $this->buildAuthService();
 
         $request = new Request(content: '{invalid-json');
 
@@ -37,15 +42,33 @@ final class AuthLoginControllerTest extends TestCase
     {
         $controller = new AuthLoginController();
 
-        $service = $this->createMock(AuthLoginService::class);
-        $service
+        $user = (new User())
+            ->setUsername('alice')
+            ->setEmail('alice@example.test')
+            ->setPassword('hashed');
+
+        $users = $this->createMock(UserRepository::class);
+        $users
             ->expects(self::once())
-            ->method('authenticate')
-            ->with('alice@example.test', 'secret')
-            ->willReturn([
-                'status' => 200,
-                'payload' => ['token' => 'jwt-value'],
-            ]);
+            ->method('findOneBy')
+            ->with(['email' => 'alice@example.test'])
+            ->willReturn($user);
+
+        $hasher = $this->createMock(UserPasswordHasherInterface::class);
+        $hasher
+            ->expects(self::once())
+            ->method('isPasswordValid')
+            ->with($user, 'secret')
+            ->willReturn(true);
+
+        $jwtManager = $this->createMock(JWTTokenManagerInterface::class);
+        $jwtManager
+            ->expects(self::once())
+            ->method('create')
+            ->with($user)
+            ->willReturn('jwt-value');
+
+        $service = $this->buildAuthService($users, $hasher, $jwtManager);
 
         $request = new Request(
             content: json_encode([
@@ -73,17 +96,14 @@ final class AuthLoginControllerTest extends TestCase
     {
         $controller = new AuthLoginController();
 
-        $service = $this->createMock(AuthLoginService::class);
-        $service
+        $users = $this->createMock(UserRepository::class);
+        $users
             ->expects(self::once())
-            ->method('authenticate')
-            ->willReturn([
-                'status' => 401,
-                'payload' => [
-                    'code' => 'invalid_credentials',
-                    'message' => 'Identifiants invalides.',
-                ],
-            ]);
+            ->method('findOneBy')
+            ->with(['email' => 'alice@example.test'])
+            ->willReturn(null);
+
+        $service = $this->buildAuthService($users);
 
         $request = new Request(content: json_encode([
             'email' => 'alice@example.test',
@@ -95,6 +115,20 @@ final class AuthLoginControllerTest extends TestCase
 
         self::assertSame(401, $response->getStatusCode());
         self::assertCount(0, $response->headers->getCookies());
+    }
+
+    private function buildAuthService(
+        ?UserRepository $users = null,
+        ?UserPasswordHasherInterface $hasher = null,
+        ?JWTTokenManagerInterface $jwtManager = null,
+        ?LoggerInterface $logger = null
+    ): AuthLoginService {
+        return new AuthLoginService(
+            $users ?? $this->createMock(UserRepository::class),
+            $hasher ?? $this->createMock(UserPasswordHasherInterface::class),
+            $jwtManager ?? $this->createMock(JWTTokenManagerInterface::class),
+            $logger ?? $this->createMock(LoggerInterface::class),
+        );
     }
 }
 
