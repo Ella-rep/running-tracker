@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Controller;
 
 use App\Entity\Race;
+use App\Entity\User;
 use App\Tests\Factory\UserFactory;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
+use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -60,7 +62,7 @@ final class CoursesControllerWebTest extends WebTestCase
     public function testOwnerCanCreateUpdateResultAndDeleteRace(): void
     {
         $user = $this->createUserFixture();
-        $this->client->loginUser($user);
+        $this->authenticateClient($user);
         $this->client->request('GET', '/courses');
 
         $this->client->request('POST', '/courses/create', [
@@ -131,7 +133,7 @@ final class CoursesControllerWebTest extends WebTestCase
         $this->entityManager->persist($race);
         $this->entityManager->flush();
 
-        $this->client->loginUser($intruder);
+        $this->authenticateClient($intruder);
         $this->client->request('GET', '/courses');
 
         $this->client->request('POST', '/courses/' . $race->getId() . '/update', [
@@ -185,5 +187,12 @@ final class CoursesControllerWebTest extends WebTestCase
         $requestStack->pop();
 
         return $value;
+    }
+
+    private function authenticateClient(User $user): void
+    {
+        $jwtManager = static::getContainer()->get(JWTTokenManagerInterface::class);
+        $jwt = $jwtManager->create($user);
+        $this->client->setServerParameter('HTTP_Authorization', 'Bearer ' . $jwt);
     }
 }

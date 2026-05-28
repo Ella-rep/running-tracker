@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Controller;
 
 use App\Entity\RunLog;
+use App\Entity\User;
 use App\Tests\Factory\UserFactory;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
+use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -60,7 +62,7 @@ final class LogControllerWebTest extends WebTestCase
     public function testOwnerCanCreateUpdateAndDeleteLog(): void
     {
         $user = $this->createUserFixture();
-        $this->client->loginUser($user);
+        $this->authenticateClient($user);
         $this->client->request('GET', '/log');
 
         $this->client->request('POST', '/log/create', [
@@ -130,7 +132,7 @@ final class LogControllerWebTest extends WebTestCase
         $this->entityManager->persist($log);
         $this->entityManager->flush();
 
-        $this->client->loginUser($intruder);
+        $this->authenticateClient($intruder);
         $this->client->request('GET', '/log');
 
         $this->client->request('POST', '/log/' . $log->getId() . '/update', [
@@ -183,5 +185,12 @@ final class LogControllerWebTest extends WebTestCase
         $requestStack->pop();
 
         return $value;
+    }
+
+    private function authenticateClient(User $user): void
+    {
+        $jwtManager = static::getContainer()->get(JWTTokenManagerInterface::class);
+        $jwt = $jwtManager->create($user);
+        $this->client->setServerParameter('HTTP_Authorization', 'Bearer ' . $jwt);
     }
 }
