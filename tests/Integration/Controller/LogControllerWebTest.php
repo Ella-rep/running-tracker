@@ -12,10 +12,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
 /**
  * Integration tests for log page backend-first actions.
@@ -64,10 +61,9 @@ final class LogControllerWebTest extends WebTestCase
     {
         $user = $this->createUserFixture();
         $this->authenticateClient($user);
-        $this->client->request('GET', '/log');
 
         $this->client->request('POST', '/log/create', [
-            '_token' => $this->csrf('log.create'),
+            '_token' => $this->csrfFromForm('/log', '/log/create'),
             'date' => '2026-05-20',
             'km' => '10.00',
             'duration' => '00:50:00',
@@ -88,7 +84,7 @@ final class LogControllerWebTest extends WebTestCase
         self::assertSame('05:00', $log->getAllure());
 
         $this->client->request('POST', '/log/' . $log->getId() . '/update', [
-            '_token' => $this->csrf('log.update.' . $log->getId()),
+            '_token' => $this->csrfFromForm('/log', '/log/' . $log->getId() . '/update'),
             'date' => '2026-05-21',
             'km' => '12.00',
             'duration' => '01:00:00',
@@ -109,7 +105,7 @@ final class LogControllerWebTest extends WebTestCase
         self::assertSame('Sortie maj', $updated->getNotes());
 
         $this->client->request('POST', '/log/' . $log->getId() . '/delete', [
-            '_token' => $this->csrf('log.delete.' . $log->getId()),
+            '_token' => $this->csrfFromForm('/log', '/log/' . $log->getId() . '/delete'),
         ]);
 
         self::assertResponseRedirects('/log');
@@ -135,10 +131,9 @@ final class LogControllerWebTest extends WebTestCase
         $this->entityManager->flush();
 
         $this->authenticateClient($intruder);
-        $this->client->request('GET', '/log');
 
         $this->client->request('POST', '/log/' . $log->getId() . '/update', [
-            '_token' => $this->csrf('log.update.' . $log->getId()),
+            '_token' => $this->csrfFromForm('/log', '/log/' . $log->getId() . '/update'),
             'date' => '2026-05-30',
             'km' => '8.00',
             'duration' => '00:40:00',
@@ -167,26 +162,18 @@ final class LogControllerWebTest extends WebTestCase
         return $factory->createOne($username);
     }
 
-    /**
-     * Generates a CSRF token value for submitted forms.
-     */
-    private function csrf(string $tokenId): string
+    private function csrfFromForm(string $pagePath, string $actionSuffix): string
     {
-        /** @var RequestStack $requestStack */
-        $requestStack = static::getContainer()->get(RequestStack::class);
-        $session = $this->client->getRequest()->getSession();
-        $session->start();
+        $crawler = $this->client->request('GET', $pagePath);
+        $selector = sprintf('form[action$="%s"] input[name="_token"]', $actionSuffix);
+        $tokenInput = $crawler->filter($selector);
 
-        $request = Request::create('/');
-        $request->setSession($session);
-        $requestStack->push($request);
+        self::assertGreaterThan(0, $tokenInput->count(), 'Missing CSRF token for form ' . $actionSuffix);
 
-        $tokenManager = static::getContainer()->get(CsrfTokenManagerInterface::class);
-        $value = $tokenManager->getToken($tokenId)->getValue();
+        $token = $tokenInput->first()->attr('value');
+        self::assertNotNull($token, 'Missing CSRF token value for form ' . $actionSuffix);
 
-        $requestStack->pop();
-
-        return $value;
+        return $token;
     }
 
     private function authenticateClient(User $user): void

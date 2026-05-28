@@ -12,10 +12,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
 /**
  * Integration tests for courses page backend-first actions.
@@ -64,10 +61,9 @@ final class CoursesControllerWebTest extends WebTestCase
     {
         $user = $this->createUserFixture();
         $this->authenticateClient($user);
-        $this->client->request('GET', '/courses');
 
         $this->client->request('POST', '/courses/create', [
-            '_token' => $this->csrf('courses.create'),
+            '_token' => $this->csrfFromForm('/courses', '/courses/create'),
             'name' => '10km de Test',
             'date' => '2026-10-10',
             'distance' => '10km',
@@ -84,7 +80,7 @@ final class CoursesControllerWebTest extends WebTestCase
         self::assertInstanceOf(Race::class, $race);
 
         $this->client->request('POST', '/courses/' . $race->getId() . '/update', [
-            '_token' => $this->csrf('courses.update.' . $race->getId()),
+            '_token' => $this->csrfFromForm('/courses', '/courses/' . $race->getId() . '/update'),
             'name' => 'Semi de Test',
             'date' => '2026-11-15',
             'distance' => '21.1km',
@@ -94,7 +90,7 @@ final class CoursesControllerWebTest extends WebTestCase
         self::assertResponseRedirects('/courses');
 
         $this->client->request('POST', '/courses/' . $race->getId() . '/result', [
-            '_token' => $this->csrf('courses.result.' . $race->getId()),
+            '_token' => $this->csrfFromForm('/courses', '/courses/' . $race->getId() . '/result'),
             'result' => '01:43:21',
         ]);
 
@@ -110,7 +106,7 @@ final class CoursesControllerWebTest extends WebTestCase
         self::assertSame('01:43:21', $updated->getResult());
 
         $this->client->request('POST', '/courses/' . $race->getId() . '/delete', [
-            '_token' => $this->csrf('courses.delete.' . $race->getId()),
+            '_token' => $this->csrfFromForm('/courses', '/courses/' . $race->getId() . '/delete'),
         ]);
 
         self::assertResponseRedirects('/courses');
@@ -136,10 +132,9 @@ final class CoursesControllerWebTest extends WebTestCase
         $this->entityManager->flush();
 
         $this->authenticateClient($intruder);
-        $this->client->request('GET', '/courses');
 
         $this->client->request('POST', '/courses/' . $race->getId() . '/update', [
-            '_token' => $this->csrf('courses.update.' . $race->getId()),
+            '_token' => $this->csrfFromForm('/courses', '/courses/' . $race->getId() . '/update'),
             'name' => 'Race hacked',
             'date' => '2026-09-02',
             'distance' => '21.1km',
@@ -169,26 +164,18 @@ final class CoursesControllerWebTest extends WebTestCase
         return $factory->createOne($username);
     }
 
-    /**
-     * Generates a CSRF token value for submitted forms.
-     */
-    private function csrf(string $tokenId): string
+    private function csrfFromForm(string $pagePath, string $actionSuffix): string
     {
-        /** @var RequestStack $requestStack */
-        $requestStack = static::getContainer()->get(RequestStack::class);
-        $session = $this->client->getRequest()->getSession();
-        $session->start();
+        $crawler = $this->client->request('GET', $pagePath);
+        $selector = sprintf('form[action$="%s"] input[name="_token"]', $actionSuffix);
+        $tokenInput = $crawler->filter($selector);
 
-        $request = Request::create('/');
-        $request->setSession($session);
-        $requestStack->push($request);
+        self::assertGreaterThan(0, $tokenInput->count(), 'Missing CSRF token for form ' . $actionSuffix);
 
-        $tokenManager = static::getContainer()->get(CsrfTokenManagerInterface::class);
-        $value = $tokenManager->getToken($tokenId)->getValue();
+        $token = $tokenInput->first()->attr('value');
+        self::assertNotNull($token, 'Missing CSRF token value for form ' . $actionSuffix);
 
-        $requestStack->pop();
-
-        return $value;
+        return $token;
     }
 
     private function authenticateClient(User $user): void
