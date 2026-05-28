@@ -236,19 +236,25 @@
 }
 
 .admin-users-table-wrap {
-  overflow-x: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .admin-users-table {
   width: 100%;
-  min-width: 0;
+  min-width: 920px;
   table-layout: auto;
 }
 
 .admin-users-table th,
 .admin-users-table td {
   vertical-align: top;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.admin-users-table th {
+  white-space: nowrap;
 }
 
 .admin-users-table th:nth-child(1),
@@ -258,7 +264,7 @@
 .admin-users-table td:nth-child(2) { width: auto; }
 
 .admin-users-table th:nth-child(3),
-.admin-users-table td:nth-child(3) { width: auto; word-break: break-word; }
+.admin-users-table td:nth-child(3) { width: auto; overflow-wrap: anywhere; word-break: break-word; }
 
 .admin-users-table th:nth-child(4),
 .admin-users-table td:nth-child(4) { width: auto; }
@@ -403,6 +409,7 @@
 .admin-announce-current-message {
   display: block;
   white-space: pre-line;
+  overflow-wrap: anywhere;
   margin: 4px 0 2px;
 }
 

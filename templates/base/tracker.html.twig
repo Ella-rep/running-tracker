@@ -1,4 +1,4 @@
-﻿{% extends 'base/layout.html.twig' %}
+{% extends 'base/layout.html.twig' %}
 
 {% block title %}Running Tracker{% endblock %}
 
@@ -11,15 +11,15 @@
   <div class="logo">RUN<span>/</span>TRACKER</div>
   <nav>
     <button class="active" onclick="showSection('dashboard', this)">Dashboard</button>
-    <button onclick="showSection('prepa', this)">PrÃ©pa</button>
+    <button onclick="showSection('prepa', this)">Prépa</button>
     <button onclick="showSection('log', this)">Log</button>
     <button onclick="showSection('courses', this)">Courses</button>
   </nav>
   <div class="user-badge">
-    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="ThÃ¨me clair/sombre">ðŸŒ™</button>
-    <span class="user-label">ConnectÃ© :</span>
+    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Thème clair/sombre">🌙</button>
+    <span class="user-label">Connecté :</span>
     <strong>{{ username ?: 'inconnu' }}</strong>
-    <button class="logout-btn" onclick="localStorage.removeItem('rt_token');location.href='/'">DÃ©connexion</button>
+    <button class="logout-btn" onclick="localStorage.removeItem('rt_token');location.href='/'">Déconnexion</button>
   </div>
 </header>
 
@@ -27,8 +27,8 @@
 
 <!-- ===== DASHBOARD ===== -->
 <section id="dashboard" class="visible">
-  <div class="section-title">Vue d'ensemble ðŸƒ</div>
-  <div class="section-sub">Mise Ã  jour Â· {{ 'now'|date('d M Y') }}</div>
+  <div class="section-title">Vue d'ensemble 🏃</div>
+  <div class="section-sub">Mise à jour · {{ 'now'|date('d M Y') }}</div>
 
   <div id="training-advice" style="margin-bottom:18px;"></div>
   <template id="training-advice-template">
@@ -54,7 +54,7 @@
   </template>
 
   <div class="chart-wrap" id="projections-wrap">
-    <div class="chart-title">Temps projetÃ©s â€” basÃ© sur tes 5 derniÃ¨res sorties</div>
+    <div class="chart-title">Temps projetés — basé sur tes 5 dernières sorties</div>
     <div id="projections-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:4px;"></div>
     <div id="projections-meta" style="margin-top:14px;font-size:11px;color:var(--text-muted);font-family:'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;"></div>
   </div>
@@ -112,15 +112,15 @@
 
   <div class="progress-section">
     <div class="progress-label">
-      <span>Phase actuelle : Tempo (prÃ©-prÃ©paration)</span>
-      <span id="tempo-pct">â€”</span>
+      <span>Phase actuelle : Tempo (pré-préparation)</span>
+      <span id="tempo-pct">—</span>
     </div>
     <div class="progress-bar"><div class="progress-fill" id="tempo-bar" style="width:0%"></div></div>
     <div class="progress-meta" id="tempo-meta"></div>
   </div>
 
   <div class="chart-wrap">
-    <div class="chart-title">KilomÃ©trage mensuel (2026)</div>
+    <div class="chart-title">Kilométrage mensuel (2026)</div>
     <div class="bar-chart" id="monthly-chart"></div>
   </div>
   <template id="monthly-bar-template">
@@ -131,9 +131,9 @@
   </template>
 
   <div class="table-wrap">
-    <div class="table-header">ðŸ“… Prochaines courses</div>
+    <div class="table-header">📅 Prochaines courses</div>
     <table>
-      <thead><tr><th>Ã‰chÃ©ance</th><th>Course</th><th>Date</th><th>Distance</th><th>Objectif</th><th>RÃ©sultat</th></tr></thead>
+      <thead><tr><th>Échéance</th><th>Course</th><th>Date</th><th>Distance</th><th>Objectif</th><th>Résultat</th></tr></thead>
       <tbody id="race-tbody"></tbody>
     </table>
   </div>
@@ -149,7 +149,7 @@
   </template>
 
   <div id="coherence-section">
-    <div class="section-title coherence-title">Analyse de cohÃ©rence</div>
+    <div class="section-title coherence-title">Analyse de cohérence</div>
     <div id="coherence-alerts"></div>
   </div>
   <template id="coherence-alert-template">
@@ -160,10 +160,10 @@
   </template>
 </section>
 
-<!-- ===== PRÃ‰PA (hub) ===== -->
+<!-- ===== PRÉPA (hub) ===== -->
 <section id="prepa">
-  <div class="section-title">Mes plans de prÃ©paration</div>
-  <div class="section-sub">SÃ©lectionne un plan pour le consulter ou le modifier</div>
+  <div class="section-title">Mes plans de préparation</div>
+  <div class="section-sub">Sélectionne un plan pour le consulter ou le modifier</div>
 
   <!-- Plan cards list -->
   <div id="prepa-list" style="display:flex;flex-direction:column;gap:12px;margin-bottom:28px;"></div>
@@ -180,7 +180,7 @@
           <div class="prepa-plan-card-count"></div>
           <div class="prepa-plan-card-archives"></div>
         </div>
-        <div class="prepa-plan-card-arrow">â€º</div>
+        <div class="prepa-plan-card-arrow">›</div>
       </div>
       <div class="prepa-plan-card-progress">
         <div class="prepa-plan-card-progress-fill"></div>
@@ -194,7 +194,7 @@
 
   <!-- Zone legend (shared) -->
   <div class="zone-legend" style="margin-top:28px;">
-    <div class="zone-item"><div class="zone-dot" style="background:var(--z1)"></div><span style="color:var(--z1)">Z1 rÃ©cup</span></div>
+    <div class="zone-item"><div class="zone-dot" style="background:var(--z1)"></div><span style="color:var(--z1)">Z1 récup</span></div>
     <div class="zone-item"><div class="zone-dot" style="background:var(--z2)"></div>Z2 endurance</div>
     <div class="zone-item"><div class="zone-dot" style="background:var(--z3)"></div>Z3 tempo</div>
     <div class="zone-item"><div class="zone-dot" style="background:var(--z4)"></div>Z4 seuil</div>
@@ -204,14 +204,14 @@
   <!-- Individual plan detail (shown when a plan is opened) -->
   <div id="prepa-detail" style="display:none;margin-top:24px;">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-      <button onclick="backToPrepaList()" style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px;">â† Retour</button>
-      <button id="delete-extra-btn" onclick="deleteExtraPlan(currentPlanId)" style="display:none;background:none;border:1px solid var(--accent3);color:var(--accent3);border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px;margin-left:auto;">ðŸ—‘ Supprimer</button>
+      <button onclick="backToPrepaList()" style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px;">← Retour</button>
+      <button id="delete-extra-btn" onclick="deleteExtraPlan(currentPlanId)" style="display:none;background:none;border:1px solid var(--accent3);color:var(--accent3);border-radius:5px;padding:4px 10px;cursor:pointer;font-size:12px;margin-left:auto;">🗑 Supprimer</button>
       <div class="section-title" id="prepa-detail-title" style="margin-bottom:0;font-size:22px;"></div>
-      <button onclick="editPlanMeta(currentPlanId)" style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;padding:3px 8px;cursor:pointer;font-size:11px;" title="Modifier">âœï¸</button>
+      <button onclick="editPlanMeta(currentPlanId)" style="background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;padding:3px 8px;cursor:pointer;font-size:11px;" title="Modifier">✏️</button>
     </div>
     <div class="section-sub" id="prepa-detail-sub"></div>
     <div style="display:flex;gap:8px;margin:12px 0 16px;">
-      <button class="btn" style="padding:5px 12px;font-size:11px;" onclick="addPlanSession(currentPlanId)">+ Ajouter sÃ©ance</button>
+      <button class="btn" style="padding:5px 12px;font-size:11px;" onclick="addPlanSession(currentPlanId)">+ Ajouter séance</button>
     </div>
     <div id="prepa-detail-weeks"></div>
   </div>
@@ -235,8 +235,8 @@
         <span class="duration-badge" hidden></span>
         <span class="optional-tag" hidden>(optionnel)</span>
         <div class="action-btns">
-          <button class="action-btn prepa-edit-btn" title="Modifier">âœï¸</button>
-          <button class="action-btn del prepa-delete-btn" title="Supprimer">ðŸ—‘</button>
+          <button class="action-btn prepa-edit-btn" title="Modifier">✏️</button>
+          <button class="action-btn del prepa-delete-btn" title="Supprimer">🗑</button>
         </div>
       </div>
     </div>
@@ -247,27 +247,27 @@
 <!-- ===== LOG ===== -->
 <section id="log">
   <div class="section-title">Journal de course</div>
-  <div class="section-sub">25 sorties enregistrÃ©es</div>
+  <div class="section-sub">25 sorties enregistrées</div>
 
   <div class="form-card">
-    <h3>âž• Ajouter une sortie</h3>
+    <h3>➕ Ajouter une sortie</h3>
     <div class="form-grid">
       <div class="field"><label>Date</label><input type="date" id="log-date"></div>
       <div class="field"><label>Distance (km)</label><input type="number" id="log-km" step="0.01" placeholder="5.00"></div>
-      <div class="field"><label>DurÃ©e (hh:mm:ss)</label><input type="text" id="log-dur" placeholder="00:45:00"></div>
+      <div class="field"><label>Durée (hh:mm:ss)</label><input type="text" id="log-dur" placeholder="00:45:00"></div>
       <div class="field"><label>BPM moy.</label><input type="number" id="log-bpm" placeholder="150"></div>
       <div class="field"><label>Type</label>
         <select id="log-type">
-          <option value="">â€”</option>
-          <option value="EF">EF â€“ Endurance fondamentale</option>
-          <option value="FC">FC â€“ FractionnÃ© court</option>
-          <option value="FL">FL â€“ Fractionné long</option>
-          <option value="SL">SL â€“ Sortie longue</option>
-          <option value="T">T â€“ Tempo</option>
-          <option value="Race">ðŸ Course</option>
+          <option value="">—</option>
+          <option value="EF">EF – Endurance fondamentale</option>
+          <option value="FC">FC – Fractionné court</option>
+          <option value="FL">FL – Fractionn� long</option>
+          <option value="SL">SL – Sortie longue</option>
+          <option value="T">T – Tempo</option>
+          <option value="Race">🏁 Course</option>
         </select>
       </div>
-      <div class="field"><label>D+ (mÃ¨tres)</label><input type="number" id="log-dplus" placeholder="0"></div>
+      <div class="field"><label>D+ (mètres)</label><input type="number" id="log-dplus" placeholder="0"></div>
       <div class="field"><label>Notes</label><input type="text" id="log-notes" placeholder="..."></div>
     </div>
     <button class="btn" onclick="addLog()">Enregistrer</button>
@@ -276,7 +276,7 @@
   <div class="filter-bar">
     <button class="filter-btn active" onclick="filterLog('all', this)">Tout</button>
     <button class="filter-btn" onclick="filterLog('EF', this)">EF</button>
-    <button class="filter-btn" onclick="filterLog('FC', this)">FractionnÃ©</button>
+    <button class="filter-btn" onclick="filterLog('FC', this)">Fractionné</button>
     <button class="filter-btn" onclick="filterLog('FL', this)">Frac. long</button>
     <button class="filter-btn" onclick="filterLog('SL', this)">Longue</button>
     <button class="filter-btn" onclick="filterLog('Race', this)">Courses</button>
@@ -284,7 +284,7 @@
 
   <div class="table-wrap">
     <table>
-      <thead><tr><th><button id="sort-date-btn" onclick="toggleSort()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-family:'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;display:flex;align-items:center;gap:5px;padding:0;white-space:nowrap;">Date <span id="sort-icon">â†“</span></button></th><th>Km</th><th>DurÃ©e</th><th>Allure</th><th>GAP</th><th>D+</th><th>BPM</th><th>Type</th><th>Notes</th><th></th></tr></thead>
+      <thead><tr><th><button id="sort-date-btn" onclick="toggleSort()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-family:'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;display:flex;align-items:center;gap:5px;padding:0;white-space:nowrap;">Date <span id="sort-icon">↓</span></button></th><th>Km</th><th>Durée</th><th>Allure</th><th>GAP</th><th>D+</th><th>BPM</th><th>Type</th><th>Notes</th><th></th></tr></thead>
       <tbody id="log-tbody"></tbody>
     </table>
   </div>
@@ -301,8 +301,8 @@
       <td class="log-col-notes" style="font-size:12px;color:var(--text-muted)"></td>
       <td>
         <div class="action-btns" style="opacity:0">
-          <button class="action-btn log-edit-btn" title="Modifier">âœï¸</button>
-          <button class="action-btn del log-delete-btn" title="Supprimer">ðŸ—‘</button>
+          <button class="action-btn log-edit-btn" title="Modifier">✏️</button>
+          <button class="action-btn del log-delete-btn" title="Supprimer">🗑</button>
         </div>
       </td>
     </tr>
@@ -318,20 +318,20 @@
   <div class="section-sub">Saison 2026</div>
 
   <div class="form-card">
-    <h3>âž• Ajouter une course</h3>
+    <h3>➕ Ajouter une course</h3>
     <div class="form-grid">
       <div class="field"><label>Nom</label><input type="text" id="r-name" placeholder="Ex: 10km de Paris"></div>
       <div class="field"><label>Date</label><input type="date" id="r-date"></div>
       <div class="field"><label>Distance</label><input type="text" id="r-dist" placeholder="10km"></div>
       <div class="field"><label>Objectif (hh:mm:ss)</label><input type="text" id="r-obj" placeholder="00:55:00"></div>
-      <div class="field"><label>RÃ©sultat (si passÃ©)</label><input type="text" id="r-real" placeholder="00:53:22"></div>
+      <div class="field"><label>Résultat (si passé)</label><input type="text" id="r-real" placeholder="00:53:22"></div>
     </div>
     <button class="btn" onclick="addRace()">Ajouter</button>
   </div>
 
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Ã‰chÃ©ance</th><th>Course</th><th>Date</th><th>Distance</th><th>Objectif</th><th>RÃ©sultat</th><th>Ã‰cart</th></tr></thead>
+      <thead><tr><th>Échéance</th><th>Course</th><th>Date</th><th>Distance</th><th>Objectif</th><th>Résultat</th><th>Écart</th></tr></thead>
       <tbody id="races-tbody"></tbody>
     </table>
   </div>
@@ -346,8 +346,8 @@
       <td class="mono races-col-diff"></td>
       <td>
         <div class="action-btns" style="opacity:0">
-          <button class="action-btn races-edit-btn" title="Modifier">âœï¸</button>
-          <button class="action-btn del races-delete-btn" title="Supprimer">ðŸ—‘</button>
+          <button class="action-btn races-edit-btn" title="Modifier">✏️</button>
+          <button class="action-btn del races-delete-btn" title="Supprimer">🗑</button>
         </div>
       </td>
     </tr>
@@ -364,18 +364,18 @@
 <!-- MODAL PLAN SESSION EDIT -->
 <div class="modal-overlay" id="plan-modal">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal('plan-modal')">âœ•</button>
-    <div class="modal-title">Modifier la sÃ©ance</div>
+    <button class="modal-close" onclick="closeModal('plan-modal')">✕</button>
+    <div class="modal-title">Modifier la séance</div>
     <input type="hidden" id="pm-statekey">
     <input type="hidden" id="pm-idx">
     <div class="form-grid" style="grid-template-columns:1fr;">
       <div class="field"><label>Format</label><input type="text" id="pm-format"></div>
       <div class="field"><label>Date</label><input type="text" id="pm-date" placeholder="dd/mm/yyyy" inputmode="numeric"></div>
       <div class="field"><label>PE</label><input type="text" id="pm-pe" placeholder="ex: 6/10"></div>
-      <div class="field"><label>DurÃ©e totale (min)</label><input type="number" id="pm-total"></div>
+      <div class="field"><label>Durée totale (min)</label><input type="number" id="pm-total"></div>
       <div class="field" style="display:flex;align-items:center;gap:10px;padding-top:6px;">
         <input type="checkbox" id="pm-opt" style="width:16px;height:16px;accent-color:var(--accent2)">
-        <label for="pm-opt" style="font-size:13px;letter-spacing:0;text-transform:none;color:var(--text)">SÃ©ance optionnelle</label>
+        <label for="pm-opt" style="font-size:13px;letter-spacing:0;text-transform:none;color:var(--text)">Séance optionnelle</label>
       </div>
     </div>
     <div class="modal-actions">
@@ -388,26 +388,26 @@
 <!-- MODAL LOG EDIT -->
 <div class="modal-overlay" id="log-modal">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal('log-modal')">âœ•</button>
+    <button class="modal-close" onclick="closeModal('log-modal')">✕</button>
     <div class="modal-title">Modifier la sortie</div>
     <input type="hidden" id="lm-idx">
     <div class="form-grid">
       <div class="field"><label>Date</label><input type="date" id="lm-date"></div>
       <div class="field"><label>Distance (km)</label><input type="number" id="lm-km" step="0.01"></div>
-      <div class="field"><label>DurÃ©e (hh:mm:ss)</label><input type="text" id="lm-dur"></div>
+      <div class="field"><label>Durée (hh:mm:ss)</label><input type="text" id="lm-dur"></div>
       <div class="field"><label>BPM moy.</label><input type="number" id="lm-bpm"></div>
       <div class="field"><label>Type</label>
         <select id="lm-type">
-          <option value="">â€”</option>
-          <option value="EF">EF â€“ Endurance fondamentale</option>
-          <option value="FC">FC â€“ FractionnÃ© court</option>
-          <option value="FL">FL â€“ Fractionné long</option>
-          <option value="SL">SL â€“ Sortie longue</option>
-          <option value="T">T â€“ Tempo</option>
-          <option value="Race">ðŸ Course</option>
+          <option value="">—</option>
+          <option value="EF">EF – Endurance fondamentale</option>
+          <option value="FC">FC – Fractionné court</option>
+          <option value="FL">FL – Fractionn� long</option>
+          <option value="SL">SL – Sortie longue</option>
+          <option value="T">T – Tempo</option>
+          <option value="Race">🏁 Course</option>
         </select>
       </div>
-      <div class="field"><label>D+ (mÃ¨tres)</label><input type="number" id="lm-dplus" placeholder="0"></div>
+      <div class="field"><label>D+ (mètres)</label><input type="number" id="lm-dplus" placeholder="0"></div>
       <div class="field"><label>Notes</label><input type="text" id="lm-notes"></div>
     </div>
     <div class="modal-actions">
@@ -420,7 +420,7 @@
 <!-- MODAL RACE EDIT -->
 <div class="modal-overlay" id="race-modal">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal('race-modal')">âœ•</button>
+    <button class="modal-close" onclick="closeModal('race-modal')">✕</button>
     <div class="modal-title">Modifier la course</div>
     <input type="hidden" id="rm-idx">
     <div class="form-grid">
@@ -428,7 +428,7 @@
       <div class="field"><label>Date</label><input type="date" id="rm-date"></div>
       <div class="field"><label>Distance</label><input type="text" id="rm-dist"></div>
       <div class="field"><label>Objectif</label><input type="text" id="rm-obj" placeholder="hh:mm:ss"></div>
-      <div class="field"><label>RÃ©sultat</label><input type="text" id="rm-real" placeholder="hh:mm:ss"></div>
+      <div class="field"><label>Résultat</label><input type="text" id="rm-real" placeholder="hh:mm:ss"></div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="saveRaceEdit()">Enregistrer</button>
@@ -440,14 +440,14 @@
 <!-- MODAL NEW PLAN -->
 <div class="modal-overlay" id="newplan-modal">
   <div class="modal">
-    <button class="modal-close" onclick="closeNewPlanModal()">âœ•</button>
+    <button class="modal-close" onclick="closeNewPlanModal()">✕</button>
     <div class="modal-title">Nouveau plan</div>
     <div class="form-grid" style="grid-template-columns:1fr;">
       <div class="field"><label>Nom du plan</label><input type="text" id="np-title" placeholder="Ex: Plan 10km printemps"></div>
-      <div class="field"><label>Sous-titre</label><input type="text" id="np-sub" placeholder="Ex: 8 semaines Â· 32 sÃ©ances"></div>
+      <div class="field"><label>Sous-titre</label><input type="text" id="np-sub" placeholder="Ex: 8 semaines · 32 séances"></div>
     </div>
     <div class="modal-actions">
-      <button class="btn" onclick="confirmCreatePlan()">CrÃ©er</button>
+      <button class="btn" onclick="confirmCreatePlan()">Créer</button>
       <button class="btn btn-ghost" onclick="closeNewPlanModal()">Annuler</button>
     </div>
   </div>
@@ -456,7 +456,7 @@
 <template id="prepa-meta-modal-template">
   <div class="modal-overlay" style="display:flex;">
     <div class="modal">
-      <button class="modal-close prepa-meta-close-btn">âœ•</button>
+      <button class="modal-close prepa-meta-close-btn">✕</button>
       <div class="modal-title">Modifier le plan</div>
       <div class="form-grid" style="grid-template-columns:1fr;">
         <div class="field">
@@ -471,8 +471,8 @@
       <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
         <div style="font-size:11px;color:var(--text-muted);font-family:'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;margin-bottom:10px;letter-spacing:1px;text-transform:uppercase;">Gestion du plan</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-ghost prepa-meta-reset-btn" style="font-size:11px;padding:6px 12px;">â†º RÃ©initialiser les coches</button>
-          <button class="btn btn-ghost prepa-meta-archive-btn" style="font-size:11px;padding:6px 12px;border-color:var(--accent2);color:var(--accent2);">ðŸ“¦ Archiver ce plan</button>
+          <button class="btn btn-ghost prepa-meta-reset-btn" style="font-size:11px;padding:6px 12px;">↺ Réinitialiser les coches</button>
+          <button class="btn btn-ghost prepa-meta-archive-btn" style="font-size:11px;padding:6px 12px;border-color:var(--accent2);color:var(--accent2);">📦 Archiver ce plan</button>
           <button class="btn btn-ghost prepa-meta-create-btn" style="font-size:11px;padding:6px 12px;border-color:var(--z1);color:var(--z1);">+ Nouveau plan vide</button>
         </div>
         <div class="prepa-meta-archives"></div>
@@ -498,8 +498,8 @@
       <div class="prepa-archive-name" style="font-size:12px;font-weight:700;color:var(--text);"></div>
       <div class="prepa-archive-meta" style="font-size:10px;color:var(--text-muted);font-family:'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;margin-top:2px;"></div>
     </div>
-    <button class="prepa-archive-restore" style="font-size:10px;padding:4px 10px;background:none;border:1px solid var(--accent2);color:var(--accent2);border-radius:5px;cursor:pointer;white-space:nowrap;">â†© Restaurer</button>
-    <button class="prepa-archive-delete" style="font-size:10px;padding:4px 8px;background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;cursor:pointer;">ðŸ—‘</button>
+    <button class="prepa-archive-restore" style="font-size:10px;padding:4px 10px;background:none;border:1px solid var(--accent2);color:var(--accent2);border-radius:5px;cursor:pointer;white-space:nowrap;">↩ Restaurer</button>
+    <button class="prepa-archive-delete" style="font-size:10px;padding:4px 8px;background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;cursor:pointer;">🗑</button>
   </div>
 </template>
 
@@ -507,7 +507,7 @@
 <div class="confirm-overlay" id="confirm-overlay">
   <div class="confirm-box">
     <strong id="confirm-title">Supprimer ?</strong>
-    <p id="confirm-msg">Cette action est irrÃ©versible.</p>
+    <p id="confirm-msg">Cette action est irréversible.</p>
     <div class="confirm-actions">
       <button class="btn btn-danger" onclick="confirmDelete()">Supprimer</button>
       <button class="btn btn-ghost" onclick="closeConfirm()">Annuler</button>

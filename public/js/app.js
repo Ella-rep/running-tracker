@@ -42,6 +42,24 @@ function members(data) {
   return data?.['hydra:member'] ?? data ?? [];
 }
 
+function formatDisplayName(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+
+  const normalized = text
+    .replace(/[._]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return normalized
+    .split(' ')
+    .map((part) => {
+      if (!part) return '';
+      return part.charAt(0).toUpperCase() + part.slice(1);
+    })
+    .join(' ');
+}
+
 function applyDynamicTextContrast(textEl, bgEl = textEl, threshold = 0.62, darkClass = 'bar-value--dark') {
   if (!(textEl instanceof HTMLElement) || !(bgEl instanceof HTMLElement)) return;
 
@@ -379,10 +397,75 @@ function formatDateForInput(value) {
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
+function parseClockDurationToken(source, startIndex) {
+  const match = /^(\d{1,3}):([0-5]?\d)(?::([0-5]?\d))?/.exec(source);
+  if (!match) return null;
+
+  const a = Number.parseInt(match[1], 10);
+  const b = Number.parseInt(match[2], 10);
+  const c = match[3] === undefined ? null : Number.parseInt(match[3], 10);
+  const seconds = c === null ? (a * 60) + b : (a * 3600) + (b * 60) + c;
+  return { seconds, nextIndex: startIndex + match[0].length };
+}
+
+function parseApostropheOrWordDuration(text, value, indexAfterNumber) {
+  let i = indexAfterNumber;
+  while (i < text.length && /\s/.test(text[i])) i += 1;
+
+  if (text.startsWith("''", i)) return { seconds: value, nextIndex: i + 2 };
+  if (text[i] === '"') return { seconds: value, nextIndex: i + 1 };
+  if (text[i] === "'") return { seconds: value * 60, nextIndex: i + 1 };
+
+  const secWord = /^(sec|secs|seconde|secondes|s)\b/.exec(text.slice(i));
+  if (secWord) return { seconds: value, nextIndex: i + secWord[0].length };
+
+  const minWord = /^(min|mins|minute|minutes|mn)\b/.exec(text.slice(i));
+  if (minWord) return { seconds: value * 60, nextIndex: i + minWord[0].length };
+
+  return null;
+}
+
+function parseHourDuration(text, value, indexAfterNumber) {
+  let i = indexAfterNumber;
+  while (i < text.length && /\s/.test(text[i])) i += 1;
+  if (text[i] !== 'h') return null;
+
+  i += 1;
+  while (i < text.length && /\s/.test(text[i])) i += 1;
+
+  let minutesPart = 0;
+  const minuteDigits = /^(\d{1,2})/.exec(text.slice(i));
+  if (minuteDigits) {
+    minutesPart = Number.parseInt(minuteDigits[1], 10);
+    i += minuteDigits[1].length;
+    while (i < text.length && /\s/.test(text[i])) i += 1;
+    const minuteSuffix = /^(min|mins|minute|minutes|mn)\b/.exec(text.slice(i));
+    if (minuteSuffix) i += minuteSuffix[0].length;
+  }
+
+  return {
+    seconds: (value * 3600) + (minutesPart * 60),
+    nextIndex: i,
+  };
+}
+
+function parseBareMinutesDuration(text, value, indexAfterNumber) {
+  let i = indexAfterNumber;
+  while (i < text.length && /\s/.test(text[i])) i += 1;
+
+  if (text[i] === '@') {
+    return { seconds: value * 60, nextIndex: i };
+  }
+
+  const endOrSeparator = i >= text.length || /[+\-/>|),]/.test(text[i]);
+  if (!endOrSeparator) return null;
+  return { seconds: value * 60, nextIndex: i };
+}
+
 function normalizeCalendarEvent(row) {
   const id = Number.parseInt(row?.id, 10);
   return {
-    id: Number.isFinite(id) ? id : null,
+    id,
     date: normalizeDateForStorage(row?.date),
     title: String(row?.title || '').trim(),
   };
@@ -392,40 +475,12 @@ async function loadCalendarEvents() {
   try {
     const data = await apiFetch('/calendar/events');
     const items = members(data?.items || data);
-    calendarEventsData = items.map(normalizeCalendarEvent).filter((e) => Number.isFinite(e.id) && e.date && e.title);
+    calendarEventsData = items
+      .map(normalizeCalendarEvent)
+      .filter((e) => Number.isFinite(e.id) && e.date && e.title);
   } catch {
     calendarEventsData = [];
   }
-}
-
-function buildUniquePlanName(baseName) {
-  const base = String(baseName || '').trim();
-  if (!base) return '';
-  const existing = new Set((state.extraPlans || []).map(p => p.key || p.title || p.id));
-  if (!existing.has(base)) return base;
-  let i = 2;
-  while (existing.has(`${base} (${i})`)) i += 1;
-  return `${base} (${i})`;
-}
-
-function formatDisplayName(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return 'Inconnu';
-  return raw.charAt(0).toUpperCase() + raw.slice(1);
-}
-
-const SESSION_TYPE_OPTIONS = [
-  { value: 'EF', label: 'EF' },
-  { value: 'FC', label: 'FC' },
-  { value: 'SL', label: 'SL' },
-  { value: 'FL', label: 'FL' },
-  { value: 'T', label: 'T' },
-  { value: 'Race', label: 'Course' },
-];
-
-function sessionTypeDisplayLabel(value) {
-  const normalized = normalizeSessionType(value);
-  return normalized === 'Race' ? 'Course' : String(normalized || value || '').trim();
 }
 
 function normalizeSessionType(value) {
@@ -454,40 +509,300 @@ function normalizeSessionType(value) {
   return raw;
 }
 
+function sessionTypeDisplayLabel(value) {
+  const normalized = normalizeSessionType(value);
+  if (normalized === 'Race') return 'Course';
+  return String(normalized || value || '').trim();
+}
+
 function sessionDateValue(session) {
   return session?.date ?? session?.sessionDate ?? session?.session_date ?? null;
 }
 
-function parseSessionTotalMinutes(raw) {
-  if (raw === null || raw === undefined) return null;
-  const text = String(raw).trim();
-  if (!text) return null;
-
-  if (/^\d+$/.test(text)) {
-    const minutes = Number.parseInt(text, 10);
-    return Number.isFinite(minutes) ? minutes : null;
-  }
-
-  const hms = /^(\d{1,2}):([0-5]\d):([0-5]\d)$/.exec(text);
+function parseDurationCandidate(value) {
+  const hms = /^(\d{1,3}):([0-5]\d):([0-5]\d)$/.exec(value);
   if (hms) {
     const hours = Number.parseInt(hms[1], 10);
     const minutes = Number.parseInt(hms[2], 10);
     const seconds = Number.parseInt(hms[3], 10);
-    const totalSeconds = (hours * 3600) + (minutes * 60) + seconds;
-    return Math.round(totalSeconds / 60);
+    return {
+      seconds: (hours * 3600) + (minutes * 60) + seconds,
+      precision: 3,
+    };
+  }
+
+  const ms = /^(\d{1,3}):([0-5]\d)$/.exec(value);
+  if (ms) {
+    const minutes = Number.parseInt(ms[1], 10);
+    const seconds = Number.parseInt(ms[2], 10);
+    return {
+      seconds: (minutes * 60) + seconds,
+      precision: 2,
+    };
+  }
+
+  const minApostrophe = /^(\d+)['’]$/.exec(value);
+  if (minApostrophe) {
+    return {
+      seconds: Number.parseInt(minApostrophe[1], 10) * 60,
+      precision: 1,
+    };
+  }
+
+  if (/^\d+$/.test(value)) {
+    return {
+      seconds: Number.parseInt(value, 10) * 60,
+      precision: 1,
+    };
   }
 
   return null;
 }
 
+function parseDurationToSeconds(raw) {
+  if (raw === null || raw === undefined) return null;
+  const text = String(raw).trim();
+  if (!text) return null;
+
+  const candidates = [text];
+  if (text.includes('/')) {
+    text.split('/').forEach((part) => {
+      const trimmed = String(part || '').trim();
+      if (trimmed) candidates.push(trimmed);
+    });
+  }
+
+  let bestSeconds = null;
+  let bestPrecision = -1;
+  const uniqueCandidates = [...new Set(candidates)];
+
+  uniqueCandidates.forEach((value) => {
+    const parsed = parseDurationCandidate(value);
+    if (!parsed || !Number.isFinite(parsed.seconds)) return;
+    if (parsed.precision > bestPrecision) {
+      bestSeconds = parsed.seconds;
+      bestPrecision = parsed.precision;
+    }
+  });
+
+  return bestSeconds;
+}
+
+function parseSessionTotalMinutes(raw) {
+  const totalSeconds = parseDurationToSeconds(raw);
+  if (!Number.isFinite(totalSeconds)) return null;
+  return Math.round(totalSeconds / 60);
+}
+
+function normalizeFormatDurationText(raw) {
+  return String(raw || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replaceAll('’', "'")
+    .toLowerCase();
+}
+
+function findMatchingParenthesis(text, openIndex) {
+  if (text[openIndex] !== '(') return -1;
+  let depth = 0;
+  for (let i = openIndex; i < text.length; i += 1) {
+    if (text[i] === '(') depth += 1;
+    if (text[i] === ')') {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+function parsePlannedDurationToken(text, startIndex) {
+  const source = text.slice(startIndex);
+  const hms = /^(\d{1,3}):([0-5]?\d)(?::([0-5]?\d))?/.exec(source);
+  if (hms) {
+    const a = Number.parseInt(hms[1], 10);
+    const b = Number.parseInt(hms[2], 10);
+    const c = hms[3] === undefined ? null : Number.parseInt(hms[3], 10);
+    const seconds = c === null ? (a * 60) + b : (a * 3600) + (b * 60) + c;
+    return { seconds, nextIndex: startIndex + hms[0].length };
+  }
+
+  const number = /^(\d+)/.exec(source);
+  if (!number) return null;
+
+  const value = Number.parseInt(number[1], 10);
+  let i = startIndex + number[1].length;
+  while (i < text.length && /\s/.test(text[i])) i += 1;
+
+  if (text.startsWith("''", i)) return { seconds: value, nextIndex: i + 2 };
+  if (text[i] === '"') return { seconds: value, nextIndex: i + 1 };
+  if (text[i] === "'") return { seconds: value * 60, nextIndex: i + 1 };
+
+  const secWord = /^(sec|secs|seconde|secondes|s)\b/.exec(text.slice(i));
+  if (secWord) return { seconds: value, nextIndex: i + secWord[0].length };
+
+  const minWord = /^(min|mins|minute|minutes|mn)\b/.exec(text.slice(i));
+  if (minWord) return { seconds: value * 60, nextIndex: i + minWord[0].length };
+
+  if (text[i] === 'h') {
+    i += 1;
+    while (i < text.length && /\s/.test(text[i])) i += 1;
+
+    let minutesPart = 0;
+    const minuteDigits = /^(\d{1,2})/.exec(text.slice(i));
+    if (minuteDigits) {
+      minutesPart = Number.parseInt(minuteDigits[1], 10);
+      i += minuteDigits[1].length;
+      while (i < text.length && /\s/.test(text[i])) i += 1;
+      const minuteSuffix = /^(min|mins|minute|minutes|mn)\b/.exec(text.slice(i));
+      if (minuteSuffix) i += minuteSuffix[0].length;
+    }
+
+    return {
+      seconds: (value * 3600) + (minutesPart * 60),
+      nextIndex: i,
+    };
+  }
+
+  if (text[i] === '@') {
+    return { seconds: value * 60, nextIndex: i };
+  }
+
+  const endOrSeparator = i >= text.length || /[+\-/>|),]/.test(text[i]);
+  if (endOrSeparator) {
+    return { seconds: value * 60, nextIndex: i };
+  }
+
+  return null;
+}
+
+function parsePlannedRepeat(text, startIndex) {
+  const repeat = /^(\d+)\s*x\b/.exec(text.slice(startIndex));
+  if (!repeat) return null;
+
+  const multiplier = Number.parseInt(repeat[1], 10);
+  let i = startIndex + repeat[0].length;
+  while (i < text.length && /\s/.test(text[i])) i += 1;
+
+  if (text[i] === '(') {
+    const closeIndex = findMatchingParenthesis(text, i);
+    if (closeIndex < 0) return null;
+    const innerText = text.slice(i + 1, closeIndex);
+    const innerSeconds = parsePlannedDurationSecondsFromFormat(innerText);
+    if (!Number.isFinite(innerSeconds)) return null;
+    return {
+      seconds: multiplier * innerSeconds,
+      nextIndex: closeIndex + 1,
+    };
+  }
+
+  const token = parsePlannedDurationToken(text, i);
+  if (!token) return null;
+  return {
+    seconds: multiplier * token.seconds,
+    nextIndex: token.nextIndex,
+  };
+}
+
+function parsePlannedDurationSecondsFromFormat(rawFormat) {
+  const text = normalizeFormatDurationText(rawFormat);
+  if (!text.trim()) return null;
+
+  let totalSeconds = 0;
+  let found = false;
+  let i = 0;
+
+  while (i < text.length) {
+    if (!/\d/.test(text[i])) {
+      i += 1;
+      continue;
+    }
+    if (i > 0 && /[a-z@]/.test(text[i - 1])) {
+      i += 1;
+      continue;
+    }
+
+    const repeated = parsePlannedRepeat(text, i);
+    if (repeated) {
+      totalSeconds += repeated.seconds;
+      found = true;
+      i = repeated.nextIndex;
+      continue;
+    }
+
+    const token = parsePlannedDurationToken(text, i);
+    if (token) {
+      totalSeconds += token.seconds;
+      found = true;
+      i = token.nextIndex;
+      continue;
+    }
+
+    i += 1;
+  }
+
+  return found ? totalSeconds : null;
+}
+
+function computePlannedTotalMinutesFromFormat(format) {
+  const totalSeconds = parsePlannedDurationSecondsFromFormat(format);
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return null;
+  return Math.round(totalSeconds / 60);
+}
+
+function syncPlanTotalFromFormat() {
+  const formatInput = document.getElementById('pm-format');
+  const totalInput = document.getElementById('pm-total');
+  if (!(formatInput instanceof HTMLInputElement) || !(totalInput instanceof HTMLInputElement)) return;
+
+  const computedMinutes = computePlannedTotalMinutesFromFormat(formatInput.value);
+  if (computedMinutes === null) {
+    totalInput.readOnly = false;
+    totalInput.title = '';
+  } else {
+    totalInput.value = String(computedMinutes);
+    totalInput.readOnly = true;
+    totalInput.title = 'Calcule automatiquement depuis le format';
+  }
+
+  renderDurationDualHint('pm-total');
+}
+
+function setupPlanTotalAutoCompute() {
+  const formatInput = document.getElementById('pm-format');
+  if (!(formatInput instanceof HTMLInputElement)) return;
+
+  if (formatInput.dataset.autoTotalBound === '1') {
+    syncPlanTotalFromFormat();
+    return;
+  }
+
+  formatInput.addEventListener('input', syncPlanTotalFromFormat);
+  formatInput.addEventListener('change', syncPlanTotalFromFormat);
+  formatInput.dataset.autoTotalBound = '1';
+  syncPlanTotalFromFormat();
+}
+
+function formatHmsFromSeconds(totalSeconds) {
+  const seconds = Number.parseInt(totalSeconds, 10);
+  if (!Number.isFinite(seconds) || seconds < 0) return null;
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  return `${hours}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+function formatMinSecFromSeconds(totalSeconds) {
+  const seconds = Number.parseInt(totalSeconds, 10);
+  if (!Number.isFinite(seconds) || seconds < 0) return null;
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}'${String(secs).padStart(2, '0')}''`;
+}
+
 function formatHmsFromMinutes(totalMinutes) {
   const minutes = Number.parseInt(totalMinutes, 10);
   if (!Number.isFinite(minutes) || minutes < 0) return null;
-  const totalSeconds = minutes * 60;
-  const hours = Math.floor(totalSeconds / 3600);
-  const mins = Math.floor((totalSeconds % 3600) / 60);
-  const secs = totalSeconds % 60;
-  return `${hours}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  return formatHmsFromSeconds(minutes * 60);
 }
 
 function formatDurationDualFromMinutes(totalMinutes) {
@@ -499,12 +814,19 @@ function formatDurationDualFromMinutes(totalMinutes) {
 }
 
 function formatDurationDualFromRaw(raw) {
-  const minutes = parseSessionTotalMinutes(raw);
-  if (minutes === null) {
+  const totalSeconds = parseDurationToSeconds(raw);
+  if (!Number.isFinite(totalSeconds)) {
     const fallback = String(raw || '').trim();
     return fallback || null;
   }
-  return formatDurationDualFromMinutes(minutes);
+  const roundedMinutes = Math.round(totalSeconds / 60);
+  const hms = formatHmsFromSeconds(totalSeconds);
+  if (!hms) return null;
+  if (totalSeconds % 60 !== 0) {
+    const minSec = formatMinSecFromSeconds(totalSeconds);
+    return minSec ? `${minSec} / ${hms}` : hms;
+  }
+  return `${roundedMinutes}' / ${hms}`;
 }
 
 function ensureDurationHintNode(inputId) {
@@ -3420,8 +3742,11 @@ function addPlanSession(planId) {
   document.getElementById('pm-date').value = '';
   document.getElementById('pm-pe').value = '';
   document.getElementById('pm-total').value = '';
+  document.getElementById('pm-total').readOnly = false;
+  document.getElementById('pm-total').title = '';
   renderDurationDualHint('pm-total');
   document.getElementById('pm-opt').checked = false;
+  syncPlanTotalFromFormat();
 
   const titleEl = document.getElementById('plan-modal-title');
   if (titleEl) titleEl.textContent = 'Nouvelle séance';
@@ -3607,8 +3932,9 @@ function renderPlan(containerId, data, stateKey) {
       if (optEl) {
         optEl.hidden = false;
         optEl.classList.toggle('session-meta-slot--empty', !realDuration);
+        optEl.classList.toggle('optional-tag--real', !!realDuration);
         optEl.setAttribute('aria-hidden', realDuration ? 'false' : 'true');
-        optEl.textContent = realDuration ? `Reel ${formatDurationDualFromRaw(realDuration) || realDuration}` : '';
+        optEl.textContent = realDuration ? `${formatDurationDualFromRaw(realDuration) || realDuration}` : '';
       }
       row.addEventListener('click', () => toggleSession(stateKey, idx, row));
       if (editBtn) {
@@ -3714,8 +4040,11 @@ function openPlanEdit(stateKey, idx) {
   document.getElementById('pm-date').value = normalizeDateForStorage(sessionDateValue(s));
   document.getElementById('pm-pe').value = s.pe || '';
   document.getElementById('pm-total').value = sessionTotalMinutesValue(s) ?? '';
+  document.getElementById('pm-total').readOnly = false;
+  document.getElementById('pm-total').title = '';
   renderDurationDualHint('pm-total');
   document.getElementById('pm-opt').checked = sessionOptionalValue(s);
+  syncPlanTotalFromFormat();
 
   const titleEl = document.getElementById('plan-modal-title');
   if (titleEl) titleEl.textContent = 'Modifier la séance';
@@ -3739,11 +4068,16 @@ function readPlanEditPayload() {
     return null;
   }
 
+  const computedFromFormat = computePlannedTotalMinutesFromFormat(format);
   const totalRaw = document.getElementById('pm-total').value;
-  const totalMinutes = parseSessionTotalMinutes(totalRaw);
-  if (String(totalRaw || '').trim() !== '' && totalMinutes === null) {
-    notify('⚠ Temps total invalide (attendu: minutes ou hh:mm:ss)');
-    return null;
+  let totalMinutes = computedFromFormat;
+
+  if (totalMinutes === null) {
+    totalMinutes = parseSessionTotalMinutes(totalRaw);
+    if (String(totalRaw || '').trim() !== '' && totalMinutes === null) {
+      notify('⚠ Temps total invalide (attendu: minutes ou hh:mm:ss)');
+      return null;
+    }
   }
 
   return {
@@ -4470,14 +4804,20 @@ async function loadPlannedSessionsForLogs() {
   try {
     const data = await apiFetch('/plan_details?order[sessionDate]=asc&pagination=false');
     const items = members(data);
-    plannedSessionsForLogs = items
+    const normalized = items
       .map((item) => {
         const id = iriToId(item?.['@id']) ?? Number.parseInt(item?.id, 10);
         if (!Number.isFinite(id)) return null;
+        const planId = iriToId(item?.plan)
+          ?? iriToId(item?.plan?.['@id'])
+          ?? Number.parseInt(item?.plan?.id, 10)
+          ?? null;
         return {
           id,
+          planId,
           planName: item?.planName,
           position: item?.position,
+          sem: Number.parseInt(item?.sem, 10),
           sessionDate: normalizeDateForStorage(item?.sessionDate),
           format: item?.format,
           sessionType: normalizeSessionType(item?.sessionType ?? item?.session_type ?? item?.type),
@@ -4485,12 +4825,65 @@ async function loadPlannedSessionsForLogs() {
         };
       })
       .filter(Boolean);
+
+    const byPlan = new Map();
+    normalized.forEach((item) => {
+      const key = Number.isFinite(Number(item?.planId)) ? Number(item.planId) : 'na';
+      if (!byPlan.has(key)) byPlan.set(key, []);
+      byPlan.get(key).push(item);
+    });
+
+    byPlan.forEach((sessions) => {
+      const weeks = new Map();
+      const ordered = sessions.slice().sort((a, b) => {
+        const aWeek = Number.parseInt(a?.sem, 10);
+        const bWeek = Number.parseInt(b?.sem, 10);
+        if (Number.isFinite(aWeek) && Number.isFinite(bWeek) && aWeek !== bWeek) return aWeek - bWeek;
+        if (Number.isFinite(aWeek) && !Number.isFinite(bWeek)) return -1;
+        if (!Number.isFinite(aWeek) && Number.isFinite(bWeek)) return 1;
+
+        const aDate = normalizeDateForStorage(a?.sessionDate);
+        const bDate = normalizeDateForStorage(b?.sessionDate);
+        if (aDate && bDate && aDate !== bDate) return aDate.localeCompare(bDate);
+
+        return Number(a?.position || 0) - Number(b?.position || 0);
+      });
+
+      ordered.forEach((item) => {
+        let weekNumber = Number.parseInt(item?.sem, 10);
+        if (!Number.isFinite(weekNumber) || weekNumber <= 0) {
+          const dateKey = normalizeDateForStorage(item?.sessionDate);
+          weekNumber = dateKey ? Number(dateKey.slice(8, 10)) : 0;
+        }
+        if (!Number.isFinite(weekNumber) || weekNumber <= 0) {
+          weekNumber = 0;
+        }
+
+        const weekKey = String(weekNumber);
+        if (!weeks.has(weekKey)) weeks.set(weekKey, []);
+        weeks.get(weekKey).push(item);
+      });
+
+      weeks.forEach((weekSessions, weekKey) => {
+        weekSessions
+          .sort((a, b) => Number(a?.position || 0) - Number(b?.position || 0))
+          .forEach((item, idx) => {
+            item.weekNumber = Number.parseInt(weekKey, 10) || null;
+            item.episodeInWeek = idx + 1;
+          });
+      });
+    });
+
+    plannedSessionsForLogs = normalized;
   } catch {
     plannedSessionsForLogs = [];
   }
 
   fillPlannedSessionDatalist();
   ensurePlannedSessionBindings();
+  if (document.getElementById('log-tbody')) {
+    renderLog();
+  }
 }
 
 function toggleSort(){
@@ -4530,15 +4923,57 @@ function setLogTypeCell(cell, runType) {
   cell.replaceChildren(badge);
 }
 
+function resolvePlannedSessionForLog(log) {
+  const linkedSessionId = Number.parseInt(log?.plannedSessionId, 10);
+  if (Number.isFinite(linkedSessionId)) {
+    const byId = (Array.isArray(plannedSessionsForLogs) ? plannedSessionsForLogs : []).find(
+      (item) => Number(item?.id) === linkedSessionId,
+    );
+    if (byId) return byId;
+  }
+
+  const legacyLabel = String(log?.plannedSessionLabel || '').trim();
+  if (!legacyLabel) return null;
+
+  const labelMatch = /Seance\s+(\d+)\s*[-·]\s*(.+)$/i.exec(legacyLabel);
+  if (!labelMatch) return null;
+
+  const position = Number.parseInt(labelMatch[1], 10);
+  const format = String(labelMatch[2] || '').trim();
+  if (!Number.isFinite(position)) return null;
+
+  return (Array.isArray(plannedSessionsForLogs) ? plannedSessionsForLogs : []).find((item) => {
+    const samePosition = Number.parseInt(item?.position, 10) === position;
+    if (!samePosition) return false;
+    if (!format) return true;
+    return String(item?.format || '').trim() === format;
+  }) || null;
+}
+
 function logOutingLabel(log) {
   const isRace = normalizeSessionType(log?.run_type) === 'Race';
   const courseName = String(log?.courseName || '').trim();
   const plannedLabel = String(log?.plannedSessionLabel || '').trim();
 
-  if (isRace && courseName) return courseName;
-  if (plannedLabel) return plannedLabel;
-  if (courseName) return courseName;
-  return '—';
+  if (isRace && courseName) return { label: courseName, tooltip: '' };
+
+  const linked = resolvePlannedSessionForLog(log);
+  if (linked) {
+    const week = Number.parseInt(linked?.weekNumber ?? linked?.sem, 10);
+    const episode = Number.parseInt(linked?.episodeInWeek, 10);
+    const format = String(linked?.format || '').trim();
+    const label = Number.isFinite(week) && Number.isFinite(episode)
+      ? `Semaine ${week} - Episode ${episode}`
+      : (plannedLabel || 'Séance liée');
+    return {
+      label,
+      tooltip: format ? `Format prévu: ${format}` : '',
+    };
+  }
+
+  if (plannedLabel) return { label: plannedLabel, tooltip: '' };
+  if (courseName) return { label: courseName, tooltip: '' };
+  return { label: '—', tooltip: '' };
 }
 
 function buildLogRow(r) {
@@ -4568,7 +5003,18 @@ function buildLogRow(r) {
   setLogMetricCell(dplusEl, r.dplus, 'metric-dplus', 'm');
   if (bpmEl) bpmEl.textContent = r.bpm || '—';
   setLogTypeCell(typeEl, r.run_type);
-  if (plannedEl) plannedEl.textContent = logOutingLabel(r);
+  if (plannedEl) {
+    const outing = logOutingLabel(r);
+    plannedEl.textContent = outing.label;
+    const tooltip = String(outing.tooltip || '').trim();
+    if (tooltip) {
+      plannedEl.dataset.plannedFormat = tooltip;
+      plannedEl.setAttribute('title', tooltip);
+    } else {
+      delete plannedEl.dataset.plannedFormat;
+      plannedEl.removeAttribute('title');
+    }
+  }
   if (effortEl) effortEl.textContent = perceivedEffortLabel(r.perceivedEffort, r.notes);
   if (editBtn) editBtn.addEventListener('click', () => openLogEdit(r.id));
   if (delBtn) delBtn.addEventListener('click', () => deleteLog(r.id, r.date));
@@ -4582,8 +5028,18 @@ function applyOverflowTooltipToLogPlannedCells() {
     if (!(cell instanceof HTMLElement)) return;
 
     const text = String(cell.textContent || '').trim();
+    const plannedFormat = String(cell.dataset.plannedFormat || '').trim();
     if (text === '' || text === '—') {
+      delete cell.dataset.plannedFormat;
       cell.removeAttribute('title');
+      return;
+    }
+
+    if (plannedFormat) {
+      const tooltip = cell.scrollWidth > cell.clientWidth
+        ? `${plannedFormat}\n${text}`
+        : plannedFormat;
+      cell.setAttribute('title', tooltip);
       return;
     }
 
@@ -5131,6 +5587,7 @@ async function initApp() {
   });
 
   setupDurationDualHints();
+  setupPlanTotalAutoCompute();
 
   // Phase 2: deferred loads (non-critical for first paint)
   setDashboardLoadingState(true);

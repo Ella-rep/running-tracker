@@ -313,12 +313,26 @@
   pointer-events: none;
 }
 
+.session-meta {
+  display: grid;
+  grid-template-columns: 92px 54px 64px 128px 170px auto;
+  align-items: center;
+  justify-content: end;
+  column-gap: 8px;
+}
+
+.session-meta .action-btns {
+  justify-self: end;
+  margin-left: 0;
+}
+
 .session-date-badge {
   display: inline-flex;
   align-items: center;
   min-width: 92px;
   text-align: center;
   justify-content: center;
+  justify-self: center;
 }
 
 .pe-badge {
@@ -327,13 +341,16 @@
   justify-content: center;
   min-width: 64px;
   text-align: center;
+  justify-self: center;
 }
 
 .duration-badge {
   display: inline-flex;
+  align-items: center;
   justify-content: flex-end;
-  min-width: 110px;
+  min-width: 128px;
   text-align: right;
+  justify-self: end;
 }
 
 .session-format-optional {
@@ -345,8 +362,8 @@
 .optional-tag {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-width: 84px;
+  justify-content: flex-start;
+  min-width: 170px;
   padding: 3px 8px;
   border-radius: 3px;
   background: var(--surface2);
@@ -354,6 +371,19 @@
   font-size: 11px;
   font-style: normal;
   white-space: nowrap;
+  text-align: left;
+}
+
+.optional-tag--real {
+  min-width: 170px;
+  font-size: 12px;
+  padding: 0;
+  margin-left: 10px;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  line-height: 1.2;
 }
 
 @media (max-width: 640px) {
@@ -411,6 +441,13 @@
     white-space: nowrap;
     min-width: 76px;
     padding: 2px 7px;
+  }
+
+  .optional-tag--real {
+    min-width: 0;
+    max-width: min(56vw, 280px);
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .session-date-badge,

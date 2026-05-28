@@ -43,8 +43,16 @@
 {% if announcement %}
   {% set level = announcement.level|default('info') %}
   {% set bs_level = level %}
+  {% set level_icon = 'ℹ' %}
   {% if level == 'critical' %}
     {% set bs_level = 'danger' %}
+  {% endif %}
+  {% if bs_level == 'success' %}
+    {% set level_icon = '✔' %}
+  {% elseif bs_level == 'warning' %}
+    {% set level_icon = '⚠' %}
+  {% elseif bs_level == 'danger' %}
+    {% set level_icon = '⛔' %}
   {% endif %}
   <output
     class="global-announcement alert alert-{{ bs_level }} alert-dismissible fade show"
@@ -54,13 +62,14 @@
     role="alert"
   >
     <div class="global-announcement-inner">
+      <span class="global-announcement-icon" aria-hidden="true">{{ level_icon }}</span>
       <div class="global-announcement-content">
         <span class="global-announcement-label">{{ announcement.title|default('Annonce') }}</span>
         <span class="global-announcement-message">{{ announcement.message|e|nl2br }}</span>
+        {% if announcement.endsAt %}
+          <span class="global-announcement-expiry">Jusqu'au {{ announcement.endsAt }}</span>
+        {% endif %}
       </div>
-      {% if announcement.endsAt %}
-        <span class="global-announcement-expiry">Jusqu'au {{ announcement.endsAt }}</span>
-      {% endif %}
       <button type="button" class="global-announcement-close" data-announcement-dismiss aria-label="Fermer l'annonce">×</button>
     </div>
   </output>
