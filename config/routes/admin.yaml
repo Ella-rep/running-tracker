@@ -1,4 +1,4 @@
-api_admin_plans_recompute_training_weeks:
-  path: /api/admin/plans/recompute-training-weeks
-  controller: App\Controller\PlanMaintenanceApiController::recomputeTrainingWeeksForAllUsers
+api_admin_maintenance_gmail_errors_report:
+  path: /api/admin/maintenance/gmail-errors/report
+  controller: App\Controller\PlanMaintenanceApiController::sendGoogleOAuthErrorReport
   methods: [POST]

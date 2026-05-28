@@ -13,6 +13,7 @@ use App\Repository\PlanProgressRepository;
 use App\Repository\RaceRepository;
 use App\Repository\RunLogRepository;
 use App\Repository\UserRepository;
+use App\Service\GoogleOAuthErrorReportService;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -43,7 +44,8 @@ class AdminUserController extends AbstractController
         PlanProgressRepository $planProgressRepository,
         RaceRepository $raceRepository,
         CalendarEventRepository $calendarEventRepository,
-        AdminAnnouncementRepository $announcementRepository
+        AdminAnnouncementRepository $announcementRepository,
+        GoogleOAuthErrorReportService $googleOAuthErrorReportService,
     ): Response {
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
 
@@ -136,6 +138,18 @@ class AdminUserController extends AbstractController
                 'level' => 'warning',
                 'title' => 'Activite log faible',
                 'message' => 'Aucune nouvelle seance enregistree depuis 48h.',
+            ];
+        }
+
+        $googleOauthReport = $googleOAuthErrorReportService->collectRecentErrors(24, 3);
+        if ($googleOauthReport['count'] > 0) {
+            $alerts[] = [
+                'level' => $googleOauthReport['count'] >= 5 ? 'critical' : 'warning',
+                'title' => 'Erreurs OAuth Google detectees',
+                'message' => sprintf(
+                    '%d erreurs sur 24h. Utilisez Maintenance pour envoyer le rapport detaille.',
+                    $googleOauthReport['count']
+                ),
             ];
         }
 

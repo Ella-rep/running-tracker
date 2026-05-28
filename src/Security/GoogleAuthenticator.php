@@ -125,7 +125,7 @@ final class GoogleAuthenticator extends OAuth2Authenticator
             $message = 'OAuth Google: ' . $details;
         }
 
-        $this->logger->warning('Google OAuth authentication failure.', [
+        $this->logger->error('Google OAuth authentication failure.', [
             'route' => $request->attributes->get('_route'),
             'message' => $message,
             'oauth_error' => $oauthError !== '' ? $oauthError : null,
