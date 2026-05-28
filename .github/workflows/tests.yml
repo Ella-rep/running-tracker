@@ -80,12 +80,15 @@ jobs:
           mkdir -p var/coverage
           php bin/phpunit --configuration phpunit.xml.dist \
             --coverage-text \
-            --coverage-clover var/coverage/clover.xml
+            --coverage-clover var/coverage/clover.xml \
+            --coverage-html var/coverage/html
 
       - name: Upload coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: phpunit-coverage
-          path: var/coverage/clover.xml
+          path: |
+            var/coverage/clover.xml
+            var/coverage/html
           if-no-files-found: warn
