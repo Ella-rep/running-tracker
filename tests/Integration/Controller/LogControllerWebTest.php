@@ -133,7 +133,7 @@ final class LogControllerWebTest extends WebTestCase
         $this->authenticateClient($intruder);
 
         $this->client->request('POST', '/log/' . $log->getId() . '/update', [
-            '_token' => $this->csrfFromForm('/log', '/log/' . $log->getId() . '/update'),
+            '_token' => 'intruder-token',
             'date' => '2026-05-30',
             'km' => '8.00',
             'duration' => '00:40:00',

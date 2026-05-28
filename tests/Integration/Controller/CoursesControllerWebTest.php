@@ -134,7 +134,7 @@ final class CoursesControllerWebTest extends WebTestCase
         $this->authenticateClient($intruder);
 
         $this->client->request('POST', '/courses/' . $race->getId() . '/update', [
-            '_token' => $this->csrfFromForm('/courses', '/courses/' . $race->getId() . '/update'),
+            '_token' => 'intruder-token',
             'name' => 'Race hacked',
             'date' => '2026-09-02',
             'distance' => '21.1km',
