@@ -366,38 +366,6 @@ kubectl exec -it <postgres-pod> -- psql -U runner -d postgres \
 
 ---
 
-## 📡 API — endpoints générés par API Platform
-
-Tous les endpoints sont documentés sur `/api/docs` (Swagger UI interactif).
-
-| Méthode | Route | Description |
-|---------|-------|-------------|
-| `POST` | `/api/auth/register` | Créer un compte |
-| `POST` | `/api/auth/login` | Connexion → retourne `{ token }` |
-| `GET` | `/api/auth/me` | Profil courant |
-| `GET` | `/api/run_logs` | Liste des sorties (triées par date desc) |
-| `POST` | `/api/run_logs` | Ajouter une sortie |
-| `PUT` | `/api/run_logs/{id}` | Modifier une sortie |
-| `DELETE` | `/api/run_logs/{id}` | Supprimer une sortie |
-| `GET` | `/api/races` | Liste des courses |
-| `POST` | `/api/races` | Ajouter une course |
-| `PUT` | `/api/races/{id}` | Modifier |
-| `DELETE` | `/api/races/{id}` | Supprimer |
-| `GET` | `/api/plan_checks` | État des coches de plan |
-| `POST` | `/api/plan_checks` | Cocher/décocher (upsert) |
-| `GET` | `/api/dashboard/metrics` | KPIs + projections + charge + calendrier + cohérence |
-| `GET` | `/api/dashboard/advice` | Conseils dashboard (incluant météo) |
-| `GET` | `/api/calendar/events` | Événements calendrier personnels |
-| `POST` | `/api/calendar/events` | Créer un événement perso |
-| `PATCH` | `/api/user/preferences/dashboard-widgets` | Sauvegarder visibilité des widgets |
-| `GET` | `/api/user/preferences/dashboard-widgets` | Lire visibilité des widgets |
-
-Tous les endpoints `/api/*` (sauf login et register) nécessitent le header :
-```
-Authorization: Bearer <token>
-```
-
----
 
 ## 💾 Sauvegarde
 
@@ -530,28 +498,3 @@ La doc API est sur : **http://localhost:8000/api/docs**
 
 ---
 
-## ❓ FAQ
-
-**Les clés JWT sont perdues après `docker compose down` ?**
-Non — elles sont dans le volume `jwt_keys` qui survit à `down`. Seul `down -v` les supprime (ce qui invalide toutes les sessions).
-
-**Comment changer le port ?**
-Modifier `APP_PORT` dans `.env.local` puis `docker compose up -d`.
-
-**Je vois "Apache2 Default Page" sur localhost, c'est normal ?**
-Oui: cela signifie en général que vous ouvrez `http://localhost` (port 80 de la machine hôte),
-pas le port publié par Docker Compose.
-
-Utilisez l'URL de l'application:
-- `http://localhost:8080`
-- `http://localhost:8080/api/docs`
-
-Vérification rapide:
-- `docker compose ps` puis contrôler la colonne `PORTS` de `runtracker_app`
-- si besoin, changer `APP_PORT` puis relancer `docker compose up -d --build`
-
-**Comment ajouter un deuxième utilisateur ?**
-Via l'interface web (bouton "Créer un compte") ou via l'API `/api/auth/register`.
-
-**La doc Swagger est accessible sans authentification ?**
-Oui, `/api/docs` est public. Les endpoints eux-mêmes requièrent un token JWT.
