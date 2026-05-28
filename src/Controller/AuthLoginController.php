@@ -13,6 +13,20 @@ use Symfony\Component\HttpFoundation\Request;
 final class AuthLoginController extends AbstractController
 {
     /**
+     * Detects HTTPS reliably when behind reverse proxies.
+     */
+    private function isHttpsRequest(Request $request): bool
+    {
+        if ($request->isSecure()) {
+            return true;
+        }
+
+        $forwardedProto = strtolower((string) $request->headers->get('x-forwarded-proto', ''));
+
+        return str_contains($forwardedProto, 'https');
+    }
+
+    /**
      * Authenticates a user and returns a JWT token.
      *
      * Uses a generic 401 response on credential mismatch to avoid
@@ -36,13 +50,14 @@ final class AuthLoginController extends AbstractController
             if ($result['status'] === 200 && isset($result['payload']['token'])) {
                 $token = trim((string) $result['payload']['token']);
                 if ($token !== '') {
+                    $isSecure = $this->isHttpsRequest($request);
                     $response->headers->setCookie(new Cookie(
                         'BEARER',
                         $token,
                         $rememberMe ? new \DateTimeImmutable('+7 days') : 0,
                         '/',
                         null,
-                        $request->isSecure(),
+                        $isSecure,
                         false,
                         false,
                         Cookie::SAMESITE_LAX

@@ -56,6 +56,8 @@ function writeAuthCookie(token) {
 }
 
 function clearAuthCookie() {
+  // Clear both variants to avoid stale cookie mismatches after proxy/protocol changes.
+  document.cookie = 'BEARER=; Max-Age=0; Path=/; SameSite=Lax';
   document.cookie = 'BEARER=; Max-Age=0' + authCookieSuffix();
 }
 
