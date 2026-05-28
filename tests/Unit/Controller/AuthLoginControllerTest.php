@@ -11,6 +11,7 @@ use App\Service\AuthLoginService;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -24,7 +25,7 @@ final class AuthLoginControllerTest extends TestCase
      */
     public function testInvokeReturnsBadRequestForInvalidJson(): void
     {
-        $controller = new AuthLoginController();
+        $controller = $this->buildController();
         $service = $this->buildAuthService();
 
         $request = new Request(content: '{invalid-json');
@@ -40,7 +41,7 @@ final class AuthLoginControllerTest extends TestCase
      */
     public function testInvokeSetsSecureBearerCookieBehindHttpsProxy(): void
     {
-        $controller = new AuthLoginController();
+        $controller = $this->buildController();
 
         $user = (new User())
             ->setUsername('alice')
@@ -94,7 +95,7 @@ final class AuthLoginControllerTest extends TestCase
      */
     public function testInvokeDoesNotSetCookieWhenAuthenticationFails(): void
     {
-        $controller = new AuthLoginController();
+        $controller = $this->buildController();
 
         $users = $this->createMock(UserRepository::class);
         $users
@@ -129,6 +130,14 @@ final class AuthLoginControllerTest extends TestCase
             $jwtManager ?? $this->createMock(JWTTokenManagerInterface::class),
             $logger ?? $this->createMock(LoggerInterface::class),
         );
+    }
+
+    private function buildController(): AuthLoginController
+    {
+        $controller = new AuthLoginController();
+        $controller->setContainer(new Container());
+
+        return $controller;
     }
 }
 

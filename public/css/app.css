@@ -687,6 +687,21 @@
 
   @media (max-width: 640px) {
     main { padding: 16px; }
+
+    /* Keep date inputs visually aligned with text/select fields on mobile browsers. */
+    .field input,
+    .field select {
+      min-height: 40px;
+    }
+
+    .field input[type="date"] {
+      display: block;
+      line-height: 1.2;
+      padding-top: 10px;
+      padding-bottom: 10px;
+      -webkit-appearance: none;
+      appearance: none;
+    }
   }
 
   /* Light mode specific overrides */
