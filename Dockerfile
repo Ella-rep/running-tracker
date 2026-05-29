@@ -59,11 +59,6 @@ RUN mkdir -p /run/nginx
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 RUN rm -f /etc/nginx/sites-enabled/default
 
-WORKDIR /app
-
-# Code source complet
-COPY . .
-
 
 # Permissions
 RUN mkdir -p var/cache var/log \

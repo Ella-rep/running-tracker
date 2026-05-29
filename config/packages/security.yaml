@@ -29,6 +29,7 @@ security:
             pattern: ^/
             lazy: true
             jwt: ~
+            entry_point: App\Security\WebLoginEntryPoint
             custom_authenticators:
                 - App\Security\GoogleAuthenticator
 
@@ -37,6 +38,7 @@ security:
         - { path: ^/api/login$,         roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/login,    roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/(login|register|reset-password/request|reset-password/confirm)$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/auth/test/grant-admin$, roles: PUBLIC_ACCESS }
         - { path: ^/api/docs,          roles: PUBLIC_ACCESS }
         - { path: ^/api/admin,         roles: ROLE_ADMIN }
         - { path: ^/admin,             roles: ROLE_ADMIN }

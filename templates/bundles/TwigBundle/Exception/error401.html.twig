@@ -1,0 +1,57 @@
+{% extends 'base/layout.html.twig' %}
+
+{% block title %}401 - Connexion requise{% endblock %}
+
+{% block stylesheets %}
+  <link rel="stylesheet" href="{{ asset('css/error-pages.css') }}?v=20260529-error1">
+{% endblock %}
+
+{% block body %}
+<main class="error-page-main">
+  <section class="error-page-card">
+    <p class="error-page-code">Erreur 401</p>
+    <h1 class="error-page-title">Connexion requise</h1>
+    <p class="error-page-text">Cette page necessite une session active. Connectez-vous pour continuer.</p>
+    <div class="error-page-help" role="note">
+      <strong>Si vous voyez "JWT invalid token" :</strong>
+      <span>nettoyez la session locale du navigateur puis reconnectez-vous.</span>
+    </div>
+    <div class="error-page-actions">
+      <button type="button" class="btn" id="error401-recover-btn">Nettoyer la session et se reconnecter</button>
+      <a class="btn" href="/login">Aller a la connexion</a>
+      <a class="btn btn-ghost" href="/">Retour a l accueil</a>
+    </div>
+  </section>
+</main>
+{% endblock %}
+
+{% block javascripts %}
+  <script>
+    document.body.classList.add('error-page-body');
+
+    async function clearSessionAndGoLogin() {
+      try {
+        localStorage.removeItem('rt_token');
+        localStorage.removeItem('rt_auth_persist');
+        sessionStorage.removeItem('rt_token');
+
+        document.cookie = 'BEARER=; Max-Age=0; Path=/; SameSite=Lax';
+        document.cookie = 'BEARER=; Max-Age=0; Path=/; SameSite=Lax; Secure';
+
+        if ('caches' in window) {
+          const names = await caches.keys();
+          await Promise.all(names.map((name) => caches.delete(name)));
+        }
+      } catch (_) {
+        // Keep navigation to login even if browser storage cleanup is partial.
+      }
+
+      window.location.href = '/login';
+    }
+
+    const recoverBtn = document.getElementById('error401-recover-btn');
+    if (recoverBtn) {
+      recoverBtn.addEventListener('click', clearSessionAndGoLogin);
+    }
+  </script>
+{% endblock %}

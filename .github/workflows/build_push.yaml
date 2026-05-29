@@ -10,6 +10,36 @@ jobs:
       -
         name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      -
+        name: Start build timer
+        run: echo "BUILD_START_TS=$(date +%s)" >> "$GITHUB_ENV"
+      -
+        name: Estimate cache hit level
+        run: |
+          BEFORE_SHA="${{ github.event.before }}"
+          AFTER_SHA="${{ github.sha }}"
+
+          if [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "CACHE_ESTIMATE=unknown" >> "$GITHUB_ENV"
+            echo "CACHE_ESTIMATE_REASON=Historique insuffisant pour estimer (premier push ou ref non disponible)." >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          ESTIMATE="high"
+          REASON="Modifs applicatives: la plupart des couches Docker devraient rester en cache."
+
+          if git diff --name-only "$BEFORE_SHA" "$AFTER_SHA" | grep -Eq '(^|/)Dockerfile$'; then
+            ESTIMATE="low"
+            REASON="Dockerfile modifie: invalidation probable de plusieurs couches." 
+          elif git diff --name-only "$BEFORE_SHA" "$AFTER_SHA" | grep -Eq '(^|/)composer\.json$|(^|/)composer\.lock$|(^|/)\.dockerignore$'; then
+            ESTIMATE="medium"
+            REASON="Fichiers de dependances/contexte modifies: cache partiellement reutilise."
+          fi
+
+          echo "CACHE_ESTIMATE=$ESTIMATE" >> "$GITHUB_ENV"
+          echo "CACHE_ESTIMATE_REASON=$REASON" >> "$GITHUB_ENV"
       -
         name: Login to Docker Hub
         uses: docker/login-action@v4
@@ -30,3 +60,23 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: gilir/running-tracker:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      -
+        name: Publish build timing summary
+        if: always()
+        run: |
+          END_TS=$(date +%s)
+          START_TS=${BUILD_START_TS:-$END_TS}
+          DURATION_SEC=$((END_TS - START_TS))
+          MIN=$((DURATION_SEC / 60))
+          SEC=$((DURATION_SEC % 60))
+          {
+            echo "## Build/Push Timing"
+            echo ""
+            echo "- Duration: ${MIN}m ${SEC}s"
+            echo "- Platform: linux/arm64"
+            echo "- Cache: gha (cache-from/cache-to)"
+            echo "- Cache hit estime: ${CACHE_ESTIMATE:-unknown}"
+            echo "- Raison: ${CACHE_ESTIMATE_REASON:-n/a}"
+          } >> "$GITHUB_STEP_SUMMARY"

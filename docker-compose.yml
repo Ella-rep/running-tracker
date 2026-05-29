@@ -52,12 +52,12 @@ services:
       JWT_PASSPHRASE: adae0244853d5730e87d0a180763eed5
       JWT_TTL: ${JWT_TTL:-604800}
       CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-'^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$'}
-      BREVO_SMTP_LOGIN: ${BREVO_SMTP_LOGIN:-}
-      BREVO_SMTP_KEY: ${BREVO_SMTP_KEY:-}
+      BREVO_SMTP_LOGIN:
+      BREVO_SMTP_KEY: 
       MAILER_FROM: ${MAILER_FROM:-no-reply@running-dashboard.app}
-      CONTACT_EMAIL_TO: ${CONTACT_EMAIL_TO:-}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      CONTACT_EMAIL_TO: 
+      GOOGLE_CLIENT_ID: 
+      GOOGLE_CLIENT_SECRET: 
       
     volumes:
       - jwt_keys:/app/config/jwt

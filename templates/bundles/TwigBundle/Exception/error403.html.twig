@@ -1,0 +1,27 @@
+{% extends 'base/layout.html.twig' %}
+
+{% block title %}403 - Acces refuse{% endblock %}
+
+{% block stylesheets %}
+  <link rel="stylesheet" href="{{ asset('css/error-pages.css') }}?v=20260529-error1">
+{% endblock %}
+
+{% block body %}
+<main class="error-page-main">
+  <section class="error-page-card">
+    <p class="error-page-code">Erreur 403</p>
+    <h1 class="error-page-title">Acces refuse</h1>
+    <p class="error-page-text">Vous etes connecte, mais vous n avez pas les droits pour acceder a cette page.</p>
+    <div class="error-page-actions">
+      <a class="btn" href="/">Retour au tableau de bord</a>
+      <a class="btn btn-ghost" href="/login">Changer de compte</a>
+    </div>
+  </section>
+</main>
+{% endblock %}
+
+{% block javascripts %}
+  <script>
+    document.body.classList.add('error-page-body');
+  </script>
+{% endblock %}

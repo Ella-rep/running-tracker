@@ -28,6 +28,7 @@ final class ContactController extends AbstractController
     private const MIN_SUBMIT_DELAY_SECONDS = 3;
     private const MAX_ATTACHMENTS = 3;
     private const MAX_ATTACHMENT_SIZE_BYTES = 5_000_000;
+    private const BYTES_PER_MEGABYTE = 1_000_000;
 
     /** @var array<string, string> */
     private const ALLOWED_ATTACHMENT_MIME_TYPES = [
@@ -72,6 +73,10 @@ final class ContactController extends AbstractController
             'motifs' => self::MOTIF_LABELS,
             'oldForm' => $oldForm,
             'contactStartedAt' => (string) time(),
+            'contactMaxAttachments' => self::MAX_ATTACHMENTS,
+            'contactMaxAttachmentSizeBytes' => self::MAX_ATTACHMENT_SIZE_BYTES,
+            'contactMaxAttachmentSizeMb' => (int) floor(self::MAX_ATTACHMENT_SIZE_BYTES / self::BYTES_PER_MEGABYTE),
+            'contactAllowedAttachmentExtensions' => implode(', ', array_values(self::ALLOWED_ATTACHMENT_MIME_TYPES)),
         ]);
     }
 
@@ -316,7 +321,7 @@ final class ContactController extends AbstractController
         } else {
             foreach ($attachments as $attachment) {
                 if (!$attachment->isValid()) {
-                    $errorMessage = 'Une image jointe est invalide. Reessaie l\'envoi.';
+                    $errorMessage = $this->uploadErrorMessage($attachment);
                     break;
                 }
 
@@ -334,6 +339,18 @@ final class ContactController extends AbstractController
         }
 
         return $errorMessage;
+    }
+
+    private function uploadErrorMessage(UploadedFile $attachment): string
+    {
+        $message = 'Une image jointe est invalide. Reessaie l\'envoi.';
+        $error = $attachment->getError();
+
+        if (in_array($error, [\UPLOAD_ERR_INI_SIZE, \UPLOAD_ERR_FORM_SIZE], true)) {
+            $message = sprintf('Une image est trop lourde. Limite: %d Mo par image.', (int) floor(self::MAX_ATTACHMENT_SIZE_BYTES / self::BYTES_PER_MEGABYTE));
+        }
+
+        return $message;
     }
 
     private function sanitizeAttachmentFilename(UploadedFile $file): string

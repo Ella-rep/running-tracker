@@ -74,7 +74,13 @@ php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migratio
 echo "🔐  Vérification des clés JWT..."
 mkdir -p config/jwt
 if [ ! -f config/jwt/private.pem ] || [ ! -f config/jwt/public.pem ]; then
-    echo "➕  Génération des clés JWT"
+    if [ "$RUNTIME_ENV" = "prod" ]; then
+        echo "❌  Clés JWT manquantes en production."
+        echo "    Montez des clés persistantes dans config/jwt pour éviter d'invalider les sessions actives."
+        exit 1
+    fi
+
+    echo "➕  Génération des clés JWT (hors prod)"
     openssl genpkey -algorithm RSA -out config/jwt/private.pem -pkeyopt rsa_keygen_bits:4096 -pass pass:"${JWT_PASSPHRASE:-change_me_jwt_passphrase}"
     openssl pkey -in config/jwt/private.pem -out config/jwt/public.pem -pubout -passin pass:"${JWT_PASSPHRASE:-change_me_jwt_passphrase}"
 fi

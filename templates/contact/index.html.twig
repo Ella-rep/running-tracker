@@ -58,9 +58,12 @@
           type="file"
           name="attachments[]"
           accept="image/jpeg,image/png,image/webp,image/gif"
+          data-max-files="{{ contactMaxAttachments }}"
+          data-max-size-bytes="{{ contactMaxAttachmentSizeBytes }}"
           multiple
         >
-        <div class="field-hint">Jusqu'a 3 images (jpg, png, webp, gif), 5 Mo max par image.</div>
+        <div class="field-hint">Limites acceptees: jusqu'a {{ contactMaxAttachments }} images ({{ contactAllowedAttachmentExtensions }}), {{ contactMaxAttachmentSizeMb }} Mo max par image.</div>
+        <div id="contact-attachments-error" class="contact-attachment-error" hidden></div>
       </div>
 
       <button class="btn" type="submit">Envoyer</button>
@@ -71,4 +74,56 @@
 
 {% block javascripts %}
 <script src="{{ asset('js/app.js') }}?v=20260528-sessionlabel2"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const fileInput = document.getElementById('contact-attachments');
+    const errorBox = document.getElementById('contact-attachments-error');
+    const form = document.querySelector('.contact-form');
+
+    if (!(fileInput instanceof HTMLInputElement) || !(errorBox instanceof HTMLElement) || !(form instanceof HTMLFormElement)) {
+      return;
+    }
+
+    const maxFiles = Number.parseInt(fileInput.dataset.maxFiles || '3', 10);
+    const maxSizeBytes = Number.parseInt(fileInput.dataset.maxSizeBytes || '5000000', 10);
+    const maxSizeMb = Math.floor(maxSizeBytes / 1000000);
+
+    const setError = (message) => {
+      errorBox.textContent = message;
+      errorBox.hidden = !message;
+    };
+
+    const validateFiles = () => {
+      const files = Array.from(fileInput.files || []);
+      if (files.length === 0) {
+        setError('');
+        return true;
+      }
+
+      if (files.length > maxFiles) {
+        setError(`Maximum ${maxFiles} images autorisees.`);
+        return false;
+      }
+
+      const tooLarge = files.find((file) => file.size > maxSizeBytes);
+      if (tooLarge) {
+        setError(`Fichier trop lourd: ${tooLarge.name}. Limite: ${maxSizeMb} Mo par image.`);
+        return false;
+      }
+
+      setError('');
+      return true;
+    };
+
+    fileInput.addEventListener('change', () => {
+      validateFiles();
+    });
+
+    form.addEventListener('submit', (event) => {
+      if (!validateFiles()) {
+        event.preventDefault();
+      }
+    });
+  });
+</script>
 {% endblock %}

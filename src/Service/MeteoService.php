@@ -107,7 +107,7 @@ final class MeteoService
         if ($this->isHeatwave($temp, $tempMax)) {
             $advice = [
                 'title' => self::TITLE,
-                'text' => 'Alerte chaleur/canicule: privilegie une sortie tres tot ou tard, reduis nettement l\'intensite et hydrate-toi tres regulierement.',
+                'text' => 'Alerte chaleur/canicule: si possible, privilegie une sortie tres tot ou tard, avec une intensite reduite et une hydratation reguliere.',
                 'tone' => 'warning',
                 'icon' => '🔥',
                 'color' => self::COLOR_WARNING,
@@ -116,7 +116,7 @@ final class MeteoService
         } elseif ($this->isHot($temp, $tempMax)) {
             $advice = [
                 'title' => self::TITLE,
-                'text' => 'Chaleur marquee: vise une sortie plus tot/tard, baisse l\'intensite et hydrate-toi regulierement.',
+                'text' => 'Chaleur marquee: une sortie plus tot/tard, avec une intensite adaptee et une hydratation reguliere, peut etre plus confortable.',
                 'tone' => 'warning',
                 'icon' => '☀️',
                 'color' => self::COLOR_WARNING,
@@ -125,7 +125,7 @@ final class MeteoService
         } elseif ($this->isRainy($rain, $precipProbMax)) {
             $advice = [
                 'title' => self::TITLE,
-                'text' => 'Pluie probable: prevois une veste legere, reduis les allures rapides et privilegie un footing controle.',
+                'text' => 'Pluie probable: tu peux prevoir une veste legere, limiter les allures rapides et privilegier un footing controle.',
                 'tone' => 'warning',
                 'icon' => '🌧️',
                 'color' => self::COLOR_WARNING,
@@ -134,7 +134,7 @@ final class MeteoService
         } elseif ($this->isWindy($wind)) {
             $advice = [
                 'title' => self::TITLE,
-                'text' => 'Vent soutenu: pars prudemment, abrite tes fractions et garde de l\'energie pour le retour face au vent.',
+                'text' => 'Vent soutenu: pars tranquillement, abrite tes fractions si possible et garde un peu d\'energie pour le retour face au vent.',
                 'tone' => 'info',
                 'icon' => '💨',
                 'color' => self::COLOR_INFO,
@@ -143,7 +143,7 @@ final class MeteoService
         } elseif ($temp !== null && $temp <= 3.0) {
             $advice = [
                 'title' => self::TITLE,
-                'text' => 'Froid marque: echauffement progressif, extremites couvertes et allure facile sur les premiers kilometres.',
+                'text' => 'Froid marque: un echauffement progressif, les extremites couvertes et une allure facile sur les premiers kilometres peuvent aider.',
                 'tone' => 'info',
                 'icon' => '🧣',
                 'color' => self::COLOR_INFO,
@@ -152,7 +152,7 @@ final class MeteoService
         } elseif (in_array($weatherCode, [0, 1], true)) {
             $advice = [
                 'title' => self::TITLE,
-                'text' => 'Conditions favorables: bonne fenetre pour ta seance. Pense quand meme a t\'hydrater.',
+                'text' => 'Conditions favorables: bonne fenetre pour ta seance. Une hydratation adaptee reste toujours utile.',
                 'tone' => 'encourage',
                 'icon' => '🌤️',
                 'color' => self::COLOR_SUCCESS,

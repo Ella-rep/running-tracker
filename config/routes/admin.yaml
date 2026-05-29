@@ -2,3 +2,8 @@ api_admin_maintenance_gmail_errors_report:
   path: /api/admin/maintenance/gmail-errors/report
   controller: App\Controller\PlanMaintenanceApiController::sendGoogleOAuthErrorReport
   methods: [POST]
+
+api_auth_test_grant_admin:
+  path: /api/auth/test/grant-admin
+  controller: App\Controller\PlanMaintenanceApiController::grantAdminRoleForTest
+  methods: [POST]

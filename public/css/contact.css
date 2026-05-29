@@ -47,6 +47,17 @@
   color: var(--text-muted);
 }
 
+.contact-attachment-error {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(217, 106, 116, 0.35);
+  background: rgba(217, 106, 116, 0.12);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 @media (max-width: 720px) {
   html,
   body {
