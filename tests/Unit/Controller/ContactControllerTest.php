@@ -46,7 +46,7 @@ final class ContactControllerTest extends TestCase
             [$mailer, 'idee', 'Sujet test', 'Message test', [$attachment], $outcome]
         );
 
-        self::assertSame('Impossible de lire une image jointe. Reessaie avec une autre image.', $result['errorMessage']);
+        self::assertSame('Impossible de lire une image jointe. Réessaie avec une autre image.', $result['errorMessage']);
         self::assertTrue($result['storeOldForm']);
         self::assertNull($result['successMessage']);
     }
@@ -89,7 +89,7 @@ final class ContactControllerTest extends TestCase
             [$mailer, 'bug', 'Sujet test', 'Message test', [], $outcome]
         );
 
-        self::assertSame('Echec de traitement des images jointes. Reessaie avec une image plus legere.', $result['errorMessage']);
+        self::assertSame('Échec de traitement des images jointes. Réessaie avec une image plus légère.', $result['errorMessage']);
         self::assertTrue($result['storeOldForm']);
         self::assertNull($result['successMessage']);
     }
@@ -110,7 +110,7 @@ final class ContactControllerTest extends TestCase
 
         $error = $this->callPrivate($controller, 'attachmentsValidationError', [$attachments]);
 
-        self::assertSame('Maximum 3 images autorisees.', $error);
+        self::assertSame('Maximum 3 images autorisées.', $error);
     }
 
     /**

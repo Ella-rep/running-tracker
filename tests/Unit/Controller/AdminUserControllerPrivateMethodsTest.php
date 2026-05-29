@@ -54,12 +54,12 @@ final class AdminUserControllerPrivateMethodsTest extends TestCase
         $controller = new AdminUserController();
 
         self::assertSame(
-            'Annonce trop courte (minimum 6 caracteres).',
+            'Annonce trop courte (minimum 6 caractères).',
             $this->callPrivate($controller, 'validateAnnouncementText', ['abc', 'Titre'])
         );
 
         self::assertSame(
-            'Titre annonce trop long (120 caracteres max).',
+            'Titre annonce trop long (120 caractères max).',
             $this->callPrivate($controller, 'validateAnnouncementText', [str_repeat('a', 8), str_repeat('t', 121)])
         );
 
@@ -87,7 +87,7 @@ final class AdminUserControllerPrivateMethodsTest extends TestCase
         $controller = new AdminUserController();
 
         self::assertSame(
-            'Date de debut invalide.',
+            'Date de début invalide.',
             $this->callPrivate($controller, 'validateAnnouncementDates', ['2026-05-28T10:00', '', null, null])
         );
 
@@ -99,7 +99,7 @@ final class AdminUserControllerPrivateMethodsTest extends TestCase
         $start = new DateTimeImmutable('2026-05-28 12:00:00');
         $endBefore = new DateTimeImmutable('2026-05-28 11:00:00');
         self::assertSame(
-            'La date de fin doit etre apres la date de debut.',
+            'La date de fin doit être après la date de début.',
             $this->callPrivate($controller, 'validateAnnouncementDates', ['2026-05-28T12:00', '2026-05-28T11:00', $start, $endBefore])
         );
 

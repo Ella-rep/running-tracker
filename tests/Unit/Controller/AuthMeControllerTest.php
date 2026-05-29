@@ -53,7 +53,7 @@ final class AuthMeControllerTest extends TestCase
         $controller->setContainer($this->buildContainerWithTokenStorage($tokenStorage));
 
         $this->expectException(AccessDeniedHttpException::class);
-        $this->expectExceptionMessage('Utilisateur non authentifie.');
+        $this->expectExceptionMessage('Utilisateur non authentifié.');
 
         $controller->__invoke();
     }
