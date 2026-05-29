@@ -4,7 +4,7 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
-<link rel="stylesheet" href="{{ asset('css/admin.css') }}?v=20260528-announcewrap1">
+<link rel="stylesheet" href="{{ asset('css/admin.css') }}?v=20260529-userscard1">
 {% endblock %}
 
 {% block body %}
@@ -227,8 +227,7 @@
             </td>
             <td class="mono" data-label="Création">{{ user.createdAt|date('d/m/Y H:i') }}</td>
             <td data-label="Reset mot de passe">
-              <form method="post" action="{{ path('app_admin_users_reset_password', { id: user.id, q: search_query, page: page }) }}" class="admin-reset-form" onsubmit="return confirm('Reset mot de passe de cet utilisateur ?');">
-                <span class="admin-action-label">Reset</span>
+              <form method="post" action="{{ path('app_admin_users_reset_password', { id: user.id, q: search_query, page: page }) }}" class="admin-action-form admin-reset-form" onsubmit="return confirm('Reset mot de passe de cet utilisateur ?');">
                 <input type="hidden" name="_token" value="{{ csrf_token('admin_reset_' ~ user.id) }}">
                 <input type="password" name="new_password" minlength="6" placeholder="Nouveau mdp" required>
                 <button class="action-btn action-btn-text" type="submit">Reset</button>

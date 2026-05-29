@@ -47,6 +47,76 @@
   color: var(--text-muted);
 }
 
+.form-grid .subject-field {
+  grid-column: 1 / -1;
+}
+
+.attachments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.attachments-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface2);
+}
+
+.attachments-item .filename {
+  flex: 1 1 auto;
+  font-size: 13px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachments-item .remove-attachment {
+  background: transparent;
+  border: 0;
+  color: var(--accent3);
+  cursor: pointer;
+}
+
+.attachments-item .filesize {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: 8px;
+}
+
+.contact-error-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.4);
+  z-index: 1200;
+}
+
+.contact-error-modal[aria-hidden="false"] {
+  display: flex;
+}
+
+.contact-error-modal-content {
+  background: #fff;
+  color: var(--text);
+  padding: 18px;
+  border-radius: 10px;
+  max-width: 720px;
+  width: 90%;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.15);
+}
+
+.attachments-list .attachments-item .remove-attachment {
+  color: var(--accent3);
+}
+
 .contact-attachment-error {
   margin-top: 8px;
   padding: 8px 10px;

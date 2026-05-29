@@ -24,5 +24,7 @@
 /runnning-tracker-db/
 
 /.github/copilot-instructions.md
+/.github/workflows/build_push.yaml.bckp
 /compose.override.yaml
 /docker/entrypoint.no-composer.sh
+

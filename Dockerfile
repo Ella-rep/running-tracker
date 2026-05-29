@@ -51,6 +51,9 @@ RUN { \
     echo 'opcache.file_update_protection=0'; \
 } > /usr/local/etc/php/conf.d/opcache.ini
 
+# Upload limits
+COPY docker/php-upload.ini /usr/local/etc/php/conf.d/zz-upload.ini
+
 # PHP-FPM socket
 COPY docker/php-fpm-socket.conf /usr/local/etc/php-fpm.d/zz-socket.conf
 

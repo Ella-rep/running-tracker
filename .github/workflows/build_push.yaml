@@ -1,5 +1,7 @@
 on:
-  workflow_call:
+  push:
+    branches:
+      - develop
 
 jobs:
   build-push:
@@ -8,11 +10,6 @@ jobs:
       -
         name: Checkout
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      -
-        name: Start build timer
-        run: echo "BUILD_START_TS=$(date +%s)" >> "$GITHUB_ENV"
       -
         name: Login to Docker Hub
         uses: docker/login-action@v4
@@ -33,20 +30,3 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: gilir/running-tracker:latest
-          no-cache: true
-      -
-        name: Publish build timing summary
-        if: always()
-        run: |
-          END_TS=$(date +%s)
-          START_TS=${BUILD_START_TS:-$END_TS}
-          DURATION_SEC=$((END_TS - START_TS))
-          MIN=$((DURATION_SEC / 60))
-          SEC=$((DURATION_SEC % 60))
-          {
-            echo "## Build/Push Timing"
-            echo ""
-            echo "- Duration: ${MIN}m ${SEC}s"
-            echo "- Platform: linux/arm64"
-            echo "- Cache: disabled (no-cache=true)"
-          } >> "$GITHUB_STEP_SUMMARY"

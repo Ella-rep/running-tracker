@@ -594,6 +594,11 @@
   .admin-users-table td[data-label="Actions"]::before {
     margin-bottom: 4px;
   }
+
+  /* Put reset password block on its own row so input/button stack below the label */
+  .admin-users-table td[data-label="Reset mot de passe"] {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -621,8 +626,11 @@
     align-items: stretch;
   }
 
+  /* Keep two-column Key:Value layout on small screens to match card view
+     Use a narrower left column for the key and allow the value to wrap. */
   .admin-users-table td {
-    grid-template-columns: 1fr;
+    grid-template-columns: 110px 1fr;
     gap: 6px;
+    align-items: start;
   }
 }
