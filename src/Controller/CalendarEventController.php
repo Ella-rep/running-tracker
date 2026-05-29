@@ -16,7 +16,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  */
 final class CalendarEventController extends AbstractController
 {
-    private const MSG_UNAUTHENTICATED = 'Utilisateur non connecte.';
+    private const MSG_UNAUTHENTICATED = 'Utilisateur non connecté.';
 
     /**
      * Lists calendar events for the authenticated user.

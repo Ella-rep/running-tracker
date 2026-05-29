@@ -365,7 +365,7 @@ class AdminUserController extends AbstractController
         ], $request);
         $entityManager->flush();
 
-        $this->addFlash('success', sprintf('Utilisateur "%s" cree.', $user->getUserIdentifier()));
+        $this->addFlash('success', sprintf('Utilisateur "%s" créé.', $user->getUserIdentifier()));
 
         return $this->redirectToIndex($request);
     }
@@ -382,7 +382,7 @@ class AdminUserController extends AbstractController
 
         $currentUser = $this->getUser();
         if ($error === null && $currentUser instanceof User && $currentUser->getId() === $user->getId()) {
-            $error = 'Action refusee sur votre propre compte.';
+            $error = 'Action refusée sur votre propre compte.';
         }
 
         if ($error !== null) {
@@ -398,7 +398,7 @@ class AdminUserController extends AbstractController
         ], $request);
         $entityManager->flush();
 
-        $this->addFlash('success', $isAdmin ? 'Role admin retire.' : 'Role admin ajoute.');
+        $this->addFlash('success', $isAdmin ? 'Rôle admin retiré.' : 'Rôle admin ajouté.');
 
         return $this->redirectToIndex($request);
     }
@@ -425,7 +425,7 @@ class AdminUserController extends AbstractController
         $this->logAdminAction($entityManager, 'user_reset_password', $user, [], $request);
         $entityManager->flush();
 
-        $this->addFlash('success', 'Mot de passe reinitialise.');
+        $this->addFlash('success', 'Mot de passe réinitialisé.');
 
         return $this->redirectToIndex($request);
     }
@@ -459,7 +459,7 @@ class AdminUserController extends AbstractController
         $entityManager->remove($user);
         $entityManager->flush();
 
-        $this->addFlash('success', 'Utilisateur supprime.');
+        $this->addFlash('success', 'Utilisateur supprimé.');
 
         return $this->redirectToIndex($request);
     }
@@ -493,7 +493,7 @@ class AdminUserController extends AbstractController
         if ($error === null) {
             $level = $this->normalizeAnnouncementLevel($level);
             if ($level === null) {
-                $error = 'Niveau d annonce invalide.';
+                $error = 'Niveau d\'annonce invalide.';
             }
         }
 
@@ -539,7 +539,7 @@ class AdminUserController extends AbstractController
         ], $request);
         $entityManager->flush();
 
-        $this->addFlash('success', 'Annonce globale enregistree.');
+        $this->addFlash('success', 'Annonce globale enregistrée.');
 
         return $this->redirectToIndex($request);
     }
@@ -559,7 +559,7 @@ class AdminUserController extends AbstractController
 
         $announcement = $announcementRepository->findCurrent();
         if (!$announcement instanceof AdminAnnouncement) {
-            $this->addFlash('error', 'Aucune annonce active a desactiver.');
+            $this->addFlash('error', 'Aucune annonce active à désactiver.');
             return $this->redirectToIndex($request);
         }
 
@@ -572,7 +572,7 @@ class AdminUserController extends AbstractController
         ], $request);
         $entityManager->flush();
 
-        $this->addFlash('success', 'Annonce globale desactivee.');
+        $this->addFlash('success', 'Annonce globale désactivée.');
 
         return $this->redirectToIndex($request);
     }
@@ -591,7 +591,7 @@ class AdminUserController extends AbstractController
         }
 
         if ($error === null && (mb_strlen($username) < 3 || mb_strlen($username) > 64)) {
-            $error = 'Le pseudo doit contenir entre 3 et 64 caracteres.';
+            $error = 'Le pseudo doit contenir entre 3 et 64 caractères.';
         }
 
         if ($error === null && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -599,15 +599,15 @@ class AdminUserController extends AbstractController
         }
 
         if ($error === null && mb_strlen($plainPassword) < 6) {
-            $error = 'Le mot de passe doit contenir au moins 6 caracteres.';
+            $error = 'Le mot de passe doit contenir au moins 6 caractères.';
         }
 
         if ($error === null && $userRepository->findOneBy(['username' => $username]) instanceof User) {
-            $error = 'Ce nom utilisateur existe deja.';
+            $error = 'Ce nom utilisateur existe déjà.';
         }
 
         if ($error === null && $userRepository->findOneBy(['email' => $email]) instanceof User) {
-            $error = 'Cet email existe deja.';
+            $error = 'Cet email existe déjà.';
         }
 
         return $error;
@@ -627,7 +627,7 @@ class AdminUserController extends AbstractController
         }
 
         if ($error === null && mb_strlen($plainPassword) < 6) {
-            $error = 'Nouveau mot de passe: minimum 6 caracteres.';
+            $error = 'Nouveau mot de passe: minimum 6 caractères.';
         }
 
         return $error;
@@ -710,11 +710,11 @@ class AdminUserController extends AbstractController
     private function validateAnnouncementText(string $message, string $title): ?string
     {
         if ($message === '' || mb_strlen($message) < 6) {
-            return 'Annonce trop courte (minimum 6 caracteres).';
+            return 'Annonce trop courte (minimum 6 caractères).';
         }
 
         if (mb_strlen($title) > 120) {
-            return 'Titre annonce trop long (120 caracteres max).';
+            return 'Titre annonce trop long (120 caractères max).';
         }
 
         return null;
@@ -746,11 +746,11 @@ class AdminUserController extends AbstractController
         $error = null;
 
         if ($startsAtRaw !== '' && $startsAt === null) {
-            $error = 'Date de debut invalide.';
+            $error = 'Date de début invalide.';
         } elseif ($endsAtRaw !== '' && $endsAt === null) {
             $error = 'Date de fin invalide.';
         } elseif ($startsAt instanceof DateTimeImmutable && $endsAt instanceof DateTimeImmutable && $endsAt < $startsAt) {
-            $error = 'La date de fin doit etre apres la date de debut.';
+            $error = 'La date de fin doit être après la date de début.';
         }
 
         return $error;

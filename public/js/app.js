@@ -1283,12 +1283,12 @@ function getAppliedCityFromWeatherItem(item) {
 
 function getDetectedCityDetailsFromWeatherItem(item) {
   if (!item) {
-    return { city: '', status: 'error', message: 'Echec localisation,  saisissez une ville.' };
+    return { city: 'Paris', status: 'ok', message: 'Ville par défaut: Paris.' };
   }
 
   const city = String(item?.detectedCity || '').trim();
   const status = String(item?.detectedCityStatus || '').trim() || (city ? 'ok' : 'error');
-  const defaultMessage = city ? `Ville detectee: ${city}` : 'Echec localisation,  saisissez une ville.';
+  const defaultMessage = city ? `Ville par défaut: ${city}` : 'Ville par défaut: Paris.';
   const message = String(item?.detectedCityMessage || '').trim() || defaultMessage;
 
   return { city, status, message };
@@ -1301,7 +1301,7 @@ async function fetchDetectedWeatherCityFromApi() {
     const weatherItem = extractWeatherItemFromItems(items);
     return getDetectedCityDetailsFromWeatherItem(weatherItem);
   } catch {
-    return { city: '', status: 'error', message: 'Echec localisation,  saisissez une ville.' };
+    return { city: 'Paris', status: 'ok', message: 'Ville par défaut: Paris.' };
   }
 }
 
@@ -1753,7 +1753,7 @@ function setupWeatherCityControls() {
 
     const feedback = getWeatherCityFeedback();
     if (!feedback) {
-      notify(city ? `✓ Ville meteo appliquee: ${city}` : '✓ Ville meteo automatique');
+      notify(city ? `✓ Ville météo appliquée: ${city}` : '✓ Ville par défaut: Paris');
       return;
     }
 
@@ -1784,12 +1784,12 @@ function setupWeatherCityControls() {
     void loadDashboardAdvice().then((loaded) => {
       renderDashboardAdvice(dashboardMetrics || {});
       if (!loaded) {
-        notify('⚠ Impossible de charger la meteo automatique.');
+        notify('⚠ Impossible de charger la météo par défaut.');
         return;
       }
 
       const feedback = getWeatherCityFeedback();
-      notify(feedback?.message ? `✓ ${feedback.message}` : '✓ Ville meteo automatique');
+      notify(feedback?.message ? `✓ ${feedback.message}` : '✓ Ville par défaut: Paris');
       closeWeatherCityModal();
     });
   });
@@ -1861,7 +1861,7 @@ function updateWeatherCitySummary() {
 
   const item = getWeatherAdviceItem();
   const city = String(item?.appliedCity || item?.badge || '').trim();
-  currentEl.textContent = city || 'Auto';
+  currentEl.textContent = city || 'Paris';
 }
 
 function activatePlansSection() {

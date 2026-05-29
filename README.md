@@ -43,7 +43,7 @@ Application de suivi running avec :
 - Recommandations de récupération selon l'intensité des séances
 - Alertes sur la surcharge d'entraînement
 - Suggestions d'amélioration du rythme et de la forme physique
-- Conseils météo contextuels (ville personnalisable)
+- Conseils météo contextuels (ville saisie manuellement, sinon Paris par défaut)
 
 ### 🔐 Sécurité et confidentialité
 - Comptes utilisateurs isolés avec authentification JWT
@@ -132,9 +132,6 @@ GOOGLE_CLIENT_SECRET=
 # Exemple local:  http://localhost:8080/connect/google/check
 # Exemple prod:   https://rt.lavergne.online/connect/google/check
 GOOGLE_REDIRECT_URI=
-
-# Geolocalisation IP (dashboard meteo)
-GEO_KEY=
 
 # Email sortant Symfony Mailer
 MAILER_FROM=no-reply@running-dashboard.app
@@ -238,7 +235,6 @@ Si vous déployez l'image sans Docker Compose, il faut fournir explicitement les
 | `JWT_PASSPHRASE` | Oui | Secret | Passphrase de la clé privée JWT |
 | `JWT_TTL` | Oui | ConfigMap | Durée de vie du token JWT (secondes) |
 | `CORS_ALLOW_ORIGIN` | Oui | ConfigMap | Regex d'origine autorisée CORS |
-| `GEO_KEY` | Oui (peut etre vide) | Secret | Cle API de geolocalisation IP utilisee par les conseils meteo |
 | `GOOGLE_CLIENT_ID` | Oui | Secret | OAuth Google: identifiant client |
 | `GOOGLE_CLIENT_SECRET` | Oui | Secret | OAuth Google: secret client |
 | `BREVO_SMTP_LOGIN` | Oui | Secret | Identifiant SMTP Brevo |
@@ -250,7 +246,7 @@ Si vous déployez l'image sans Docker Compose, il faut fournir explicitement les
 Variables optionnelles:
 
 - `APP_DEBUG` (0/1)
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_TLS`, `SMTP_STARTTLS` (mode legacy msmtp)
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_TLS`, `SMTP_STARTTLS` (mode msmtp)
 
 ### Exemple kubectl: ConfigMap + Secret
 
@@ -274,7 +270,6 @@ kubectl create secret generic runtracker-secrets \
   --from-literal=DATABASE_USER='runner' \
   --from-literal=DATABASE_PASSWORD='<mot_de_passe_db>' \
   --from-literal=JWT_PASSPHRASE='<passphrase_jwt>' \
-  --from-literal=GEO_KEY='<cle_geo>' \
   --from-literal=GOOGLE_CLIENT_ID='<google_client_id>' \
   --from-literal=GOOGLE_CLIENT_SECRET='<google_client_secret>' \
   --from-literal=BREVO_SMTP_LOGIN='<brevo_login>' \
@@ -341,7 +336,7 @@ Notes importantes:
 
 - L'entrypoint attend PostgreSQL en se basant sur `DATABASE_HOST` / `DATABASE_PORT`.
 - Si les clés JWT ne sont pas montées, l'entrypoint peut les générer dans `/app/config/jwt` (selon permissions du volume).
-- En production, privilégier un Secret pour toutes les variables sensibles (`APP_SECRET`, credentials DB, `JWT_PASSPHRASE`, `GEO_KEY`, credentials Google OAuth, credentials Brevo/SMTP).
+- En production, privilégier un Secret pour toutes les variables sensibles (`APP_SECRET`, credentials DB, `JWT_PASSPHRASE`, credentials Google OAuth, credentials Brevo/SMTP).
 
 ---
 

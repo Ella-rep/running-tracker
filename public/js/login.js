@@ -156,9 +156,9 @@ async function readJsonSafely(response, fallbackMessage) {
     return JSON.parse(trimmed);
   } catch {
     if (trimmed.startsWith('<')) {
-      throw new Error(fallbackMessage || 'Le serveur a renvoye du HTML au lieu de JSON.');
+      throw new Error(fallbackMessage || 'Le serveur a renvoyé du HTML au lieu de JSON.');
     }
-    throw new Error(fallbackMessage || 'Reponse JSON invalide.');
+    throw new Error(fallbackMessage || 'Réponse JSON invalide.');
   }
 }
 
@@ -207,7 +207,7 @@ async function handleForgot(email) {
     throw new Error(await parseApiError(resetResponse, 'Erreur réinitialisation'));
   }
 
-  const resetData = await readJsonSafely(resetResponse, 'Reponse invalide lors de la reinitialisation.') || {};
+  const resetData = await readJsonSafely(resetResponse, 'Réponse invalide lors de la réinitialisation.') || {};
   setFeedback('', resetData.message || 'Si les informations sont correctes, un email a été envoyé.');
   backToLoginMode();
 }
@@ -223,7 +223,7 @@ async function handleReset(password) {
     throw new Error(await parseApiError(confirmResponse, 'Erreur réinitialisation'));
   }
 
-  const confirmData = await readJsonSafely(confirmResponse, 'Reponse invalide lors de la confirmation.') || {};
+  const confirmData = await readJsonSafely(confirmResponse, 'Réponse invalide lors de la confirmation.') || {};
   setFeedback('', confirmData.message || 'Mot de passe réinitialisé. Tu peux te connecter.');
   clearResetTokenFromUrl();
   resetTokenFromUrl = null;
@@ -242,10 +242,10 @@ async function handleLogin(email, password, rememberMe) {
     throw new Error(await parseApiError(loginResponse, 'Erreur de connexion'));
   }
 
-  const data = await readJsonSafely(loginResponse, 'Reponse invalide lors de la connexion.') || {};
+  const data = await readJsonSafely(loginResponse, 'Réponse invalide lors de la connexion.') || {};
   const token = String(data.token || '').trim();
   if (!token) {
-    throw new Error('Token manquant dans la reponse de connexion.');
+    throw new Error('Token manquant dans la réponse de connexion.');
   }
   const auth = getAuthHelper();
   if (auth?.setToken) {

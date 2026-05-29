@@ -45,6 +45,7 @@ class PlansController extends AbstractController
                 'plansView' => [],
                 'selectedPlanView' => null,
                 'requestedPlanNotFound' => $planId !== null,
+                'hasExamplePlan' => false,
             ]);
         }
 
@@ -83,12 +84,21 @@ class PlansController extends AbstractController
             $detailsByPlanId,
         );
 
+        $hasExamplePlan = false;
+        foreach ($plans as $plan) {
+            if ($this->isExamplePlanName($plan->getName())) {
+                $hasExamplePlan = true;
+                break;
+            }
+        }
+
         return $this->render('plans/index.html.twig', [
             'username' => $this->getUser()?->getUserIdentifier(),
             'initialPlanId' => $planId,
             'plansView' => $this->buildPlansView($plans, $detailsByPlanId),
             'selectedPlanView' => $selectedPlanView,
             'requestedPlanNotFound' => $requestedPlanNotFound,
+            'hasExamplePlan' => $hasExamplePlan,
         ]);
     }
 
@@ -233,7 +243,7 @@ class PlansController extends AbstractController
     ): JsonResponse {
         $user = $this->getUser();
         if (!$user instanceof User) {
-            return $this->json(['message' => 'Utilisateur non authentifie.'], 401);
+            return $this->json(['message' => 'Utilisateur non authentifié.'], 401);
         }
 
         $plan = $planRepository->find($planId);
@@ -244,7 +254,7 @@ class PlansController extends AbstractController
         $entityManager->remove($plan);
         $entityManager->flush();
 
-        return $this->json(['message' => 'Plan supprime.', 'id' => $planId]);
+        return $this->json(['message' => 'Plan supprimé.', 'id' => $planId]);
     }
 
     #[Route('/plans/{planId<\d+>}/sessions/add', name: 'app_plans_session_add', methods: ['POST'])]
@@ -397,7 +407,7 @@ class PlansController extends AbstractController
     ): JsonResponse {
         $user = $this->getUser();
         if (!$user instanceof User) {
-            return $this->json(['message' => 'Utilisateur non authentifie.'], 401);
+            return $this->json(['message' => 'Utilisateur non authentifié.'], 401);
         }
 
         $plan = $planRepository->find($planId);
@@ -444,7 +454,7 @@ class PlansController extends AbstractController
 
             $cards[] = [
                 'id' => $planId,
-                'title' => $this->isExamplePlanName($name) ? 'Plan de depart (exemple)' : $name,
+                'title' => $this->isExamplePlanName($name) ? 'Plan de départ (exemple)' : $name,
                 'sub' => $this->isExamplePlanName($name) ? 'Plan fourni avec l\'application · blocs hebdomadaires' : '',
                 'total' => $total,
                 'done' => $done,

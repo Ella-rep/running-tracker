@@ -70,7 +70,7 @@ final class GoogleAuthenticator extends OAuth2Authenticator
                     'email' => $user->getEmail(),
                 ]);
 
-                throw new CustomUserMessageAuthenticationException('Ce compte email est deja associe a un autre compte Google.');
+                throw new CustomUserMessageAuthenticationException('Ce compte email est déjà associé à un autre compte Google.');
             }
 
             if ($user !== null) {

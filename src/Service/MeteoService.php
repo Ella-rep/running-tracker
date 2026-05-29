@@ -2,10 +2,8 @@
 
 namespace App\Service;
 
-use App\Service\LocService;
-
 /**
- * Provides daily weather advice with city and IP-based geolocation fallback.
+ * Provides daily weather advice with manual city selection and Paris fallback.
  */
 final class MeteoService
 {
@@ -23,13 +21,6 @@ final class MeteoService
     
 
     /**
-     * @param RequestStack $requestStack Request stack used to resolve client IP for geolocation.
-     */
-    public function __construct(
-        private LocService $locService,
-    ) {}
-
-    /**
      * Builds the weather advice card for the requested or inferred location.
      *
      * @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string}
@@ -42,13 +33,12 @@ final class MeteoService
 
         $liveAdvice = $this->buildLiveAdvice($resolved['lat'], $resolved['lon'], $resolved['label'], $errors);
         if ($liveAdvice !== null) {
-            return $this->withCityFeedback($liveAdvice, $requestedCity, $resolved['source']);
+            return $this->withCityFeedback($liveAdvice, $requestedCity);
         }
 
         return $this->withCityFeedback(
             $this->buildErrorAdvice($resolved['label']),
-            $requestedCity,
-            $resolved['source']
+            $requestedCity
         );
     }
 
@@ -62,7 +52,7 @@ final class MeteoService
 
         $advice = $this->buildAdviceFromApiPayload($data, $label);
         if ($advice === null) {
-            $errors[] = 'E3: reponse meteo incomplete.';
+              $errors[] = 'E3: réponse météo incomplète.';
         }
 
         return $advice;
@@ -152,7 +142,7 @@ final class MeteoService
         } elseif (in_array($weatherCode, [0, 1], true)) {
             $advice = [
                 'title' => self::TITLE,
-                'text' => 'Conditions favorables: bonne fenetre pour ta seance. Une hydratation adaptee reste toujours utile.',
+                    'text' => 'Conditions favorables: bonne fenêtre pour ta séance. Une hydratation adaptée reste toujours utile.',
                 'tone' => 'encourage',
                 'icon' => '🌤️',
                 'color' => self::COLOR_SUCCESS,
@@ -250,7 +240,7 @@ final class MeteoService
      * @param array{title:string,text:string,tone:string,icon:string,color:string,badge:string} $advice
      * @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string,cityStatus:string,cityMessage:string,cityApplied:bool,requestedCity:?string,appliedCity:string,detectedCity:?string,detectedCityStatus:string,detectedCityMessage:string}
      */
-    private function withCityFeedback(array $advice, string $requestedCity, string $locationSource): array
+    private function withCityFeedback(array $advice, string $requestedCity): array
     {
         $appliedCity = trim((string) ($advice['badge'] ?? self::DEFAULT_CITY_LABEL));
         if ($appliedCity === '') {
@@ -258,16 +248,14 @@ final class MeteoService
         }
 
         if ($requestedCity === '') {
-            $advice['cityStatus'] = 'auto';
-            $advice['cityMessage'] = 'Ville meteo automatique';
+            $advice['cityStatus'] = 'default';
+            $advice['cityMessage'] = 'Ville météo par défaut: ' . $appliedCity;
             $advice['cityApplied'] = true;
             $advice['requestedCity'] = null;
             $advice['appliedCity'] = $appliedCity;
-            $advice['detectedCity'] = $locationSource === 'ip' ? $appliedCity : null;
-            $advice['detectedCityStatus'] = $locationSource === 'ip' ? 'ok' : 'error';
-            $advice['detectedCityMessage'] = $locationSource === 'ip'
-                ? 'Ville detectee: ' . $appliedCity
-                : 'Echec localisation,  saisissez une ville.';
+            $advice['detectedCity'] = $appliedCity;
+            $advice['detectedCityStatus'] = 'ok';
+            $advice['detectedCityMessage'] = 'Ville par défaut: ' . $appliedCity;
 
             return $advice;
         }
@@ -283,8 +271,8 @@ final class MeteoService
 
         $advice['cityStatus'] = $applied ? 'applied' : 'error';
         $advice['cityMessage'] = $applied
-            ? 'Ville meteo appliquee: ' . $appliedCity
-            : 'Ville meteo non appliquee: ' . $requestedCity . '. Ville utilisee: ' . $appliedCity . '.';
+            ? 'Ville météo appliquée: ' . $appliedCity
+            : 'Ville météo non appliquée: ' . $requestedCity . '. Ville utilisée: ' . $appliedCity . '.';
         $advice['cityApplied'] = $applied;
         $advice['requestedCity'] = $requestedCity;
         $advice['appliedCity'] = $appliedCity;
@@ -307,17 +295,6 @@ final class MeteoService
             }
             $errors[] = 'E1: ville introuvable.';
         }
-
-        $byLocation = $this->locService->resolveUsersLocation();
-        if($byLocation){
-            $result = $this->fetchGeoByCity($byLocation);
-            if ($result !== null) {
-                $result['source'] = 'ip';
-                return $result;
-            }
-        }
-
-        $errors[] = 'E2: geolocalisation IP indisponible.';
 
         return [
             'lat' => self::DEFAULT_LAT,

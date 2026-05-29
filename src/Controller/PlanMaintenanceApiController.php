@@ -44,7 +44,7 @@ final class PlanMaintenanceApiController extends AbstractController
         $identifier = '';
         $user = null;
         $response = [
-            'message' => 'ROLE_ADMIN ajoute avec succes.',
+            'message' => 'ROLE_ADMIN ajouté avec succès.',
         ];
 
         try {
@@ -88,7 +88,7 @@ final class PlanMaintenanceApiController extends AbstractController
             $roles = $user->getRoles();
             if (in_array('ROLE_ADMIN', $roles, true)) {
                 $response = [
-                    'message' => 'Cet utilisateur est deja admin.',
+                    'message' => 'Cet utilisateur est déjà admin.',
                     'username' => $user->getUserIdentifier(),
                     'roles' => $roles,
                 ];
@@ -103,7 +103,7 @@ final class PlanMaintenanceApiController extends AbstractController
                 ]);
 
                 $response = [
-                    'message' => 'ROLE_ADMIN ajoute avec succes.',
+                    'message' => 'ROLE_ADMIN ajouté avec succès.',
                     'username' => $user->getUserIdentifier(),
                     'roles' => $user->getRoles(),
                 ];
@@ -141,7 +141,7 @@ final class PlanMaintenanceApiController extends AbstractController
             ]);
 
             return $this->json([
-                'message' => 'Rapport erreurs Gmail envoye.',
+                'message' => 'Rapport erreurs Gmail envoyé.',
                 'errors' => $report['count'],
                 'window_hours' => $report['window_hours'],
                 'codes' => $report['codes'],

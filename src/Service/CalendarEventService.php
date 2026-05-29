@@ -90,7 +90,7 @@ final class CalendarEventService
         if (!$event || $event->getUser() !== $user) {
             return [
                 'status' => 404,
-                'payload' => ['message' => 'Evenement introuvable.'],
+                'payload' => ['message' => 'Événement introuvable.'],
             ];
         }
 
@@ -133,7 +133,7 @@ final class CalendarEventService
         if (!$event || $event->getUser() !== $user) {
             return [
                 'status' => 404,
-                'payload' => ['message' => 'Evenement introuvable.'],
+                'payload' => ['message' => 'Événement introuvable.'],
             ];
         }
 
@@ -156,7 +156,7 @@ final class CalendarEventService
         } elseif ($title === '') {
             $error = 'Le titre est obligatoire.';
         } elseif (strlen($title) > 160) {
-            $error = 'Le titre ne doit pas depasser 160 caracteres.';
+            $error = 'Le titre ne doit pas dépasser 160 caractères.';
         }
 
         return $error;

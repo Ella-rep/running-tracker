@@ -548,6 +548,52 @@
   .admin-user-kpi-grid {
     grid-template-columns: 1fr;
   }
+
+  .admin-users-table {
+    min-width: 0;
+  }
+
+  .admin-users-table thead {
+    display: none;
+  }
+
+  .admin-users-table tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .admin-users-table tr {
+    display: grid;
+    gap: 8px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface2);
+    padding: 10px;
+  }
+
+  .admin-users-table td {
+    display: grid;
+    grid-template-columns: 135px 1fr;
+    gap: 10px;
+    align-items: start;
+    border: 0;
+    padding: 0;
+  }
+
+  .admin-users-table td::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .admin-users-table td[data-label="Actions"] {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-users-table td[data-label="Actions"]::before {
+    margin-bottom: 4px;
+  }
 }
 
 @media (max-width: 640px) {
@@ -573,5 +619,10 @@
   .admin-action-form {
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .admin-users-table td {
+    grid-template-columns: 1fr;
+    gap: 6px;
   }
 }
