@@ -3504,7 +3504,13 @@ let currentPlanId = null;
 let plansHistoryListenerBound = false;
 
 function parsePlanIdFromPathname(pathname) {
-  const normalizedPath = String(pathname || '').replace(/\/+$/, '') || '/';
+  let normalizedPath = String(pathname || '');
+  while (normalizedPath.length > 1 && normalizedPath.endsWith('/')) {
+    normalizedPath = normalizedPath.slice(0, -1);
+  }
+  if (normalizedPath === '') {
+    normalizedPath = '/';
+  }
   const match = /^\/plans\/(\d+)$/.exec(normalizedPath);
   if (!match) return null;
   const id = Number.parseInt(match[1], 10);
@@ -4974,11 +4980,20 @@ function resolvePlannedSessionForLog(log) {
   const legacyLabel = String(log?.plannedSessionLabel || '').trim();
   if (!legacyLabel) return null;
 
-  const labelMatch = /Seance\s+(\d+)\s*[-·]\s*(.+)$/i.exec(legacyLabel);
-  if (!labelMatch) return null;
+  const loweredLabel = legacyLabel.toLowerCase();
+  if (!loweredLabel.startsWith('seance')) return null;
 
-  const position = Number.parseInt(labelMatch[1], 10);
-  const format = String(labelMatch[2] || '').trim();
+  let rest = legacyLabel.slice(6).trimStart();
+  let cursor = 0;
+  while (cursor < rest.length && rest[cursor] >= '0' && rest[cursor] <= '9') {
+    cursor += 1;
+  }
+  if (cursor === 0) return null;
+
+  const position = Number.parseInt(rest.slice(0, cursor), 10);
+  rest = rest.slice(cursor).trimStart();
+  if (!(rest.startsWith('-') || rest.startsWith('·'))) return null;
+  const format = rest.slice(1).trimStart().trim();
   if (!Number.isFinite(position)) return null;
 
   return (Array.isArray(plannedSessionsForLogs) ? plannedSessionsForLogs : []).find((item) => {
