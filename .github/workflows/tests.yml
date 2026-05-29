@@ -104,3 +104,8 @@ jobs:
             var/coverage/clover.xml
             var/coverage/html
           if-no-files-found: warn
+
+  docker-build:
+    needs: phpunit
+    uses: ./.github/workflows/build_push.yaml
+    secrets: inherit
