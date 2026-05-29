@@ -111,6 +111,38 @@ body {
   text-align: center;
 }
 
+.login-maintenance-test-card {
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+}
+
+.login-maintenance-test-card .chart-title {
+  margin-bottom: 8px;
+}
+
+.login-maintenance-test-card .admin-maintenance-section h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.login-maintenance-test-card .admin-maintenance-desc {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.login-maintenance-field {
+  margin-bottom: 10px;
+}
+
+.login-maintenance-field span {
+  display: block;
+  margin-bottom: 4px;
+}
+
 .login-toggle {
   background: none;
   border: 0;
@@ -206,8 +238,15 @@ body {
   letter-spacing: 0.1px;
 }
 
-[data-theme="light"] .login-google-btn {
+[data-theme="light"] #login-root .login-google-btn.btn {
+  background: #ffffff;
+  border-color: #cfd3da;
   color: #1a1f2b;
+}
+
+[data-theme="light"] #login-root .login-google-btn.btn:hover {
+  background: #f8f9fb;
+  border-color: #b8bec9;
 }
 
 [data-theme="dark"] .login-google-btn {

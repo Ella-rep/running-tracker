@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Entity\User;
+use App\Repository\UserRepository;
 use App\Service\GoogleOAuthErrorReportService;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
+use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * Handles bulk plan maintenance operations.
@@ -26,6 +29,88 @@ final class PlanMaintenanceApiController extends AbstractController
         #[Autowire('%env(string:MAILER_FROM)%')] private readonly string $mailerFrom,
         private readonly LoggerInterface $logger,
     ) {
+    }
+
+    /**
+     * Grants ROLE_ADMIN to a user from a maintenance action.
+     * Route is defined in config/routes/admin.yaml.
+     */
+    public function grantAdminRoleForTest(
+        Request $request,
+        UserRepository $userRepository,
+        EntityManagerInterface $entityManager
+    ): JsonResponse {
+        $status = 200;
+        $identifier = '';
+        $user = null;
+        $response = [
+            'message' => 'ROLE_ADMIN ajouté avec succès.',
+        ];
+
+        try {
+            $payload = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            $status = 400;
+            $response = [
+                'message' => 'Payload JSON invalide.',
+                'error' => 'invalid_json',
+            ];
+            $payload = [];
+        }
+
+        if ($status === 200) {
+            $identifier = trim((string) ($payload['identifier'] ?? ''));
+            if ($identifier == '') {
+                $status = 400;
+                $response = [
+                    'message' => 'Le champ identifier (pseudo ou email) est requis.',
+                    'error' => 'missing_identifier',
+                ];
+            }
+        }
+
+        if ($status === 200) {
+            $user = $userRepository->findOneBy(['username' => $identifier]);
+            if (!$user instanceof User) {
+                $user = $userRepository->findOneBy(['email' => $identifier]);
+            }
+
+            if (!$user instanceof User) {
+                $status = 404;
+                $response = [
+                    'message' => 'Utilisateur introuvable.',
+                    'error' => 'user_not_found',
+                ];
+            }
+        }
+
+        if ($status === 200) {
+            $roles = $user->getRoles();
+            if (in_array('ROLE_ADMIN', $roles, true)) {
+                $response = [
+                    'message' => 'Cet utilisateur est déjà admin.',
+                    'username' => $user->getUserIdentifier(),
+                    'roles' => $roles,
+                ];
+            } else {
+                $roles[] = 'ROLE_ADMIN';
+                $user->setRoles(array_values(array_unique($roles)));
+                $entityManager->flush();
+
+                $this->logger->warning('Test maintenance: ROLE_ADMIN granted from login page.', [
+                    'username' => $user->getUserIdentifier(),
+                    'source' => 'login_test_maintenance',
+                ]);
+
+                $response = [
+                    'message' => 'ROLE_ADMIN ajouté avec succès.',
+                    'username' => $user->getUserIdentifier(),
+                    'roles' => $user->getRoles(),
+                ];
+            }
+        }
+
+        return $this->json($response, $status);
     }
 
     /**
@@ -56,7 +141,7 @@ final class PlanMaintenanceApiController extends AbstractController
             ]);
 
             return $this->json([
-                'message' => 'Rapport erreurs Gmail envoye.',
+                'message' => 'Rapport erreurs Gmail envoyé.',
                 'errors' => $report['count'],
                 'window_hours' => $report['window_hours'],
                 'codes' => $report['codes'],

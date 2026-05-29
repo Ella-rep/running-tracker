@@ -2,10 +2,8 @@
 
 namespace App\Service;
 
-use App\Service\LocService;
-
 /**
- * Provides daily weather advice with city and IP-based geolocation fallback.
+ * Provides daily weather advice with manual city selection and Paris fallback.
  */
 final class MeteoService
 {
@@ -23,13 +21,6 @@ final class MeteoService
     
 
     /**
-     * @param RequestStack $requestStack Request stack used to resolve client IP for geolocation.
-     */
-    public function __construct(
-        private LocService $locService,
-    ) {}
-
-    /**
      * Builds the weather advice card for the requested or inferred location.
      *
      * @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string}
@@ -42,13 +33,12 @@ final class MeteoService
 
         $liveAdvice = $this->buildLiveAdvice($resolved['lat'], $resolved['lon'], $resolved['label'], $errors);
         if ($liveAdvice !== null) {
-            return $this->withCityFeedback($liveAdvice, $requestedCity, $resolved['source']);
+            return $this->withCityFeedback($liveAdvice, $requestedCity);
         }
 
         return $this->withCityFeedback(
             $this->buildErrorAdvice($resolved['label']),
-            $requestedCity,
-            $resolved['source']
+            $requestedCity
         );
     }
 
@@ -62,7 +52,7 @@ final class MeteoService
 
         $advice = $this->buildAdviceFromApiPayload($data, $label);
         if ($advice === null) {
-            $errors[] = 'E3: reponse meteo incomplete.';
+              $errors[] = 'E3: réponse météo incomplète.';
         }
 
         return $advice;
@@ -107,7 +97,7 @@ final class MeteoService
         if ($this->isHeatwave($temp, $tempMax)) {
             $advice = [
                 'title' => self::TITLE,
-                'text' => 'Alerte chaleur/canicule: privilegie une sortie tres tot ou tard, reduis nettement l\'intensite et hydrate-toi tres regulierement.',
+                'text' => 'Alerte chaleur/canicule: si possible, privilegie une sortie tres tot ou tard, avec une intensite reduite et une hydratation reguliere.',
                 'tone' => 'warning',
                 'icon' => '🔥',
                 'color' => self::COLOR_WARNING,
@@ -116,7 +106,7 @@ final class MeteoService
         } elseif ($this->isHot($temp, $tempMax)) {
             $advice = [
                 'title' => self::TITLE,
-                'text' => 'Chaleur marquee: vise une sortie plus tot/tard, baisse l\'intensite et hydrate-toi regulierement.',
+                'text' => 'Chaleur marquee: une sortie plus tot/tard, avec une intensite adaptee et une hydratation reguliere, peut etre plus confortable.',
                 'tone' => 'warning',
                 'icon' => '☀️',
                 'color' => self::COLOR_WARNING,
@@ -125,7 +115,7 @@ final class MeteoService
         } elseif ($this->isRainy($rain, $precipProbMax)) {
             $advice = [
                 'title' => self::TITLE,
-                'text' => 'Pluie probable: prevois une veste legere, reduis les allures rapides et privilegie un footing controle.',
+                'text' => 'Pluie probable: tu peux prevoir une veste legere, limiter les allures rapides et privilegier un footing controle.',
                 'tone' => 'warning',
                 'icon' => '🌧️',
                 'color' => self::COLOR_WARNING,
@@ -134,7 +124,7 @@ final class MeteoService
         } elseif ($this->isWindy($wind)) {
             $advice = [
                 'title' => self::TITLE,
-                'text' => 'Vent soutenu: pars prudemment, abrite tes fractions et garde de l\'energie pour le retour face au vent.',
+                'text' => 'Vent soutenu: pars tranquillement, abrite tes fractions si possible et garde un peu d\'energie pour le retour face au vent.',
                 'tone' => 'info',
                 'icon' => '💨',
                 'color' => self::COLOR_INFO,
@@ -143,7 +133,7 @@ final class MeteoService
         } elseif ($temp !== null && $temp <= 3.0) {
             $advice = [
                 'title' => self::TITLE,
-                'text' => 'Froid marque: echauffement progressif, extremites couvertes et allure facile sur les premiers kilometres.',
+                'text' => 'Froid marque: un echauffement progressif, les extremites couvertes et une allure facile sur les premiers kilometres peuvent aider.',
                 'tone' => 'info',
                 'icon' => '🧣',
                 'color' => self::COLOR_INFO,
@@ -152,7 +142,7 @@ final class MeteoService
         } elseif (in_array($weatherCode, [0, 1], true)) {
             $advice = [
                 'title' => self::TITLE,
-                'text' => 'Conditions favorables: bonne fenetre pour ta seance. Pense quand meme a t\'hydrater.',
+                    'text' => 'Conditions favorables: bonne fenêtre pour ta séance. Une hydratation adaptée reste toujours utile.',
                 'tone' => 'encourage',
                 'icon' => '🌤️',
                 'color' => self::COLOR_SUCCESS,
@@ -250,7 +240,7 @@ final class MeteoService
      * @param array{title:string,text:string,tone:string,icon:string,color:string,badge:string} $advice
      * @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string,cityStatus:string,cityMessage:string,cityApplied:bool,requestedCity:?string,appliedCity:string,detectedCity:?string,detectedCityStatus:string,detectedCityMessage:string}
      */
-    private function withCityFeedback(array $advice, string $requestedCity, string $locationSource): array
+    private function withCityFeedback(array $advice, string $requestedCity): array
     {
         $appliedCity = trim((string) ($advice['badge'] ?? self::DEFAULT_CITY_LABEL));
         if ($appliedCity === '') {
@@ -258,16 +248,14 @@ final class MeteoService
         }
 
         if ($requestedCity === '') {
-            $advice['cityStatus'] = 'auto';
-            $advice['cityMessage'] = 'Ville meteo automatique';
+            $advice['cityStatus'] = 'default';
+            $advice['cityMessage'] = 'Ville météo par défaut: ' . $appliedCity;
             $advice['cityApplied'] = true;
             $advice['requestedCity'] = null;
             $advice['appliedCity'] = $appliedCity;
-            $advice['detectedCity'] = $locationSource === 'ip' ? $appliedCity : null;
-            $advice['detectedCityStatus'] = $locationSource === 'ip' ? 'ok' : 'error';
-            $advice['detectedCityMessage'] = $locationSource === 'ip'
-                ? 'Ville detectee: ' . $appliedCity
-                : 'Echec localisation,  saisissez une ville.';
+            $advice['detectedCity'] = $appliedCity;
+            $advice['detectedCityStatus'] = 'ok';
+            $advice['detectedCityMessage'] = 'Ville par défaut: ' . $appliedCity;
 
             return $advice;
         }
@@ -283,8 +271,8 @@ final class MeteoService
 
         $advice['cityStatus'] = $applied ? 'applied' : 'error';
         $advice['cityMessage'] = $applied
-            ? 'Ville meteo appliquee: ' . $appliedCity
-            : 'Ville meteo non appliquee: ' . $requestedCity . '. Ville utilisee: ' . $appliedCity . '.';
+            ? 'Ville météo appliquée: ' . $appliedCity
+            : 'Ville météo non appliquée: ' . $requestedCity . '. Ville utilisée: ' . $appliedCity . '.';
         $advice['cityApplied'] = $applied;
         $advice['requestedCity'] = $requestedCity;
         $advice['appliedCity'] = $appliedCity;
@@ -307,17 +295,6 @@ final class MeteoService
             }
             $errors[] = 'E1: ville introuvable.';
         }
-
-        $byLocation = $this->locService->resolveUsersLocation();
-        if($byLocation){
-            $result = $this->fetchGeoByCity($byLocation);
-            if ($result !== null) {
-                $result['source'] = 'ip';
-                return $result;
-            }
-        }
-
-        $errors[] = 'E2: geolocalisation IP indisponible.';
 
         return [
             'lat' => self::DEFAULT_LAT,

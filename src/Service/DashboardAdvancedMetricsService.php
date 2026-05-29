@@ -71,10 +71,10 @@ final class DashboardAdvancedMetricsService
                     $monthStart,
                     $today,
                     [],
-                    $hasPlans ? 'Aucun plan suivi' : 'Aucune seance programmee ce mois-ci',
+                    $hasPlans ? 'Aucun plan suivi' : 'Aucune séance programmée ce mois-ci',
                     $hasPlans
                         ? 'Ajoute un plan au suivi pour afficher son calendrier.'
-                        : 'Ajoute un plan avec des dates de seances pour remplir ce calendrier.'
+                        : 'Ajoute un plan avec des dates de séances pour remplir ce calendrier.'
                 ),
             ];
         }
@@ -93,10 +93,10 @@ final class DashboardAdvancedMetricsService
         $monthKey = $monthStart->format('Y-m');
         $visibleDates = array_filter($datedRows, static fn (\DateTimeImmutable $sessionDate): bool => $sessionDate->format('Y-m') === $monthKey);
         $visibleCount = count($visibleDates);
-        $summary = 'Aucune seance programmee ce mois-ci';
+        $summary = 'Aucune séance programmée ce mois-ci';
         if ($visibleCount > 0) {
             $pluralSuffix = $visibleCount > 1 ? 's' : '';
-            $summary = sprintf('%d seance%s programmee%s', $visibleCount, $pluralSuffix, $pluralSuffix);
+            $summary = sprintf('%d séance%s programmée%s', $visibleCount, $pluralSuffix, $pluralSuffix);
         }
 
         $focusTitle = is_array($focusSummary) ? (string) ($focusSummary['title'] ?? '') : '';
@@ -118,7 +118,7 @@ final class DashboardAdvancedMetricsService
                 $today,
                 $itemsByDate,
                 $summary,
-                $datedRows === [] ? 'Ajoute des dates a ton plan pour voir les seances sur le calendrier.' : ''
+                $datedRows === [] ? 'Ajoute des dates à ton plan pour voir les séances sur le calendrier.' : ''
             ),
         ];
     }
@@ -135,7 +135,7 @@ final class DashboardAdvancedMetricsService
             return [
                 'hasData' => false,
                 'statusKey' => 'none',
-                'statusLabel' => 'Pas de donnees',
+                'statusLabel' => 'Pas de données',
                 'statusColor' => self::COLOR_TEXT_MUTED,
                 'acute' => 0.0,
                 'chronic' => 0.0,
@@ -307,7 +307,7 @@ final class DashboardAdvancedMetricsService
                 'detailId' => $rowId,
                 'planId' => $row->getPlan()->getId(),
                 'sessionType' => $row->getSessionType(),
-                'label' => sprintf('Seance %d', $row->getPosition()),
+                'label' => sprintf('Séance %d', $row->getPosition()),
                 'format' => $row->getFormat(),
                 'pe' => $row->getPe(),
                 'isDone' => $isDone,
@@ -378,7 +378,7 @@ final class DashboardAdvancedMetricsService
         }
         $monthNumber = (int) $monthStart->format('n');
         return [
-            'title' => 'Calendrier des seances prevues',
+            'title' => 'Calendrier des séances prévues',
             'monthKey' => $monthStart->format('Y-m'),
             'monthLabel' => sprintf('%s %s', ucfirst(self::MONTH_NAMES[$monthNumber] ?? $monthStart->format('F')), $monthStart->format('Y')),
             'summary' => $summary,
@@ -467,11 +467,11 @@ final class DashboardAdvancedMetricsService
             'recommendation' => 'Continue regulierement pour stabiliser ta charge de reference.',
         ];
         if ($ratio !== null && $ratio < 0.8) {
-            $status = ['key' => 'under', 'label' => 'Sous-charge', 'color' => 'var(--z2)', 'recommendation' => 'Tu peux ajouter une seance facile ou un peu de volume progressif.'];
+            $status = ['key' => 'under', 'label' => 'Sous-charge', 'color' => 'var(--z2)', 'recommendation' => 'Tu peux ajouter une séance facile ou un peu de volume progressif.'];
         } elseif ($ratio !== null && $ratio <= 1.3) {
             $status = ['key' => 'balanced', 'label' => 'Equilibre', 'color' => self::COLOR_Z1, 'recommendation' => 'Charge bien equilibree: garde le cap et privilegie la regularite.'];
         } elseif ($ratio !== null && $ratio <= 1.5) {
-            $status = ['key' => 'watch', 'label' => 'Vigilance', 'color' => 'var(--z3)', 'recommendation' => 'Legere hausse de charge: allege un peu et garde une seance tres facile.'];
+            $status = ['key' => 'watch', 'label' => 'Vigilance', 'color' => 'var(--z3)', 'recommendation' => 'Légère hausse de charge: allège un peu et garde une séance très facile.'];
         } elseif ($ratio !== null) {
             $status = ['key' => 'high', 'label' => 'Surcharge', 'color' => self::COLOR_ACCENT3, 'recommendation' => 'Charge trop elevee: fais 24-48h de recuperation et reporte l\'intensite.'];
         }
@@ -615,7 +615,7 @@ final class DashboardAdvancedMetricsService
                 $endDate = $this->parseDay($maxGapEnd->getDate());
                 if ($startDate instanceof \DateTimeImmutable && $endDate instanceof \DateTimeImmutable) {
                     $details[] = sprintf('Derniere sortie avant coupure: %s', $startDate->format('d/m/Y'));
-                    $details[] = sprintf('Reprise detectee: %s', $endDate->format('d/m/Y'));
+                    $details[] = sprintf('Reprise détectée: %s', $endDate->format('d/m/Y'));
                     $details[] = sprintf('Intervalle calcule: %d jours calendaires entre ces deux sorties.', $maxGap);
                 }
 
@@ -639,7 +639,7 @@ final class DashboardAdvancedMetricsService
             $alerts[] = [
                 'ok' => false,
                 'title' => 'Coupure d\'entrainement',
-                'msg' => sprintf('Plus longue coupure detectee: %d jours entre deux sorties.', $maxGap),
+                'msg' => sprintf('Plus longue coupure détectée: %d jours entre deux sorties.', $maxGap),
                 'details' => $details,
             ];
         }

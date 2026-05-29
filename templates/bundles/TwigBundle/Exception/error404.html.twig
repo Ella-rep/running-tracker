@@ -1,0 +1,27 @@
+{% extends 'base/layout.html.twig' %}
+
+{% block title %}404 - Page introuvable{% endblock %}
+
+{% block stylesheets %}
+  <link rel="stylesheet" href="{{ asset('css/error-pages.css') }}?v=20260529-error1">
+{% endblock %}
+
+{% block body %}
+<main class="error-page-main">
+  <section class="error-page-card">
+    <p class="error-page-code">Erreur 404</p>
+    <h1 class="error-page-title">Page introuvable</h1>
+    <p class="error-page-text">La ressource demandée n'existe pas ou a été déplacée. Vérifiez l'adresse, puis réessayez.</p>
+    <div class="error-page-actions">
+      <a class="btn" href="/">Retour à l'accueil</a>
+      <a class="btn btn-ghost" href="/login">Aller à la connexion</a>
+    </div>
+  </section>
+</main>
+{% endblock %}
+
+{% block javascripts %}
+  <script>
+    document.body.classList.add('error-page-body');
+  </script>
+{% endblock %}

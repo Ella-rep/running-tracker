@@ -1,0 +1,27 @@
+{% extends 'base/layout.html.twig' %}
+
+{% block title %}500 - Incident temporaire{% endblock %}
+
+{% block stylesheets %}
+  <link rel="stylesheet" href="{{ asset('css/error-pages.css') }}?v=20260529-error1">
+{% endblock %}
+
+{% block body %}
+<main class="error-page-main">
+  <section class="error-page-card">
+    <p class="error-page-code">Erreur 500</p>
+    <h1 class="error-page-title">Oups, un incident inattendu est survenu</h1>
+    <p class="error-page-text">Une erreur technique temporaire a interrompu cette action. Vous pouvez réessayer dans quelques instants.</p>
+    <div class="error-page-actions">
+      <a class="btn" href="/">Retour à l'accueil</a>
+      <a class="btn btn-ghost" href="/login">Retour à la connexion</a>
+    </div>
+  </section>
+</main>
+{% endblock %}
+
+{% block javascripts %}
+  <script>
+    document.body.classList.add('error-page-body');
+  </script>
+{% endblock %}

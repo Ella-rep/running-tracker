@@ -263,10 +263,10 @@ class RunLog
         $format = trim((string) $this->plannedSession->getFormat());
 
         if ($format !== '') {
-            return sprintf('Seance %d · %s', $position, $format);
+            return sprintf('Séance %d · %s', $position, $format);
         }
 
-        return sprintf('Seance %d', $position);
+        return sprintf('Séance %d', $position);
     }
 
     /**

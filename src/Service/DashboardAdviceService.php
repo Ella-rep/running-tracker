@@ -204,19 +204,19 @@ final class DashboardAdviceService
             $pendingPlanId = $planned['pastPending']->getPlan()->getId();
             $pendingIndex = max(0, $planned['pastPending']->getPosition() - 1);
             $advice = [
-                'title' => 'Seance passee non validee',
-                'text' => 'Avez vous effectue cette seance ? N\'oubliez pas de la cocher.',
+                'title' => 'Séance passée non validée',
+                'text' => 'Si vous avez effectué cette séance, vous pouvez la cocher quand vous avez un moment.',
                 'tone' => 'warning',
                 'icon' => '☑️',
                 'color' => self::COLOR_WARNING,
                 'badge' => $pendingDate ? ('Depuis le ' . $pendingDate) : 'En retard',
                 'actionType' => 'openPlanSession',
-                'actionLabel' => 'Aller valider la seance',
+                'actionLabel' => 'Aller valider la séance',
                 'actionPlanId' => $pendingPlanId,
                 'actionSessionIndex' => $pendingIndex,
             ];
         } elseif (!empty($planned['today'])) {
-            $raceHint = ' Pense aussi a verifier la meteo avant de partir.';
+            $raceHint = ' Pense aussi à vérifier la météo avant de partir.';
             if ($nextRace !== null && $nextRaceDays !== null && $nextRaceDays <= 2) {
                 $dist = $nextRace->getDistance() ?: 'course';
                 $raceHint = sprintf(' Focus course: %s (%s) approche.', $nextRace->getName(), $dist);
@@ -226,9 +226,9 @@ final class DashboardAdviceService
             $labelText = $this->plannedSessionsLabelList($planned['today']);
 
             $advice = [
-                'title' => 'Seance planifiee aujourd\'hui',
+                'title' => 'Séance planifiée aujourd\'hui',
                 'text' => sprintf(
-                    '%d seance%s planifiee%s aujourd\'hui: %s.%s',
+                    '%d séance%s planifiée%s aujourd\'hui: %s.%s',
                     $todayCount,
                     $todayCount > 1 ? 's' : '',
                     $todayCount > 1 ? 's' : '',
@@ -250,16 +250,16 @@ final class DashboardAdviceService
             }
             $advice = $isIntense
                 ? [
-                    'title' => 'Demain seance intense',
-                    'text' => 'Demain seance intense prevue, allez y tranquille aujourd\'hui.',
+                    'title' => 'Demain séance intense',
+                    'text' => 'Demain une séance intense est prévue, une journée plus légère aujourd\'hui peut aider à bien récupérer.',
                     'tone' => 'warning',
                     'icon' => '⚡',
                     'color' => self::COLOR_WARNING,
                     'badge' => 'Demain',
                 ]
                 : [
-                    'title' => 'Demain seance douce',
-                    'text' => 'Demain seance douce prevue, profite d\'aujourd\'hui pour une recuperation active et adapte toi a la meteo.',
+                    'title' => 'Demain séance douce',
+                    'text' => 'Demain séance douce prévue, profite d\'aujourd\'hui pour une récupération active et adapte toi à la météo.',
                     'tone' => 'info',
                     'icon' => '🌤️',
                     'color' => self::COLOR_INFO,
@@ -286,7 +286,7 @@ final class DashboardAdviceService
             $nextRaceDays === 0 => [
                 'title' => 'Jour de course !',
                 'text' => sprintf(
-                    'C\'est le jour de %s (%s). Echauffement leger 15 min, reste bien hydrate, et bonne course !',
+                    'C\'est le jour de %s (%s). Échauffement léger 15 min, reste bien hydraté, et bonne course !',
                     $nextRace->getName(),
                     $nextRace->getDistance() ?: self::DIST_DEFAULT
                 ),
@@ -298,7 +298,7 @@ final class DashboardAdviceService
             $nextRaceDays === 1 => [
                 'title' => 'Course demain',
                 'text' => sprintf(
-                    'La %s (%s) est demain. Aucune sortie aujourd\'hui: jambes au repos, bonne hydratation, dors tot.',
+                    'La %s (%s) est demain. Si possible, garde la journée légère: jambes au repos, bonne hydratation et coucher un peu plus tôt.',
                     $nextRace->getName(),
                     $nextRace->getDistance() ?: self::DIST_DEFAULT
                 ),
@@ -310,7 +310,7 @@ final class DashboardAdviceService
             $nextRaceDays === 2 => [
                 'title' => 'Course dans 2 jours',
                 'text' => sprintf(
-                    'La %s (%s) est dans 2 jours. Si tu sors: 20-30 min tres facile (< 9:00/km) pour activer les jambes.',
+                    'La %s (%s) est dans 2 jours. Si tu as envie de sortir, 20-30 min très facile (< 9:00/km) peuvent suffire pour activer les jambes.',
                     $nextRace->getName(),
                     $nextRace->getDistance() ?: self::DIST_DEFAULT
                 ),
@@ -320,12 +320,12 @@ final class DashboardAdviceService
                 'badge' => $nextRace->getName() . ' · Dans 2 jours',
             ],
             $nextRaceDays <= 6 => [
-                'title' => 'Course bientot - charge reduite',
+                'title' => 'Course bientôt - charge réduite',
                 'text' => sprintf(
-                    'La %s (%s) arrive %s. Reduis le volume, garde quelques accelerations courtes, evite la longue.',
+                    'La %s (%s) arrive %s. Tu peux réduire un peu le volume, garder quelques accélérations courtes et alléger la sortie longue.',
                     $nextRace->getName(),
                     $nextRace->getDistance() ?: self::DIST_DEFAULT,
-                    $nextRaceDays === 3 ? 'apres-demain' : ('dans ' . $nextRaceDays . ' jours')
+                    $nextRaceDays === 3 ? 'après-demain' : ('dans ' . $nextRaceDays . ' jours')
                 ),
                 'tone' => 'warning',
                 'icon' => '⚡',
@@ -359,8 +359,8 @@ final class DashboardAdviceService
             $advice = $this->buildNoRunForDaysAdvice($latestRun, $daysSince);
         } elseif ($daysSince === 1 && !$this->isIntenseRun($yesterdayRun) && $weekKm < 35) {
             $advice = [
-                'title' => 'Bonne journee pour courir',
-                'text' => $this->buildYesterdayRunSummary($yesterdayRun) . ' Recuperation correcte. Tu peux faire une sortie facile ou suivre ta seance prevue.',
+                'title' => 'Bonne journée pour courir',
+                'text' => $this->buildYesterdayRunSummary($yesterdayRun) . ' Récupération correcte. Tu peux faire une sortie facile ou suivre ta séance prévue.',
                 'tone' => 'encourage',
                 'icon' => '👟',
                 'color' => self::COLOR_SUCCESS,
@@ -377,8 +377,8 @@ final class DashboardAdviceService
         $summary = $this->buildRunSummary($todayRun, 'Sortie du jour');
 
         return [
-            'title' => 'Seance effectuee',
-            'text' => $summary . ' Pense a bien recuperer: hydratation et etirements.',
+            'title' => 'Séance effectuée',
+            'text' => $summary . ' Pense à bien récupérer: hydratation et étirements.',
             'tone' => 'success',
             'icon' => '✅',
             'color' => self::COLOR_SUCCESS,
@@ -394,8 +394,8 @@ final class DashboardAdviceService
         $typeSuffix = $type ? ' (' . $type . ')' : '';
 
         return [
-            'title' => 'Recuperation conseillee',
-            'text' => sprintf('%s Seance intense%s: allege la journee pour laisser les muscles recuperer.', $summary, $typeSuffix),
+            'title' => 'Récupération recommandée',
+            'text' => sprintf('%s Séance intense%s: une journée plus légère peut aider les muscles à bien récupérer.', $summary, $typeSuffix),
             'tone' => 'info',
             'icon' => '🛌',
             'color' => self::COLOR_INFO,
@@ -408,7 +408,7 @@ final class DashboardAdviceService
     {
         $lastDate = $this->formatRunDate($latestRun);
         $lastKm = $latestRun?->getKm() !== null ? number_format((float) $latestRun->getKm(), 1, '.', '') . ' km' : null;
-        $lastRunDetails = 'Derniere sortie non detaillee';
+        $lastRunDetails = 'Dernière sortie non détaillée';
         if ($lastKm !== null && $lastDate !== null) {
             $lastRunDetails = sprintf('Derniere sortie: %s le %s', $lastKm, $lastDate);
         } elseif ($lastKm !== null) {
@@ -418,8 +418,8 @@ final class DashboardAdviceService
         }
 
         return [
-            'title' => 'Il est temps de sortir !',
-            'text' => sprintf('%s. Cela fait %d jours sans courir: une sortie facile de 45 a 60 min est ideale.', $lastRunDetails, $daysSince),
+            'title' => 'Envie de bouger en douceur ?',
+            'text' => sprintf('%s. Cela fait %d jours sans courir: si tu en as l\'envie, une sortie facile de 45 à 60 min peut faire du bien.', $lastRunDetails, $daysSince),
             'tone' => 'encourage',
             'icon' => '🚀',
             'color' => self::COLOR_SUCCESS,
@@ -486,7 +486,7 @@ final class DashboardAdviceService
     /** @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string} */
     private function buildDefaultAdvice(float $weekKm, int $weekCount): array
     {
-        $text = 'Aucune sortie cette semaine: c\'est le bon moment pour demarrer !';
+        $text = 'Aucune sortie cette semaine: si tu en as l\'envie, une reprise douce peut faire du bien.';
         if ($weekKm > 0) {
             $plural = $weekCount > 1 ? 's' : '';
             $text = sprintf('%.1f km en %d sortie%s cette semaine. Continue sur ta lancee !', $weekKm, $weekCount, $plural);

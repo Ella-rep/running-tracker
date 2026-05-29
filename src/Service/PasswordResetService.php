@@ -49,7 +49,7 @@ final class PasswordResetService
 
         $status = 200;
         $payload = [
-            'message' => 'Si les informations sont correctes, un email de reinitialisation a ete envoye.',
+            'message' => 'Si les informations sont correctes, un email de réinitialisation a été envoyé.',
         ];
 
         try {
@@ -85,13 +85,13 @@ final class PasswordResetService
             $status = 400;
             $payload = [
                 'code' => 'invalid_payload',
-                'message' => 'Requete de reinitialisation invalide.',
+                'message' => 'Requête de réinitialisation invalide.',
             ];
         } catch (PasswordResetEmailException $e) {
             $status = 500;
             $payload = [
                 'code' => 'internal_error',
-                'message' => 'Erreur interne pendant l\'envoi de l\'email de reinitialisation.',
+                'message' => 'Erreur interne pendant l\'envoi de l\'email de réinitialisation.',
             ];
             $mailError = $e->getPrevious() !== null ? $e->getPrevious()->getMessage() : $e->getMessage();
             $this->logger->error('Password reset email transport error.', [
@@ -102,7 +102,7 @@ final class PasswordResetService
             $status = 500;
             $payload = [
                 'code' => 'internal_error',
-                'message' => 'Erreur interne pendant l\'envoi de l\'email de reinitialisation.',
+                'message' => 'Erreur interne pendant l\'envoi de l\'email de réinitialisation.',
             ];
         }
 
@@ -136,7 +136,7 @@ final class PasswordResetService
     {
         $status = 200;
         $payload = [
-            'message' => 'Mot de passe reinitialise. Tu peux maintenant te connecter.',
+            'message' => 'Mot de passe réinitialisé. Tu peux maintenant te connecter.',
         ];
 
         try {
@@ -154,7 +154,7 @@ final class PasswordResetService
                 $status = 400;
                 $payload = [
                     'code' => 'password_too_short',
-                    'message' => 'Le nouveau mot de passe doit contenir au moins 6 caracteres.',
+                    'message' => 'Le nouveau mot de passe doit contenir au moins 6 caractères.',
                 ];
             } else {
                 $user = $this->users->findOneBy(['resetPasswordTokenHash' => hash('sha256', $token)]);
@@ -162,7 +162,7 @@ final class PasswordResetService
                     $status = 400;
                     $payload = [
                         'code' => 'invalid_or_expired_token',
-                        'message' => 'Le lien de reinitialisation est invalide ou expire.',
+                        'message' => 'Le lien de réinitialisation est invalide ou expiré.',
                     ];
                 } else {
                     $user
@@ -177,13 +177,13 @@ final class PasswordResetService
             $status = 400;
             $payload = [
                 'code' => 'invalid_payload',
-                'message' => 'Requete de reinitialisation invalide.',
+                'message' => 'Requête de réinitialisation invalide.',
             ];
         } catch (\Throwable) {
             $status = 500;
             $payload = [
                 'code' => 'internal_error',
-                'message' => 'Erreur interne pendant la reinitialisation du mot de passe.',
+                'message' => 'Erreur interne pendant la réinitialisation du mot de passe.',
             ];
         }
 
@@ -195,11 +195,11 @@ final class PasswordResetService
 
     private function sendResetEmail(string $email, string $resetUrl): void
     {
-        $subject = 'Reinitialisation de ton mot de passe';
-        $message = "Tu as demande une reinitialisation de mot de passe.\n\n"
+        $subject = 'Réinitialisation de ton mot de passe';
+        $message = "Tu as demandé une réinitialisation de mot de passe.\n\n"
             . "Clique sur ce lien (valable " . self::RESET_TTL_MINUTES . " minutes) :\n"
             . $resetUrl
-            . "\n\nSi tu n'es pas a l'origine de cette demande, ignore cet email.";
+            . "\n\nSi tu n'es pas à l'origine de cette demande, ignore cet email.";
 
         $from = $_ENV['MAILER_FROM'] ?? 'no-reply@runtracker.app';
         $emailMessage = (new Email())
@@ -211,7 +211,7 @@ final class PasswordResetService
         try {
             $this->mailer->send($emailMessage);
         } catch (TransportExceptionInterface $e) {
-            throw new PasswordResetEmailException('Email de reinitialisation non envoye.', 0, $e);
+            throw new PasswordResetEmailException('Email de réinitialisation non envoyé.', 0, $e);
         }
     }
 }

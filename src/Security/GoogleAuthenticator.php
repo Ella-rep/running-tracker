@@ -70,7 +70,7 @@ final class GoogleAuthenticator extends OAuth2Authenticator
                     'email' => $user->getEmail(),
                 ]);
 
-                throw new CustomUserMessageAuthenticationException('Ce compte email est deja associe a un autre compte Google.');
+                throw new CustomUserMessageAuthenticationException('Ce compte email est déjà associé à un autre compte Google.');
             }
 
             if ($user !== null) {
@@ -107,7 +107,13 @@ final class GoogleAuthenticator extends OAuth2Authenticator
         $user = $token->getUser();
         $jwt  = $this->jwtManager->create($user);
 
-        return new RedirectResponse('/login?google_token=' . urlencode($jwt));
+        $next = $this->consumeSafeNextFromSession($request);
+        $url = '/login?google_token=' . urlencode($jwt);
+        if ($next !== null) {
+            $url .= '&next=' . urlencode($next);
+        }
+
+        return new RedirectResponse($url);
     }
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
@@ -132,7 +138,30 @@ final class GoogleAuthenticator extends OAuth2Authenticator
             'oauth_error_description' => $oauthErrorDescription !== '' ? $oauthErrorDescription : null,
         ]);
 
-        return new RedirectResponse('/login?google_error=' . urlencode($message));
+        $next = $this->consumeSafeNextFromSession($request);
+        $url = '/login?google_error=' . urlencode($message);
+        if ($next !== null) {
+            $url .= '&next=' . urlencode($next);
+        }
+
+        return new RedirectResponse($url);
+    }
+
+    private function consumeSafeNextFromSession(Request $request): ?string
+    {
+        $safeNext = null;
+
+        if ($request->hasSession()) {
+            $session = $request->getSession();
+            $next = trim((string) $session->get('oauth_next', ''));
+            $session->remove('oauth_next');
+
+            if ($next !== '' && str_starts_with($next, '/') && !str_starts_with($next, '//') && !str_starts_with($next, '/login')) {
+                $safeNext = $next;
+            }
+        }
+
+        return $safeNext;
     }
 
     private function buildUniqueUsername(string $base): string

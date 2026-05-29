@@ -58,9 +58,16 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: "8.4"
-          extensions: pdo_pgsql
-          coverage: xdebug
+          extensions: pdo_pgsql, pcov
+          coverage: pcov
           tools: composer:v2
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
 
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
@@ -88,6 +95,12 @@ jobs:
         run: |
           php -r '$min=(float)getenv("COVERAGE_MIN_LINES_SOFT"); $xml=simplexml_load_file("var/coverage/clover.xml"); if(!$xml){echo "::warning::Unable to parse clover.xml for coverage summary."; exit(0);} $metrics=$xml->project->metrics; $statements=(int)$metrics["statements"]; $covered=(int)$metrics["coveredstatements"]; $rate=$statements>0?($covered*100/$statements):0; printf("Line coverage: %.2f%% (%d/%d)\n",$rate,$covered,$statements); if($rate<$min){echo "::warning::Line coverage below soft target {$min}% (current ".number_format($rate,2)."%)."; }'
 
+      - name: Sonar scan
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || 'https://sonarcloud.io' }}
+
       - name: Upload coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -97,3 +110,8 @@ jobs:
             var/coverage/clover.xml
             var/coverage/html
           if-no-files-found: warn
+
+  #docker-build:
+   # needs: phpunit
+    #uses: ./.github/workflows/build_push.yaml
+    #secrets: inherit

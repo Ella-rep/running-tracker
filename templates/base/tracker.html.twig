@@ -169,7 +169,7 @@
   <div id="prepa-list" style="display:flex;flex-direction:column;gap:12px;margin-bottom:28px;"></div>
 
   <template id="prepa-plan-card-template">
-    <article class="prepa-plan-card" role="button" tabindex="0">
+    <button type="button" class="prepa-plan-card">
       <div class="prepa-plan-card-head">
         <div class="prepa-plan-card-main">
           <div class="prepa-plan-card-title"></div>
@@ -185,7 +185,7 @@
       <div class="prepa-plan-card-progress">
         <div class="prepa-plan-card-progress-fill"></div>
       </div>
-    </article>
+    </button>
   </template>
 
   <button class="btn" onclick="createNewPlanFromHub()" style="gap:8px;">
@@ -252,23 +252,23 @@
   <div class="form-card">
     <h3>➕ Ajouter une sortie</h3>
     <div class="form-grid">
-      <div class="field"><label>Date</label><input type="date" id="log-date"></div>
-      <div class="field"><label>Distance (km)</label><input type="number" id="log-km" step="0.01" placeholder="5.00"></div>
-      <div class="field"><label>Durée (hh:mm:ss)</label><input type="text" id="log-dur" placeholder="00:45:00"></div>
-      <div class="field"><label>BPM moy.</label><input type="number" id="log-bpm" placeholder="150"></div>
-      <div class="field"><label>Type</label>
+      <div class="field"><label for="log-date">Date</label><input type="date" id="log-date"></div>
+      <div class="field"><label for="log-km">Distance (km)</label><input type="number" id="log-km" step="0.01" placeholder="5.00"></div>
+      <div class="field"><label for="log-dur">Durée (hh:mm:ss)</label><input type="text" id="log-dur" placeholder="00:45:00"></div>
+      <div class="field"><label for="log-bpm">BPM moy.</label><input type="number" id="log-bpm" placeholder="150"></div>
+      <div class="field"><label for="log-type">Type</label>
         <select id="log-type">
           <option value="">—</option>
           <option value="EF">EF – Endurance fondamentale</option>
           <option value="FC">FC – Fractionné court</option>
-          <option value="FL">FL – Fractionn� long</option>
+          <option value="FL">FL – Fractionn� long</option>
           <option value="SL">SL – Sortie longue</option>
           <option value="T">T – Tempo</option>
           <option value="Race">🏁 Course</option>
         </select>
       </div>
-      <div class="field"><label>D+ (mètres)</label><input type="number" id="log-dplus" placeholder="0"></div>
-      <div class="field"><label>Notes</label><input type="text" id="log-notes" placeholder="..."></div>
+      <div class="field"><label for="log-dplus">D+ (mètres)</label><input type="number" id="log-dplus" placeholder="0"></div>
+      <div class="field"><label for="log-notes">Notes</label><input type="text" id="log-notes" placeholder="..."></div>
     </div>
     <button class="btn" onclick="addLog()">Enregistrer</button>
   </div>
@@ -320,11 +320,11 @@
   <div class="form-card">
     <h3>➕ Ajouter une course</h3>
     <div class="form-grid">
-      <div class="field"><label>Nom</label><input type="text" id="r-name" placeholder="Ex: 10km de Paris"></div>
-      <div class="field"><label>Date</label><input type="date" id="r-date"></div>
-      <div class="field"><label>Distance</label><input type="text" id="r-dist" placeholder="10km"></div>
-      <div class="field"><label>Objectif (hh:mm:ss)</label><input type="text" id="r-obj" placeholder="00:55:00"></div>
-      <div class="field"><label>Résultat (si passé)</label><input type="text" id="r-real" placeholder="00:53:22"></div>
+      <div class="field"><label for="r-name">Nom</label><input type="text" id="r-name" placeholder="Ex: 10km de Paris"></div>
+      <div class="field"><label for="r-date">Date</label><input type="date" id="r-date"></div>
+      <div class="field"><label for="r-dist">Distance</label><input type="text" id="r-dist" placeholder="10km"></div>
+      <div class="field"><label for="r-obj">Objectif (hh:mm:ss)</label><input type="text" id="r-obj" placeholder="00:55:00"></div>
+      <div class="field"><label for="r-real">Résultat (si passé)</label><input type="text" id="r-real" placeholder="00:53:22"></div>
     </div>
     <button class="btn" onclick="addRace()">Ajouter</button>
   </div>
@@ -369,10 +369,10 @@
     <input type="hidden" id="pm-statekey">
     <input type="hidden" id="pm-idx">
     <div class="form-grid" style="grid-template-columns:1fr;">
-      <div class="field"><label>Format</label><input type="text" id="pm-format"></div>
-      <div class="field"><label>Date</label><input type="text" id="pm-date" placeholder="dd/mm/yyyy" inputmode="numeric"></div>
-      <div class="field"><label>PE</label><input type="text" id="pm-pe" placeholder="ex: 6/10"></div>
-      <div class="field"><label>Durée totale (min)</label><input type="number" id="pm-total"></div>
+      <div class="field"><label for="pm-format">Format</label><input type="text" id="pm-format"></div>
+      <div class="field"><label for="pm-date">Date</label><input type="text" id="pm-date" placeholder="dd/mm/yyyy" inputmode="numeric"></div>
+      <div class="field"><label for="pm-pe">PE</label><input type="text" id="pm-pe" placeholder="ex: 6/10"></div>
+      <div class="field"><label for="pm-total">Durée totale (min)</label><input type="number" id="pm-total"></div>
       <div class="field" style="display:flex;align-items:center;gap:10px;padding-top:6px;">
         <input type="checkbox" id="pm-opt" style="width:16px;height:16px;accent-color:var(--accent2)">
         <label for="pm-opt" style="font-size:13px;letter-spacing:0;text-transform:none;color:var(--text)">Séance optionnelle</label>
@@ -392,23 +392,23 @@
     <div class="modal-title">Modifier la sortie</div>
     <input type="hidden" id="lm-idx">
     <div class="form-grid">
-      <div class="field"><label>Date</label><input type="date" id="lm-date"></div>
-      <div class="field"><label>Distance (km)</label><input type="number" id="lm-km" step="0.01"></div>
-      <div class="field"><label>Durée (hh:mm:ss)</label><input type="text" id="lm-dur"></div>
-      <div class="field"><label>BPM moy.</label><input type="number" id="lm-bpm"></div>
-      <div class="field"><label>Type</label>
+      <div class="field"><label for="lm-date">Date</label><input type="date" id="lm-date"></div>
+      <div class="field"><label for="lm-km">Distance (km)</label><input type="number" id="lm-km" step="0.01"></div>
+      <div class="field"><label for="lm-dur">Durée (hh:mm:ss)</label><input type="text" id="lm-dur"></div>
+      <div class="field"><label for="lm-bpm">BPM moy.</label><input type="number" id="lm-bpm"></div>
+      <div class="field"><label for="lm-type">Type</label>
         <select id="lm-type">
           <option value="">—</option>
           <option value="EF">EF – Endurance fondamentale</option>
           <option value="FC">FC – Fractionné court</option>
-          <option value="FL">FL – Fractionn� long</option>
+          <option value="FL">FL – Fractionn� long</option>
           <option value="SL">SL – Sortie longue</option>
           <option value="T">T – Tempo</option>
           <option value="Race">🏁 Course</option>
         </select>
       </div>
-      <div class="field"><label>D+ (mètres)</label><input type="number" id="lm-dplus" placeholder="0"></div>
-      <div class="field"><label>Notes</label><input type="text" id="lm-notes"></div>
+      <div class="field"><label for="lm-dplus">D+ (mètres)</label><input type="number" id="lm-dplus" placeholder="0"></div>
+      <div class="field"><label for="lm-notes">Notes</label><input type="text" id="lm-notes"></div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="saveLogEdit()">Enregistrer</button>
@@ -424,11 +424,11 @@
     <div class="modal-title">Modifier la course</div>
     <input type="hidden" id="rm-idx">
     <div class="form-grid">
-      <div class="field"><label>Nom</label><input type="text" id="rm-name"></div>
-      <div class="field"><label>Date</label><input type="date" id="rm-date"></div>
-      <div class="field"><label>Distance</label><input type="text" id="rm-dist"></div>
-      <div class="field"><label>Objectif</label><input type="text" id="rm-obj" placeholder="hh:mm:ss"></div>
-      <div class="field"><label>Résultat</label><input type="text" id="rm-real" placeholder="hh:mm:ss"></div>
+      <div class="field"><label for="rm-name">Nom</label><input type="text" id="rm-name"></div>
+      <div class="field"><label for="rm-date">Date</label><input type="date" id="rm-date"></div>
+      <div class="field"><label for="rm-dist">Distance</label><input type="text" id="rm-dist"></div>
+      <div class="field"><label for="rm-obj">Objectif</label><input type="text" id="rm-obj" placeholder="hh:mm:ss"></div>
+      <div class="field"><label for="rm-real">Résultat</label><input type="text" id="rm-real" placeholder="hh:mm:ss"></div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="saveRaceEdit()">Enregistrer</button>
@@ -443,8 +443,8 @@
     <button class="modal-close" onclick="closeNewPlanModal()">✕</button>
     <div class="modal-title">Nouveau plan</div>
     <div class="form-grid" style="grid-template-columns:1fr;">
-      <div class="field"><label>Nom du plan</label><input type="text" id="np-title" placeholder="Ex: Plan 10km printemps"></div>
-      <div class="field"><label>Sous-titre</label><input type="text" id="np-sub" placeholder="Ex: 8 semaines · 32 séances"></div>
+      <div class="field"><label for="np-title">Nom du plan</label><input type="text" id="np-title" placeholder="Ex: Plan 10km printemps"></div>
+      <div class="field"><label for="np-sub">Sous-titre</label><input type="text" id="np-sub" placeholder="Ex: 8 semaines · 32 séances"></div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="confirmCreatePlan()">Créer</button>

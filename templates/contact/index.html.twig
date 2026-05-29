@@ -13,7 +13,7 @@
 <main>
   <section class="contact-page visible">
     <div class="section-title">Contact</div>
-    <div class="section-sub">Un besoin, une idee, un bug, une question ? Envoie-nous un message.</div>
+    <div class="section-sub">Un besoin, une idée, un bug, une question ? Envoie-nous un message.</div>
 
     {% for label, messages in app.flashes %}
       {% for message in messages %}
@@ -33,14 +33,14 @@
         <div class="field">
           <label for="contact-motif">Motif</label>
           <select id="contact-motif" name="motif" required>
-            <option value="">Selectionner</option>
+            <option value="">Sélectionner</option>
             {% for value, label in motifs %}
               <option value="{{ value }}" {{ oldForm.motif|default('') == value ? 'selected' : '' }}>{{ label }}</option>
             {% endfor %}
           </select>
         </div>
 
-        <div class="field">
+        <div class="field subject-field">
           <label for="contact-subject">Sujet</label>
           <input id="contact-subject" type="text" name="subject" maxlength="180" required placeholder="Ex: Proposer un nouveau widget" value="{{ oldForm.subject|default('') }}">
         </div>
@@ -48,19 +48,30 @@
 
       <div class="field">
         <label for="contact-message">Message</label>
-        <textarea id="contact-message" name="message" rows="8" maxlength="5000" required placeholder="Decris ton besoin de facon detaillee...">{{ oldForm.message|default('') }}</textarea>
+        <textarea id="contact-message" name="message" rows="8" maxlength="5000" required placeholder="Décris ton besoin de façon détaillée...">{{ oldForm.message|default('') }}</textarea>
       </div>
 
       <div class="field">
-        <label for="contact-attachments">Captures d'ecran (optionnel)</label>
-        <input
-          id="contact-attachments"
-          type="file"
-          name="attachments[]"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          multiple
-        >
-        <div class="field-hint">Jusqu'a 3 images (jpg, png, webp, gif), 5 Mo max par image.</div>
+        <label>Captures d'ecran (optionnel)</label>
+        <div id="contact-attachments-list" class="attachments-list"></div>
+        <div style="margin-top:8px; display:flex; gap:12px; align-items:center;">
+          <button type="button" id="contact-add-attachment" class="btn btn-ghost">Ajouter une image</button>
+          <div id="contact-attachments-total" class="field-hint" aria-live="polite"></div>
+        </div>
+        <div class="field-hint">Limites acceptées : jusqu'à {{ contactMaxAttachments }} images ({{ contactAllowedAttachmentExtensions }}), {{ contactMaxAttachmentSizeMb }} Mo max par image.</div>
+        <div id="contact-attachments-error" class="contact-attachment-error" hidden></div>
+        <!-- template input (hidden) -->
+        <input id="contact-attachments-template" type="file" name="attachments[]" accept="image/jpeg,image/png,image/webp,image/gif" style="display:none"
+               data-max-files="{{ contactMaxAttachments }}" data-max-size-bytes="{{ contactMaxAttachmentSizeBytes }}" />
+      </div>
+
+      <!-- Error modal -->
+      <div id="contact-error-modal" class="contact-error-modal" role="dialog" aria-hidden="true" aria-labelledby="contact-error-title">
+        <div class="contact-error-modal-content">
+          <h3 id="contact-error-title">Erreur envoi</h3>
+          <div id="contact-error-message"></div>
+          <div style="margin-top:12px;text-align:right;"><button type="button" id="contact-error-close" class="btn">Fermer</button></div>
+        </div>
       </div>
 
       <button class="btn" type="submit">Envoyer</button>
@@ -71,4 +82,178 @@
 
 {% block javascripts %}
 <script src="{{ asset('js/app.js') }}?v=20260528-sessionlabel2"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const templateInput = document.getElementById('contact-attachments-template');
+    const list = document.getElementById('contact-attachments-list');
+    const addBtn = document.getElementById('contact-add-attachment');
+    const errorBox = document.getElementById('contact-attachments-error');
+    const form = document.querySelector('.contact-form');
+
+    if (!(templateInput instanceof HTMLInputElement) || !(list instanceof HTMLElement) || !(addBtn instanceof HTMLElement) || !(errorBox instanceof HTMLElement) || !(form instanceof HTMLFormElement)) {
+      return;
+    }
+
+    const maxFiles = Number.parseInt(templateInput.dataset.maxFiles || '{{ contactMaxAttachments }}', 10) || {{ contactMaxAttachments }};
+    const maxSizeBytes = Number.parseInt(templateInput.dataset.maxSizeBytes || '{{ contactMaxAttachmentSizeBytes }}', 10) || {{ contactMaxAttachmentSizeBytes }};
+    const maxSizeMb = Math.floor(maxSizeBytes / 1000000);
+
+    const setError = (message) => {
+      errorBox.textContent = message;
+      errorBox.hidden = !message;
+    };
+
+    const countFiles = () => {
+      // count file inputs with a selected file
+      return Array.from(list.querySelectorAll('input[type="file"][name="attachments[]"]')).reduce((acc, inp) => acc + (inp.files && inp.files.length ? inp.files.length : 0), 0);
+    };
+
+    const createInputAndPick = () => {
+      const currentCount = list.querySelectorAll('input[type="file"][name="attachments[]"]').length;
+      if (currentCount >= maxFiles) {
+        setError(`Maximum ${maxFiles} images autorisées.`);
+        return;
+      }
+
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.name = 'attachments[]';
+      input.accept = templateInput.accept;
+      input.style.display = 'none';
+
+      const item = document.createElement('div');
+      item.className = 'attachments-item';
+
+      const filenameSpan = document.createElement('div');
+      filenameSpan.className = 'filename';
+      filenameSpan.textContent = 'Aucun fichier sélectionné';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'remove-attachment';
+      removeBtn.textContent = 'Supprimer';
+
+      item.appendChild(filenameSpan);
+      item.appendChild(removeBtn);
+      item.appendChild(input);
+      list.appendChild(item);
+
+      // when file chosen
+      input.addEventListener('change', () => {
+        const files = input.files && input.files.length ? Array.from(input.files) : [];
+        if (files.length === 0) {
+          filenameSpan.textContent = 'Aucun fichier sélectionné';
+          return;
+        }
+
+        // validation: individual size
+        const tooLarge = files.find((f) => f.size > maxSizeBytes);
+        if (tooLarge) {
+          setError(`Fichier trop lourd: ${tooLarge.name}. Limite: ${maxSizeMb} Mo par image.`);
+          // remove this input
+          item.remove();
+          return;
+        }
+
+        // update label with per-file size
+        const fmt = (b) => (b >= 1000000 ? (b/1000000).toFixed(2)+' MB' : (b/1000).toFixed(1)+' KB');
+        filenameSpan.textContent = files.map(f => `${f.name} (${fmt(f.size)})`).join(', ');
+        setError('');
+        updateTotalUI();
+      });
+
+      removeBtn.addEventListener('click', () => {
+        item.remove();
+        setError('');
+      });
+
+      // trigger picker
+      input.click();
+    };
+
+    addBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      createInputAndPick();
+    });
+
+    // update total UI
+    const totalBox = document.getElementById('contact-attachments-total');
+    const updateTotalUI = () => {
+      const inputs = Array.from(list.querySelectorAll('input[type="file"][name="attachments[]"]'));
+      const totalBytes = inputs.reduce((acc, inp) => acc + ((inp.files && inp.files.length) ? Array.from(inp.files).reduce((s,f) => s+f.size,0) : 0), 0);
+      const allowedBytes = maxFiles * maxSizeBytes;
+      const fmt = (b) => (b >= 1000000 ? (b/1000000).toFixed(2)+' MB' : (b/1000).toFixed(1)+' KB');
+      totalBox.textContent = `Total: ${fmt(totalBytes)} / ${fmt(allowedBytes)} accepté`;
+      if (totalBytes > allowedBytes) {
+        totalBox.style.color = 'var(--accent3)';
+      } else {
+        totalBox.style.color = '';
+      }
+    };
+
+    // observe list for changes to update total
+    const obs = new MutationObserver(updateTotalUI);
+    obs.observe(list, { childList: true, subtree: true });
+
+    // intercept submit to show modal friendly message if too large
+    const errorModal = document.getElementById('contact-error-modal');
+    const errorMsg = document.getElementById('contact-error-message');
+    const errorClose = document.getElementById('contact-error-close');
+
+    const showErrorModal = (html) => {
+      errorMsg.innerHTML = html;
+      errorModal.setAttribute('aria-hidden','false');
+    };
+
+    const hideErrorModal = () => {
+      errorModal.setAttribute('aria-hidden','true');
+    };
+
+    errorClose.addEventListener('click', hideErrorModal);
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const inputs = Array.from(list.querySelectorAll('input[type="file"][name="attachments[]"]'));
+      let totalBytes = 0;
+      for (const inp of inputs) {
+        if (!inp.files || inp.files.length === 0) continue;
+        for (const f of Array.from(inp.files)) {
+          if (f.size > maxSizeBytes) {
+            showErrorModal(`<p>Le fichier <strong>${f.name}</strong> est trop lourd (${Math.round(f.size/1000)} KB). Taille maximale par fichier : ${Math.round(maxSizeBytes/1000000)} MB.</p><p>Solution : réduire la taille de l'image ou envoyer plusieurs messages plus petits.</p>`);
+            return;
+          }
+          totalBytes += f.size;
+        }
+      }
+
+      const allowedBytes = maxFiles * maxSizeBytes;
+      if (totalBytes > allowedBytes) {
+        showErrorModal(`<p>La taille totale des fichiers (${Math.round(totalBytes/1000000)} MB) dépasse la limite autorisée (${Math.round(allowedBytes/1000000)} MB).</p><p>Pourquoi ? Le serveur limite la taille des requêtes (nginx/php) ; envoyez moins d'images ou réduisez leur résolution.</p><p>Si vous administrez le serveur, vérifiez la directive <code>client_max_body_size</code> dans la configuration Nginx.</p>`);
+        return;
+      }
+
+      // submit via AJAX to intercept server-side 413 and show friendly modal
+      try {
+        const fd = new FormData(form);
+        const resp = await fetch(form.action, { method: 'POST', body: fd, credentials: 'same-origin' });
+
+        if (resp.status === 413) {
+          showErrorModal(`<p>Le serveur a refusé la requête : <strong>413 Request Entity Too Large</strong>.</p><p>Merci de contacter l'administrateur du site et de renvoyer votre message <strong>sans pièces jointes</strong>.</p>`);
+          return;
+        }
+
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => '');
+          showErrorModal(`<p>Erreur serveur (${resp.status}).</p><pre style="white-space:pre-wrap;">${text || 'Aucune information'}</pre>`);
+          return;
+        }
+
+        // success: reload to show server-side flash (or you can parse JSON)
+        window.location.reload();
+      } catch (err) {
+        showErrorModal(`<p>Erreur réseau lors de l'envoi : ${String(err)}</p>`);
+      }
+    });
+  });
+</script>
 {% endblock %}

@@ -69,7 +69,7 @@ final class AuthLoginController extends AbstractController
         } catch (\JsonException) {
             return $this->json([
                 'code' => 'invalid_payload',
-                'message' => 'Requete de connexion invalide.',
+                'message' => 'Requête de connexion invalide.',
             ], 400);
         }
     }

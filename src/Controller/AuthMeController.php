@@ -18,7 +18,7 @@ final class AuthMeController extends AbstractController
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
-            throw new AccessDeniedHttpException('Utilisateur non authentifie.');
+            throw new AccessDeniedHttpException('Utilisateur non authentifié.');
         }
 
         return $user;

@@ -2,6 +2,14 @@ const API = '/api';
 let mode = 'login';
 let resetTokenFromUrl = null;
 
+function getSafeNextFromParams(params) {
+  const next = String(params.get('next') || '').trim();
+  if (!next || !next.startsWith('/') || next.startsWith('//') || next.startsWith('/login')) {
+    return '/';
+  }
+  return next;
+}
+
 function getPasswordAutocomplete(currentMode) {
   return currentMode === 'login' ? ['current', 'password'].join('-') : ['new', 'password'].join('-');
 }
@@ -148,9 +156,9 @@ async function readJsonSafely(response, fallbackMessage) {
     return JSON.parse(trimmed);
   } catch {
     if (trimmed.startsWith('<')) {
-      throw new Error(fallbackMessage || 'Le serveur a renvoye du HTML au lieu de JSON.');
+      throw new Error(fallbackMessage || 'Le serveur a renvoyé du HTML au lieu de JSON.');
     }
-    throw new Error(fallbackMessage || 'Reponse JSON invalide.');
+    throw new Error(fallbackMessage || 'Réponse JSON invalide.');
   }
 }
 
@@ -199,7 +207,7 @@ async function handleForgot(email) {
     throw new Error(await parseApiError(resetResponse, 'Erreur réinitialisation'));
   }
 
-  const resetData = await readJsonSafely(resetResponse, 'Reponse invalide lors de la reinitialisation.') || {};
+  const resetData = await readJsonSafely(resetResponse, 'Réponse invalide lors de la réinitialisation.') || {};
   setFeedback('', resetData.message || 'Si les informations sont correctes, un email a été envoyé.');
   backToLoginMode();
 }
@@ -215,7 +223,7 @@ async function handleReset(password) {
     throw new Error(await parseApiError(confirmResponse, 'Erreur réinitialisation'));
   }
 
-  const confirmData = await readJsonSafely(confirmResponse, 'Reponse invalide lors de la confirmation.') || {};
+  const confirmData = await readJsonSafely(confirmResponse, 'Réponse invalide lors de la confirmation.') || {};
   setFeedback('', confirmData.message || 'Mot de passe réinitialisé. Tu peux te connecter.');
   clearResetTokenFromUrl();
   resetTokenFromUrl = null;
@@ -234,10 +242,10 @@ async function handleLogin(email, password, rememberMe) {
     throw new Error(await parseApiError(loginResponse, 'Erreur de connexion'));
   }
 
-  const data = await readJsonSafely(loginResponse, 'Reponse invalide lors de la connexion.') || {};
+  const data = await readJsonSafely(loginResponse, 'Réponse invalide lors de la connexion.') || {};
   const token = String(data.token || '').trim();
   if (!token) {
-    throw new Error('Token manquant dans la reponse de connexion.');
+    throw new Error('Token manquant dans la réponse de connexion.');
   }
   const auth = getAuthHelper();
   if (auth?.setToken) {
@@ -250,7 +258,8 @@ async function handleLogin(email, password, rememberMe) {
     targetStorage.setItem('rt_token', token);
     if (!rememberMe) localStorage.removeItem('rt_token');
   }
-  globalThis.location.href = '/';
+  const params = new URLSearchParams(globalThis.location.search);
+  globalThis.location.href = getSafeNextFromParams(params);
 }
 
 async function submitAuth() {
@@ -327,12 +336,14 @@ function bindLoginEvents() {
 }
 
 async function redirectIfAlreadyLoggedIn() {
+  const params = new URLSearchParams(globalThis.location.search);
+  const next = getSafeNextFromParams(params);
   const auth = getAuthHelper();
   try {
     if (auth?.fetchCurrentUser) {
       const me = await auth.fetchCurrentUser();
       if (me) {
-        globalThis.location.href = '/';
+        globalThis.location.href = next;
       }
       return;
     }
@@ -345,7 +356,7 @@ async function redirectIfAlreadyLoggedIn() {
       headers: { Authorization: 'Bearer ' + token },
     });
     if (response.ok) {
-      globalThis.location.href = '/';
+      globalThis.location.href = next;
     }
   } catch {
     // Ignore network/transient errors and keep user on login page.
@@ -371,9 +382,10 @@ function hydrateGoogleToken(googleToken) {
 
 function handleGoogleAuthParams(params) {
   const googleToken = params.get('google_token');
+  const next = getSafeNextFromParams(params);
   if (googleToken) {
     hydrateGoogleToken(googleToken);
-    globalThis.location.replace('/');
+    globalThis.location.replace(next);
     return true;
   }
 
@@ -391,6 +403,12 @@ function handleGoogleAuthParams(params) {
 
 function initLoginPage() {
   const params = new URLSearchParams(globalThis.location.search);
+
+  const next = getSafeNextFromParams(params);
+  const googleBtn = document.getElementById('google-login-btn');
+  if (googleBtn instanceof HTMLAnchorElement && next !== '/') {
+    googleBtn.href = '/connect/google?next=' + encodeURIComponent(next);
+  }
 
   if (handleGoogleAuthParams(params)) {
     return;

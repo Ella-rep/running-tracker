@@ -28,6 +28,7 @@ final class ContactController extends AbstractController
     private const MIN_SUBMIT_DELAY_SECONDS = 3;
     private const MAX_ATTACHMENTS = 3;
     private const MAX_ATTACHMENT_SIZE_BYTES = 5_000_000;
+    private const BYTES_PER_MEGABYTE = 1_000_000;
 
     /** @var array<string, string> */
     private const ALLOWED_ATTACHMENT_MIME_TYPES = [
@@ -39,7 +40,7 @@ final class ContactController extends AbstractController
 
     /** @var array<string, string> */
     private const MOTIF_LABELS = [
-        'idee' => 'Boite a idee',
+        'idee' => 'Boîte à idées',
         'bug' => 'Signaler un bug',
         'question' => 'Questions',
         'autre' => 'Autre',
@@ -72,6 +73,10 @@ final class ContactController extends AbstractController
             'motifs' => self::MOTIF_LABELS,
             'oldForm' => $oldForm,
             'contactStartedAt' => (string) time(),
+            'contactMaxAttachments' => self::MAX_ATTACHMENTS,
+            'contactMaxAttachmentSizeBytes' => self::MAX_ATTACHMENT_SIZE_BYTES,
+            'contactMaxAttachmentSizeMb' => (int) floor(self::MAX_ATTACHMENT_SIZE_BYTES / self::BYTES_PER_MEGABYTE),
+            'contactAllowedAttachmentExtensions' => implode(', ', array_values(self::ALLOWED_ATTACHMENT_MIME_TYPES)),
         ]);
     }
 
@@ -145,13 +150,13 @@ final class ContactController extends AbstractController
 
         if ($botField !== '') {
             $canSend = false;
-            $successMessage = 'Message envoye. Merci pour ton retour.';
+            $successMessage = 'Message envoyé. Merci pour ton retour.';
         }
 
         if ($canSend && ($startedAt <= 0 || (time() - $startedAt) < self::MIN_SUBMIT_DELAY_SECONDS)) {
             $canSend = false;
             $storeOldForm = true;
-            $errorMessage = 'Envoi trop rapide. Reessaie dans quelques secondes.';
+            $errorMessage = 'Envoi trop rapide. Réessaie dans quelques secondes.';
         }
 
         if ($canSend && !$this->isCsrfTokenValid('contact.send', (string) $request->request->get('_token', ''))) {
@@ -203,7 +208,7 @@ final class ContactController extends AbstractController
             foreach ($attachments as $attachment) {
                 $path = $attachment->getRealPath();
                 if (!is_string($path) || $path === '' || !is_readable($path)) {
-                    $outcome['errorMessage'] = 'Impossible de lire une image jointe. Reessaie avec une autre image.';
+                        $outcome['errorMessage'] = 'Impossible de lire une image jointe. Réessaie avec une autre image.';
                     $outcome['storeOldForm'] = true;
 
                     return $outcome;
@@ -218,9 +223,9 @@ final class ContactController extends AbstractController
             }
 
             $mailer->send($email);
-            $outcome['successMessage'] = 'Message envoye. Merci pour ton retour.';
+            $outcome['successMessage'] = 'Message envoyé. Merci pour ton retour.';
         } catch (TransportExceptionInterface) {
-            $outcome['errorMessage'] = 'Echec envoi email. Reessaie plus tard.';
+            $outcome['errorMessage'] = 'Échec envoi email. Réessaie plus tard.';
             $outcome['storeOldForm'] = true;
         } catch (\Throwable $exception) {
             $this->logger->error('Unexpected contact email failure.', [
@@ -229,7 +234,7 @@ final class ContactController extends AbstractController
                 'attachments_count' => count($attachments),
             ]);
 
-            $outcome['errorMessage'] = 'Echec de traitement des images jointes. Reessaie avec une image plus legere.';
+            $outcome['errorMessage'] = 'Échec de traitement des images jointes. Réessaie avec une image plus légère.';
             $outcome['storeOldForm'] = true;
         }
 
@@ -252,9 +257,9 @@ final class ContactController extends AbstractController
         if (!isset(self::MOTIF_LABELS[$motif])) {
             $errorMessage = 'Motif invalide.';
         } elseif ($subject === '' || mb_strlen($subject) > 180) {
-            $errorMessage = 'Sujet requis (180 caracteres max).';
+            $errorMessage = 'Sujet requis (180 caractères max).';
         } elseif ($message === '' || mb_strlen($message) > 5000) {
-            $errorMessage = 'Message requis (5000 caracteres max).';
+            $errorMessage = 'Message requis (5000 caractères max).';
         } elseif (($attachmentError = $this->attachmentsValidationError($attachments)) !== null) {
             $errorMessage = $attachmentError;
         } elseif ($this->contactEmailTo === '') {
@@ -276,7 +281,7 @@ final class ContactController extends AbstractController
             '----------------------',
             'Motif: ' . $motifLabel,
             'Utilisateur: ' . $senderIdentifier,
-            'Email utilisateur: ' . ($senderEmail ?: 'non renseigne'),
+            'Email utilisateur: ' . ($senderEmail ?: 'non renseigné'),
             'Sujet: ' . $subject,
             '',
             'Message:',
@@ -312,16 +317,16 @@ final class ContactController extends AbstractController
         $errorMessage = null;
 
         if (count($attachments) > self::MAX_ATTACHMENTS) {
-            $errorMessage = sprintf('Maximum %d images autorisees.', self::MAX_ATTACHMENTS);
+            $errorMessage = sprintf('Maximum %d images autorisées.', self::MAX_ATTACHMENTS);
         } else {
             foreach ($attachments as $attachment) {
                 if (!$attachment->isValid()) {
-                    $errorMessage = 'Une image jointe est invalide. Reessaie l\'envoi.';
+                    $errorMessage = $this->uploadErrorMessage($attachment);
                     break;
                 }
 
                 if ($attachment->getSize() > self::MAX_ATTACHMENT_SIZE_BYTES) {
-                    $errorMessage = 'Une image depasse 5 Mo. Reduis sa taille puis reessaie.';
+                    $errorMessage = 'Une image dépasse 5 Mo. Réduis sa taille puis réessaie.';
                     break;
                 }
 
@@ -334,6 +339,18 @@ final class ContactController extends AbstractController
         }
 
         return $errorMessage;
+    }
+
+    private function uploadErrorMessage(UploadedFile $attachment): string
+    {
+        $message = 'Une image jointe est invalide. Réessaie l\'envoi.';
+        $error = $attachment->getError();
+
+        if (in_array($error, [\UPLOAD_ERR_INI_SIZE, \UPLOAD_ERR_FORM_SIZE], true)) {
+            $message = sprintf('Une image est trop lourde. Limite: %d Mo par image.', (int) floor(self::MAX_ATTACHMENT_SIZE_BYTES / self::BYTES_PER_MEGABYTE));
+        }
+
+        return $message;
     }
 
     private function sanitizeAttachmentFilename(UploadedFile $file): string

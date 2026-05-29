@@ -1,0 +1,92 @@
+body.error-page-body {
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 500px at -15% -10%, color-mix(in srgb, var(--accent2) 24%, transparent), transparent 65%),
+    radial-gradient(900px 420px at 110% 120%, color-mix(in srgb, var(--z1) 20%, transparent), transparent 70%),
+    var(--bg);
+}
+
+.error-page-main {
+  min-height: 72vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.error-page-card {
+  width: 100%;
+  max-width: 720px;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 84%, #ffffff 16%);
+  border-radius: 22px;
+  padding: 30px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(3px);
+}
+
+.error-page-code {
+  margin: 0 0 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.error-page-title {
+  margin: 0 0 12px;
+  font-size: 34px;
+  line-height: 1.15;
+}
+
+.error-page-text {
+  margin: 0 0 24px;
+  color: var(--text-muted);
+  max-width: 62ch;
+}
+
+.error-page-help {
+  margin: 0 0 18px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent2) 32%, var(--border));
+  background: color-mix(in srgb, var(--surface2) 84%, transparent);
+  font-size: 13px;
+  display: grid;
+  gap: 4px;
+}
+
+.error-page-help strong {
+  color: var(--text);
+}
+
+.error-page-help span {
+  color: var(--text-muted);
+}
+
+.error-page-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .error-page-main {
+    padding: 14px;
+  }
+
+  .error-page-card {
+    border-radius: 16px;
+    padding: 20px;
+  }
+
+  .error-page-title {
+    font-size: 28px;
+  }
+
+  .error-page-actions .btn,
+  .error-page-actions .btn-ghost {
+    width: 100%;
+    text-align: center;
+  }
+}

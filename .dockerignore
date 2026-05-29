@@ -3,3 +3,7 @@
 var/
 *.md
 tests/
+vendor/
+running-tracker-db/
+gh-job-logs/
+coverage/

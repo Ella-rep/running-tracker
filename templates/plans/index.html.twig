@@ -22,7 +22,13 @@
 
     <div id="plans-list-header"{% if hasSelectedPlan %} style="display:none"{% endif %}>
       <div class="section-title">Mes plans</div>
-      <div class="section-sub">Un plan exemple est fourni. Ajoute ensuite tes plans personnels.</div>
+      <div class="section-sub">
+        {% if hasExamplePlan %}
+          Un plan exemple est fourni. Ajoute ensuite tes plans personnels.
+        {% else %}
+          Gère ici tes plans personnels.
+        {% endif %}
+      </div>
     </div>
 
     {% if requestedPlanNotFound %}

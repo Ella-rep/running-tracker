@@ -1283,12 +1283,12 @@ function getAppliedCityFromWeatherItem(item) {
 
 function getDetectedCityDetailsFromWeatherItem(item) {
   if (!item) {
-    return { city: '', status: 'error', message: 'Echec localisation,  saisissez une ville.' };
+    return { city: 'Paris', status: 'ok', message: 'Ville par défaut: Paris.' };
   }
 
   const city = String(item?.detectedCity || '').trim();
   const status = String(item?.detectedCityStatus || '').trim() || (city ? 'ok' : 'error');
-  const defaultMessage = city ? `Ville detectee: ${city}` : 'Echec localisation,  saisissez une ville.';
+  const defaultMessage = city ? `Ville par défaut: ${city}` : 'Ville par défaut: Paris.';
   const message = String(item?.detectedCityMessage || '').trim() || defaultMessage;
 
   return { city, status, message };
@@ -1301,7 +1301,7 @@ async function fetchDetectedWeatherCityFromApi() {
     const weatherItem = extractWeatherItemFromItems(items);
     return getDetectedCityDetailsFromWeatherItem(weatherItem);
   } catch {
-    return { city: '', status: 'error', message: 'Echec localisation,  saisissez une ville.' };
+    return { city: 'Paris', status: 'ok', message: 'Ville par défaut: Paris.' };
   }
 }
 
@@ -1753,7 +1753,7 @@ function setupWeatherCityControls() {
 
     const feedback = getWeatherCityFeedback();
     if (!feedback) {
-      notify(city ? `✓ Ville meteo appliquee: ${city}` : '✓ Ville meteo automatique');
+      notify(city ? `✓ Ville météo appliquée: ${city}` : '✓ Ville par défaut: Paris');
       return;
     }
 
@@ -1784,12 +1784,12 @@ function setupWeatherCityControls() {
     void loadDashboardAdvice().then((loaded) => {
       renderDashboardAdvice(dashboardMetrics || {});
       if (!loaded) {
-        notify('⚠ Impossible de charger la meteo automatique.');
+        notify('⚠ Impossible de charger la météo par défaut.');
         return;
       }
 
       const feedback = getWeatherCityFeedback();
-      notify(feedback?.message ? `✓ ${feedback.message}` : '✓ Ville meteo automatique');
+      notify(feedback?.message ? `✓ ${feedback.message}` : '✓ Ville par défaut: Paris');
       closeWeatherCityModal();
     });
   });
@@ -1861,7 +1861,7 @@ function updateWeatherCitySummary() {
 
   const item = getWeatherAdviceItem();
   const city = String(item?.appliedCity || item?.badge || '').trim();
-  currentEl.textContent = city || 'Auto';
+  currentEl.textContent = city || 'Paris';
 }
 
 function activatePlansSection() {
@@ -3504,7 +3504,13 @@ let currentPlanId = null;
 let plansHistoryListenerBound = false;
 
 function parsePlanIdFromPathname(pathname) {
-  const normalizedPath = String(pathname || '').replace(/\/+$/, '') || '/';
+  let normalizedPath = String(pathname || '');
+  while (normalizedPath.length > 1 && normalizedPath.endsWith('/')) {
+    normalizedPath = normalizedPath.slice(0, -1);
+  }
+  if (normalizedPath === '') {
+    normalizedPath = '/';
+  }
   const match = /^\/plans\/(\d+)$/.exec(normalizedPath);
   if (!match) return null;
   const id = Number.parseInt(match[1], 10);
@@ -4974,11 +4980,20 @@ function resolvePlannedSessionForLog(log) {
   const legacyLabel = String(log?.plannedSessionLabel || '').trim();
   if (!legacyLabel) return null;
 
-  const labelMatch = /Seance\s+(\d+)\s*[-·]\s*(.+)$/i.exec(legacyLabel);
-  if (!labelMatch) return null;
+  const loweredLabel = legacyLabel.toLowerCase();
+  if (!loweredLabel.startsWith('seance')) return null;
 
-  const position = Number.parseInt(labelMatch[1], 10);
-  const format = String(labelMatch[2] || '').trim();
+  let rest = legacyLabel.slice(6).trimStart();
+  let cursor = 0;
+  while (cursor < rest.length && rest[cursor] >= '0' && rest[cursor] <= '9') {
+    cursor += 1;
+  }
+  if (cursor === 0) return null;
+
+  const position = Number.parseInt(rest.slice(0, cursor), 10);
+  rest = rest.slice(cursor).trimStart();
+  if (!(rest.startsWith('-') || rest.startsWith('·'))) return null;
+  const format = rest.slice(1).trimStart().trim();
   if (!Number.isFinite(position)) return null;
 
   return (Array.isArray(plannedSessionsForLogs) ? plannedSessionsForLogs : []).find((item) => {

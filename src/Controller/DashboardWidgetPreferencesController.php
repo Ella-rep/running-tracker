@@ -24,7 +24,7 @@ final class DashboardWidgetPreferencesController extends AbstractController
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
-            throw $this->createAccessDeniedException('Utilisateur non authentifie.');
+            throw $this->createAccessDeniedException('Utilisateur non authentifié.');
         }
 
         return $this->json([
@@ -43,7 +43,7 @@ final class DashboardWidgetPreferencesController extends AbstractController
     ): JsonResponse {
         $user = $this->getUser();
         if (!$user instanceof User) {
-            throw $this->createAccessDeniedException('Utilisateur non authentifie.');
+            throw $this->createAccessDeniedException('Utilisateur non authentifié.');
         }
 
         try {
@@ -66,7 +66,7 @@ final class DashboardWidgetPreferencesController extends AbstractController
         $widgetPreferences->applyVisibilityUpdates($user, $widgets);
 
         return $this->json([
-            'message' => 'Preferences widgets enregistrees.',
+            'message' => 'Préférences widgets enregistrées.',
             'widgets' => $widgetPreferences->visibilityMap($user),
         ]);
     }

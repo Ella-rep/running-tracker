@@ -240,6 +240,86 @@
   border-radius: 18px;
 }
 
+/* add helper styles */
+.plan-example-helper {
+  border: 1px dashed var(--border);
+  background: var(--surface2);
+  padding: 12px;
+  border-radius: 8px;
+  margin-top: 12px;
+}
+.plan-example-header {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.plan-example-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.03); }
+.plan-example-item:last-child { border-bottom: none; }
+.plan-example-format { color: var(--text); }
+.plan-example-meta { color: var(--text-muted); font-size: 12px; }
+.plan-example-note { margin-top: 8px; font-size: 12px; color: var(--text-muted); }
+
+.plan-help-btn {
+  background: none;
+  border: 0;
+  font-size: 16px;
+  margin-left: 8px;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.plan-help-btn:hover { color: var(--accent2); }
+
+.plan-example-body { display:flex; gap:16px; align-items:flex-start; }
+.plan-example-image-wrap { flex: 0 0 220px; }
+.plan-example-image { width:100%; height:auto; border-radius:6px; box-shadow: 0 1px 0 rgba(0,0,0,0.04); }
+.plan-example-list { flex:1; }
+.plan-example-item { display:flex; justify-content:space-between; padding:8px 10px; border-bottom:1px solid rgba(0,0,0,0.03); }
+.plan-example-format { color: var(--text); }
+.plan-example-meta { color: var(--text-muted); font-size:12px; }
+
+/* Info button near header */
+.plans-list-header .info-btn {
+  margin-left: 12px;
+  background:none; border:0; cursor:pointer; color:var(--accent2);
+}
+
+/* Info modal */
+.info-modal .modal-body img { max-width:100%; height:auto; display:block; margin-bottom:12px; }
+
+/* thumbnail used in header instead of full helper */
+.plan-example-thumb-wrap { margin: 12px 0; }
+.plan-example-thumb { width: 120px; height: auto; border-radius:4px; box-shadow: 0 1px 0 rgba(0,0,0,0.04); border:1px solid var(--border); }
+
+/* Reuse the .field-help-icon styles from log.css so the same info button works on other pages */
+.field-help-icon {
+  appearance: none;
+  background: color-mix(in srgb, var(--surface2) 72%, var(--surface));
+  padding: 0;
+  display: inline-flex;
+  vertical-align: middle;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 8px;
+  margin-top: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  color: color-mix(in srgb, var(--text-muted) 80%, var(--text));
+  cursor: help;
+  transition: border-color .16s ease, color .16s ease, background-color .16s ease, transform .16s ease;
+}
+.field-help-icon:hover,
+.field-help-icon:focus-visible {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent2) 14%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent2) 55%, var(--border));
+  outline: none;
+}
+.field-help-icon-svg { width: 10px; height: 10px; }
+.field-help-icon-svg circle,
+.field-help-icon-svg line { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.field-help-icon-svg circle:last-child { fill: currentColor; stroke: none; }
+
 .form-grid-single { grid-template-columns: 1fr; }
 
 .field-inline {

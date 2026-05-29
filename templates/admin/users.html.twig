@@ -4,7 +4,7 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
-<link rel="stylesheet" href="{{ asset('css/admin.css') }}?v=20260528-announcewrap1">
+<link rel="stylesheet" href="{{ asset('css/admin.css') }}?v=20260529-userscard1">
 {% endblock %}
 
 {% block body %}
@@ -195,7 +195,7 @@
       <div class="chart-title">Maintenance</div>
       <div class="admin-maintenance-section">
         <h4>Rapport erreurs Gmail/OAuth</h4>
-        <p class="admin-maintenance-desc">Collecte les erreurs OAuth Google des logs recents et envoie un rapport detaille a l'adresse interne de contact.</p>
+        <p class="admin-maintenance-desc">Collecte les erreurs OAuth Google des logs récents et envoie un rapport détaillé à l'adresse interne de contact.</p>
         <button id="admin-gmail-report-btn" class="btn btn-ghost" onclick="adminSendGmailErrorReport()">Envoyer rapport Gmail</button>
         <div id="admin-gmail-report-status" style="margin-top:12px;"></div>
       </div>
@@ -219,22 +219,21 @@
         {% for user in users %}
           {% set is_admin = 'ROLE_ADMIN' in user.roles %}
           <tr>
-            <td class="mono">{{ user.id }}</td>
-            <td>{{ user.userIdentifier }}</td>
-            <td>{{ user.email ?: '—' }}</td>
-            <td>
+            <td class="mono" data-label="ID">{{ user.id }}</td>
+            <td data-label="Pseudo">{{ user.userIdentifier }}</td>
+            <td data-label="Email">{{ user.email ?: '—' }}</td>
+            <td data-label="Rôles">
               <span class="badge {{ is_admin ? 'admin-role' : 'user-role' }}">{{ is_admin ? 'ROLE_ADMIN' : 'ROLE_USER' }}</span>
             </td>
-            <td class="mono">{{ user.createdAt|date('d/m/Y H:i') }}</td>
-            <td>
-              <form method="post" action="{{ path('app_admin_users_reset_password', { id: user.id, q: search_query, page: page }) }}" class="admin-reset-form" onsubmit="return confirm('Reset mot de passe de cet utilisateur ?');">
-                <span class="admin-action-label">Reset</span>
+            <td class="mono" data-label="Création">{{ user.createdAt|date('d/m/Y H:i') }}</td>
+            <td data-label="Reset mot de passe">
+              <form method="post" action="{{ path('app_admin_users_reset_password', { id: user.id, q: search_query, page: page }) }}" class="admin-action-form admin-reset-form" onsubmit="return confirm('Reset mot de passe de cet utilisateur ?');">
                 <input type="hidden" name="_token" value="{{ csrf_token('admin_reset_' ~ user.id) }}">
                 <input type="password" name="new_password" minlength="6" placeholder="Nouveau mdp" required>
                 <button class="action-btn action-btn-text" type="submit">Reset</button>
               </form>
             </td>
-            <td>
+            <td data-label="Actions">
               <div class="action-btns admin-action-btns admin-action-stack">
                 <button
                   type="button"
@@ -395,14 +394,14 @@ async function adminSendGmailErrorReport() {
     try {
       result = await response.json();
     } catch (e) {
-      status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur ${response.status}:</strong> Reponse invalide (pas du JSON)</span>`;
+      status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur ${response.status}:</strong> Réponse invalide (pas du JSON)</span>`;
       btn.disabled = false;
       btn.textContent = 'Envoyer rapport Gmail';
       return;
     }
 
     if (!response.ok) {
-      status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur ${response.status}:</strong> ${result.message || 'Echec inconnu'}</span>`;
+      status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur ${response.status}:</strong> ${result.message || 'Échec inconnu'}</span>`;
       btn.disabled = false;
       btn.textContent = 'Envoyer rapport Gmail';
       return;
@@ -410,12 +409,12 @@ async function adminSendGmailErrorReport() {
 
     const topCodes = result.codes && typeof result.codes === 'object'
       ? Object.entries(result.codes).slice(0, 3).map(([code, hits]) => `${code}: ${hits}`).join(' · ')
-      : 'aucun code detaille';
+      : 'aucun code détaillé';
 
     status.innerHTML = `
       <div style="color:var(--z1);padding:12px;background:color-mix(in srgb, var(--z1) 16%, var(--surface2));border-radius:4px;">
-        <strong>✓ Rapport envoye</strong><br>
-        Erreurs detectees (24h): ${result.errors || 0}<br>
+        <strong>✓ Rapport envoyé</strong><br>
+        Erreurs détectées (24h): ${result.errors || 0}<br>
         Codes: ${topCodes}
       </div>
     `;
