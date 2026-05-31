@@ -30,4 +30,4 @@ jobs:
           context: .
           platforms: linux/arm64
           push: true
-          tags: gilir/running-tracker:$GITHUB_REF_NAME
+          tags: gilir/running-tracker:${{ $github.ref_name }}
