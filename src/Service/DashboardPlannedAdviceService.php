@@ -214,12 +214,26 @@ final class DashboardPlannedAdviceService
     /** @param array<int,PlanDetails> $todaySessions @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string} */
     private function buildTodayAdvice(array $todaySessions, ?Race $nextRace, ?int $nextRaceDays): array
     {
-        $raceHint = ' Pense aussi à vérifier la météo avant de partir.';
+        $raceHintRunRace='';
+        $raceHintRun = ' Pense aussi à vérifier la météo avant de partir.';
+        $raceHintPostRun = ' Pense à bien récupérer.';
         if ($nextRace !== null && $nextRaceDays !== null && $nextRaceDays <= 2) {
             $dist = $nextRace->getDistance() ?: 'course';
-            $raceHint = sprintf(' Focus course: %s (%s) approche.', $nextRace->getName(), $dist);
+            $raceHintRunRace = sprintf(' Focus course: %s (%s) approche.', $nextRace->getName(), $dist);
         }
 
+        foreach($todaySessions as $session) {
+            if($session->isDone()) {
+                return [
+                    'title' => 'Séance du jour validée',
+                    'text' => 'Bravo pour ta séance du jour !' . ($nextRace !== null ? $raceHintRunRace : $raceHintPostRun),
+                    'tone' => 'success',
+                    'icon' => '✅',
+                    'color' => '#40c040',
+                    'badge' => 'Aujourd\'hui',
+                ];
+            }
+        }
         $todayCount = count($todaySessions);
         $labelText = $this->plannedSessionsLabelList($todaySessions);
 
@@ -231,7 +245,7 @@ final class DashboardPlannedAdviceService
                 $todayCount > 1 ? 's' : '',
                 $todayCount > 1 ? 's' : '',
                 $labelText,
-                $raceHint
+                $raceHintRun
             ),
             'tone' => 'info',
             'icon' => '📅',
