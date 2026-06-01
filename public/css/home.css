@@ -21,10 +21,47 @@
 }
 
 #dashboard-weather .advice-card {
+  display: grid;
+  grid-template-columns: minmax(62px, auto) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
   width: calc(100% - 92px);
   margin-left: 0;
-  background: transparent;
-  border: none;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+#dashboard-weather .advice-icon-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+#dashboard-weather .advice-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+#dashboard-weather .advice-temps {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--z3) 34%, var(--border));
+  background: color-mix(in srgb, var(--z3) 9%, var(--surface2));
+  font-size: clamp(13px, 1.05vw, 15px);
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 #dashboard-weather .advice-content {
@@ -35,22 +72,28 @@
     'text text';
   align-items: center;
   column-gap: 10px;
-  row-gap: 4px;
+  row-gap: 6px;
   text-align: left;
 }
 
 #dashboard-weather .advice-meta {
   grid-area: badge;
+  align-self: start;
   margin-bottom: 0;
 }
 
 #dashboard-weather .advice-title {
   grid-area: title;
+  font-size: 14px;
+  line-height: 1.2;
+  letter-spacing: 0;
   margin: 0;
 }
 
 #dashboard-weather .advice-text {
   grid-area: text;
+  font-size: clamp(13px, 0.95vw, 15px);
+  line-height: 1.35;
 }
 
 #dashboard-weather .advice-action-btn {
@@ -234,6 +277,21 @@
 
   #dashboard-weather .advice-card {
     width: 100%;
+    grid-template-columns: minmax(56px, auto) minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px;
+  }
+
+  #dashboard-weather .advice-title {
+    font-size: 14px;
+  }
+
+  #dashboard-weather .advice-text {
+    font-size: 13px;
+  }
+
+  #dashboard-weather .advice-badge {
+    font-size: 10px;
   }
 
   .weather-city-controls {

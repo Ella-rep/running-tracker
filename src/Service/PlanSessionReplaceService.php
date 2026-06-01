@@ -52,6 +52,7 @@ final class PlanSessionReplaceService
             $detail = new PlanDetails();
             $detail->setUser($user);
             $detail->setPlan($plan);
+            // Persisted position is 1-based to match UI/session numbering.
             $detail->setPosition($idx + 1);
             $detail->setSem($this->resolveSem($session, $sessionDate, $weekIndexByMonday));
             $detail->setSessionDate($sessionDate);
@@ -108,6 +109,7 @@ final class PlanSessionReplaceService
 
         $weekIndexByMonday = [];
         foreach ($uniqueMondayKeys as $idx => $mondayKey) {
+            // Training week index is chronological and 1-based.
             $weekIndexByMonday[$mondayKey] = $idx + 1;
         }
 

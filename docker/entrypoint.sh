@@ -50,31 +50,44 @@ if ! PGPASSWORD="$DB_PASS" psql \
 fi
 
 echo "🗄️   Migrations..."
+# Ensure Doctrine metadata table exists before any safety checks.
 php bin/console doctrine:migrations:sync-metadata-storage --no-interaction || true
 
+# Count app tables (excluding Doctrine history table) to detect pre-existing schema.
 APP_TABLE_COUNT=$(PGPASSWORD="$DB_PASS" psql \
     -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
     -tAc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND table_name <> 'doctrine_migration_versions'")
+# Count recorded migrations to detect missing Doctrine history.
+MIGRATION_VERSION_COUNT=$(PGPASSWORD="$DB_PASS" psql \
+    -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
+    -tAc "SELECT COUNT(*) FROM doctrine_migration_versions")
 
-if [ "${APP_TABLE_COUNT:-0}" -gt 0 ]; then
-    echo "ℹ️   Schéma existant détecté: baseline générique des migrations disponibles"
-    PGPASSWORD="$DB_PASS" psql \
-        -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
-        -c "TRUNCATE TABLE doctrine_migration_versions" >/dev/null || true
-    php bin/console doctrine:migrations:version --add --all --no-interaction || true
-else
-    # Base vide: on s'assure de rejouer les migrations depuis zéro.
-    PGPASSWORD="$DB_PASS" psql \
-        -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
-        -c "TRUNCATE TABLE doctrine_migration_versions" >/dev/null || true
+# Safety gate:
+# - Existing schema + empty migration history means potential drift.
+# - We stop by default to avoid marking migrations as executed without running SQL.
+# - Baseline is allowed only with explicit opt-in via BASELINE_EXISTING_SCHEMA=1.
+if [ "${APP_TABLE_COUNT:-0}" -gt 0 ] && [ "${MIGRATION_VERSION_COUNT:-0}" -eq 0 ]; then
+    echo "⚠️   Schéma applicatif existant sans historique Doctrine détecté."
+    if [ "${BASELINE_EXISTING_SCHEMA:-0}" = "1" ]; then
+        # Explicit, one-time baseline for legacy schema adoption.
+        echo "ℹ️   BASELINE_EXISTING_SCHEMA=1: baseline explicite demandé"
+        php bin/console doctrine:migrations:version --add --all --no-interaction || true
+    else
+        echo "❌  Arrêt sécurisé: aucun baseline automatique (zero risque métier)."
+        echo "    Action manuelle requise:"
+        echo "    - soit corriger doctrine_migration_versions"
+        echo "    - soit redéployer avec BASELINE_EXISTING_SCHEMA=1 (acceptation explicite du baseline)"
+        exit 1
+    fi
 fi
 
+# Apply only pending migrations. Existing data is untouched unless migration SQL says otherwise.
 php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
 
 echo "🔐  Vérification des clés JWT..."
 mkdir -p config/jwt
 if [ ! -f config/jwt/private.pem ] || [ ! -f config/jwt/public.pem ]; then
-    echo "Génération des clés JWT "
+    echo "➕  Génération des clés JWT..."
     openssl genpkey -algorithm RSA -out config/jwt/private.pem -pkeyopt rsa_keygen_bits:4096 -pass pass:"${JWT_PASSPHRASE:-change_me_jwt_passphrase}"
     openssl pkey -in config/jwt/private.pem -out config/jwt/public.pem -pubout -passin pass:"${JWT_PASSPHRASE:-change_me_jwt_passphrase}"
 fi

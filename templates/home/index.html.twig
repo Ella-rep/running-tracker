@@ -5,7 +5,7 @@
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
   <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260522-mobile24">
-<link rel="stylesheet" href="{{ asset('css/home.css') }}?v=20260526-homebadgepinkgreen1">
+<link rel="stylesheet" href="{{ asset('css/home.css') }}?v=20260601-weathertemps4">
 {% endblock %}
 
 {% block body %}
@@ -21,7 +21,10 @@
       <div id="dashboard-weather">
         {% if initialWeatherAdvice is defined and initialWeatherAdvice %}
           <article class="advice-card advice-info" data-server-fallback="1">
-            <div class="advice-icon">{{ initialWeatherAdvice.icon|default('🌤️') }}</div>
+            <div class="advice-icon-group">
+              <div class="advice-icon">{{ initialWeatherAdvice.icon|default('🌤️') }}</div>
+              {% if initialWeatherAdvice.tempMin is defined or initialWeatherAdvice.tempMax is defined %}<div class="advice-temps">{% if initialWeatherAdvice.tempMin is not null %}{{ initialWeatherAdvice.tempMin|round(0) }}°{% else %}—{% endif %} / {% if initialWeatherAdvice.tempMax is not null %}{{ initialWeatherAdvice.tempMax|round(0) }}°{% else %}—{% endif %}</div>{% endif %}
+            </div>
             <div class="advice-content">
               <h4 class="advice-title">{{ initialWeatherAdvice.title|default('Conseil meteo du jour') }}</h4>
               <div class="advice-meta">
@@ -40,7 +43,10 @@
     </template>
     <template id="dashboard-advice-item-template">
       <article class="advice-card">
-        <div class="advice-icon"></div>
+        <div class="advice-icon-group">
+          <div class="advice-icon"></div>
+          <div class="advice-temps"></div>
+        </div>
         <div class="advice-content">
           <h4 class="advice-title">Conseil du jour</h4>
           <div class="advice-meta"><span class="advice-badge"></span></div>

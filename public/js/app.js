@@ -1560,34 +1560,37 @@ function renderDashboardAdvice(metrics = {}) {
 
     const levelByKey = {
       under: 'faible',
-      balanced: 'equilibree',
-      watch: 'moderee',
+      under_watch: 'légèrement faible',
+      balanced: 'équilibrée',
+      watch: 'modérée',
       high: 'intense',
-      initial: 'moderee',
+      initial: 'modérée',
     };
-    const level = levelByKey[load.statusKey] || 'moderee';
+    const level = levelByKey[load.statusKey] || 'modérée';
     const titleByKey = {
       under: 'Charge faible',
-      balanced: 'Charge equilibree',
-      watch: 'Charge moderee',
+      under_watch: 'Charge légèrement basse',
+      balanced: 'Charge équilibrée',
+      watch: 'Charge modérée',
       high: 'Charge intense',
-      initial: 'Charge moderee',
+      initial: 'Charge modérée',
     };
-    const title = titleByKey[load.statusKey] || 'Charge moderee';
+    const title = titleByKey[load.statusKey] || 'Charge modérée';
 
     const comparisonByKey = {
-      under: 'Semaine legere.',
-      balanced: 'Semaine bien equilibree.',
+      under: 'Charge en baisse cette semaine.',
+      under_watch: 'Charge légèrement en baisse cette semaine.',
+      balanced: 'Semaine bien équilibrée.',
       watch: 'Charge en hausse cette semaine.',
-      high: 'Semaine tres chargee.',
+      high: 'Semaine très chargée.',
       initial: 'Charge en cours de stabilisation.',
     };
     let comparisonText = comparisonByKey[load.statusKey] || 'Charge stable cette semaine.';
 
     if (load.statusKey === 'watch') {
-      comparisonText += ' Garde une sortie tres facile et privilegie une bonne nuit de sommeil.';
+      comparisonText += ' Garde une sortie très facile et privilégie une bonne nuit de sommeil.';
     } else if (load.statusKey === 'high') {
-      comparisonText += ' Passe 24-48h en recuperation: hydratation, sommeil et sortie tres douce.';
+      comparisonText += ' Passe 24-48h en récupération: hydratation, sommeil et sortie très douce.';
     }
 
     const loadDetails = comparisonText;
@@ -1597,6 +1600,7 @@ function renderDashboardAdvice(metrics = {}) {
       watch: 'warning',
       high: 'warning',
       under: 'info',
+      under_watch: 'info',
       initial: 'encourage',
     };
     const iconByKey = {
@@ -1604,6 +1608,7 @@ function renderDashboardAdvice(metrics = {}) {
       watch: '⚠️',
       high: '⛔',
       under: '📉',
+      under_watch: '↘️',
       initial: '🧭',
     };
 
@@ -1639,11 +1644,25 @@ function renderDashboardAdvice(metrics = {}) {
     card.classList.add(clsForTone(item?.tone));
 
     const iconEl = card.querySelector('.advice-icon');
+    const tempsEl = card.querySelector('.advice-temps');
     const titleEl = card.querySelector('.advice-title');
     const badgeEl = card.querySelector('.advice-badge');
     const textEl = card.querySelector('.advice-text');
 
     if (iconEl) iconEl.textContent = item?.icon || '💡';
+    
+    // Render temps if available (for weather items)
+    if (tempsEl) {
+      const tempMin = item?.tempMin;
+      const tempMax = item?.tempMax;
+      if (tempMin !== null && tempMin !== undefined && tempMax !== null && tempMax !== undefined) {
+        tempsEl.textContent = `${Math.round(tempMin)}° / ${Math.round(tempMax)}°`;
+        tempsEl.style.display = '';
+      } else {
+        tempsEl.style.display = 'none';
+      }
+    }
+    
     if (titleEl) titleEl.textContent = item?.title || 'Conseil du jour';
     if (badgeEl) {
       const badge = String(item?.badge || '').trim();
@@ -2491,6 +2510,7 @@ function renderDashboard() {
     const key = el.dataset.widget;
     el.style.display = isWidgetEnabled(key) ? '' : 'none';
   });
+  ensureTrainingLoadTooltipHandlers();
 
   const kpiGrid = document.getElementById('kpi-grid');
   if (kpiGrid && isWidgetEnabled('kpis')) {
@@ -2615,16 +2635,12 @@ function renderDashboard() {
         barEl.setAttribute('role', 'img');
         barEl.setAttribute('aria-label', `${String(bar.label || 'Mois')}: ${km.toFixed(1)} kilometres`);
         if (valueEl) {
-          valueEl.textContent = `${km.toFixed(0)} km`;
+          valueEl.textContent = `${km.toFixed(0)}`;
           applyDynamicTextContrast(valueEl, barEl, 0.62, 'bar-value--dark');
         }
       }
       if (labelEl) {
-        labelEl.replaceChildren(
-          document.createTextNode(String(bar.label || '—')),
-          document.createElement('br'),
-          document.createTextNode(`${km.toFixed(0)}km`)
-        );
+        labelEl.textContent = String(bar.label || '—');
       }
       return node;
     });
@@ -3328,7 +3344,44 @@ function renderEfBpmChart() {
 
   const metrics = dashboardMetrics || {};
   const ef = metrics.ef || {};
-  const trend = Array.isArray(ef.efBpmTrend) ? ef.efBpmTrend : [];
+  const rawTrend = Array.isArray(ef.efBpmTrend) ? ef.efBpmTrend : [];
+
+  // Monthly aggregation:
+  // group EF runs by YYYY-MM, then compute average BPM per month.
+  const monthNames = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthlyBuckets = new Map();
+  rawTrend.forEach((d) => {
+    const bpm = Number(d?.bpm);
+    if (!Number.isFinite(bpm)) return;
+    const dateText = String(d?.date || '');
+    const match = /^(\d{4})-(\d{2})/.exec(dateText);
+    if (!match) return;
+
+    const year = match[1];
+    const month = Number.parseInt(match[2], 10);
+    const key = `${year}-${match[2]}`;
+    if (!monthlyBuckets.has(key)) {
+      monthlyBuckets.set(key, {
+        label: `${monthNames[month - 1] || match[2]} ${year.slice(-2)}`,
+        values: [],
+      });
+    }
+    monthlyBuckets.get(key).values.push(bpm);
+  });
+
+  // One chart point per month: rounded monthly mean BPM.
+  const monthlyTrend = Array.from(monthlyBuckets.values()).map((bucket) => {
+    const sum = bucket.values.reduce((acc, v) => acc + v, 0);
+    const avg = Math.round(sum / Math.max(1, bucket.values.length));
+    return { label: bucket.label, bpm: avg, avg3: null };
+  });
+
+  // 3-month moving average on monthly points.
+  const trend = monthlyTrend.map((point, idx, arr) => {
+    if (idx < 2) return point;
+    const avg3 = Math.round((arr[idx - 2].bpm + arr[idx - 1].bpm + arr[idx].bpm) / 3);
+    return { ...point, avg3 };
+  });
 
   if (trend.length < 2) {
     container.style.display = 'none';
@@ -3372,16 +3425,23 @@ function renderEfBpmChart() {
     }, String(bVal)));
   });
 
-  // X labels: show at most 6 evenly-spaced dates
-  const maxLabels = Math.min(n, 6);
-  const step = Math.max(1, Math.floor((n - 1) / (maxLabels - 1)));
-  for (let i = 0; i < n; i += step) {
+  // X labels: monthly labels, reduce density only on very narrow screens
+  const labelStep = W < 420 && n > 5 ? 2 : 1;
+  for (let i = 0; i < n; i += labelStep) {
     const x = xSc(i);
-    const label = formatDate(trend[i].date);
+    const label = String(trend[i].label || '—');
     svg.appendChild(createSvgEl('text', {
       x: x.toFixed(1), y: H - 4,
       'text-anchor': 'middle', fill: 'var(--text-muted)', 'font-size': 8, 'font-family': 'monospace',
     }, label));
+  }
+
+  if ((n - 1) % labelStep !== 0) {
+    const x = xSc(n - 1);
+    svg.appendChild(createSvgEl('text', {
+      x: x.toFixed(1), y: H - 4,
+      'text-anchor': 'middle', fill: 'var(--text-muted)', 'font-size': 8, 'font-family': 'monospace',
+    }, String(trend[n - 1].label || '—')));
   }
 
   // Moving avg line (dashed, muted)
@@ -3403,30 +3463,48 @@ function renderEfBpmChart() {
     fill: 'none', stroke: 'var(--accent2)', 'stroke-width': 2, 'stroke-opacity': 0.85,
   }));
 
-  // Dots
+  // Dots + explicit BPM labels above each point for readability/accessibility.
   trend.forEach((d, i) => {
+    const cx = xSc(i).toFixed(1);
+    const cy = ySc(d.bpm).toFixed(1);
     svg.appendChild(createSvgEl('circle', {
-      cx: xSc(i).toFixed(1), cy: ySc(d.bpm).toFixed(1),
+      cx,
+      cy,
       r: 3.5, fill: 'var(--accent2)', stroke: 'var(--surface)', 'stroke-width': 1.5,
     }));
+    svg.appendChild(createSvgEl('text', {
+      x: cx,
+      y: (Number(cy) - 8).toFixed(1),
+      'text-anchor': 'middle',
+      fill: 'var(--text)',
+      'font-size': 9,
+      'font-weight': 700,
+      'font-family': 'monospace',
+    }, String(d.bpm)));
   });
 
-  // Legend
-  svg.appendChild(createSvgEl('circle', { cx: PAD.left + 8, cy: H - 20, r: 3.5, fill: 'var(--accent2)' }));
-  svg.appendChild(createSvgEl('text', {
-    x: PAD.left + 16, y: H - 16,
-    fill: 'var(--text-muted)', 'font-size': 9, 'font-family': 'monospace',
-  }, 'BPM EF'));
-  svg.appendChild(createSvgEl('line', {
-    x1: PAD.left + 70, y1: H - 20, x2: PAD.left + 82, y2: H - 20,
-    stroke: 'var(--accent2)', 'stroke-width': 1.5, 'stroke-dasharray': '4,3', 'stroke-opacity': 0.45,
-  }));
-  svg.appendChild(createSvgEl('text', {
-    x: PAD.left + 86, y: H - 16,
-    fill: 'var(--text-muted)', 'font-size': 9, 'font-family': 'monospace',
-  }, 'moy. mobile (3)'));
+  // Legend: separate HTML legend above chart
+  const legendContainer = document.createElement('div');
+  legendContainer.className = 'ef-bpm-legend';
 
-  container.replaceChildren(svg);
+  const item1 = document.createElement('span');
+  item1.className = 'ef-bpm-legend-item';
+  const dot1 = document.createElement('span');
+  dot1.className = 'ef-bpm-legend-dot';
+  item1.appendChild(dot1);
+  item1.appendChild(document.createTextNode('BPM (mensuel)'));
+
+  const item2 = document.createElement('span');
+  item2.className = 'ef-bpm-legend-item';
+  const line2 = document.createElement('span');
+  line2.className = 'ef-bpm-legend-line';
+  item2.appendChild(line2);
+  item2.appendChild(document.createTextNode('Moyenne 3 mois'));
+
+  legendContainer.appendChild(item1);
+  legendContainer.appendChild(item2);
+
+  container.replaceChildren(legendContainer, svg);
 }
 
 function renderCoherence() {
@@ -3473,11 +3551,15 @@ function renderCoherence() {
 function renderProjections() {
   const metrics = dashboardMetrics || {};
   const projections = Array.isArray(metrics.projections) ? metrics.projections : [];
+  const history = metrics.projectionsHistory && typeof metrics.projectionsHistory === 'object'
+    ? metrics.projectionsHistory
+    : { hasData: false, labels: [], series: [], meta: '', emptyMessage: '' };
   const gridEl = document.getElementById('projections-grid');
   if (!gridEl) return;
   if(!projections.length){
     const emptyNode = cloneTemplate('projection-empty-template') || document.createElement('div');
     gridEl.replaceChildren(emptyNode);
+    renderProjectionsHistoryChart(history);
     return;
   }
   const cards = projections.map((d)=>{
@@ -3494,7 +3576,408 @@ function renderProjections() {
     return card;
   });
   gridEl.replaceChildren(...cards);
-  document.getElementById('projections-meta').textContent = metrics.projectionsMeta || '';
+  renderProjectionMetaInfo(
+    document.getElementById('projections-meta'),
+    'Modele projection',
+    metrics.projectionsMeta || ''
+  );
+  renderProjectionsHistoryChart(history);
+}
+
+let metaInfoTooltipHandlersBound = false;
+let trainingLoadTooltipHandlersBound = false;
+
+function applyTooltipViewportClamp(button, maxWidth, widthVarName, shiftVarName) {
+  if (!(button instanceof HTMLElement)) return;
+
+  const rect = button.getBoundingClientRect();
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 360;
+  const tooltipWidth = Math.min(maxWidth, Math.max(180, viewportWidth - 24));
+  const margin = 8;
+  const centerX = rect.left + (rect.width / 2);
+  const projectedLeft = centerX - (tooltipWidth / 2);
+  const projectedRight = centerX + (tooltipWidth / 2);
+
+  let shiftX = 0;
+  if (projectedLeft < margin) {
+    shiftX = margin - projectedLeft;
+  } else if (projectedRight > (viewportWidth - margin)) {
+    shiftX = (viewportWidth - margin) - projectedRight;
+  }
+
+  button.style.setProperty(widthVarName, `${tooltipWidth}px`);
+  button.style.setProperty(shiftVarName, `${shiftX}px`);
+}
+
+function alignMetaInfoTooltip(button) {
+  applyTooltipViewportClamp(button, 360, '--meta-tooltip-width', '--meta-tooltip-shift-x');
+}
+
+function alignTrainingLoadTooltip(button) {
+  applyTooltipViewportClamp(button, 360, '--training-tooltip-width', '--training-tooltip-shift-x');
+}
+
+function ensureTrainingLoadTooltipHandlers() {
+  if (trainingLoadTooltipHandlersBound) return;
+  const button = document.querySelector('.training-load-info');
+  if (!(button instanceof HTMLElement)) return;
+
+  trainingLoadTooltipHandlersBound = true;
+  const align = () => alignTrainingLoadTooltip(button);
+
+  button.addEventListener('mouseenter', align);
+  button.addEventListener('focus', align);
+  button.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    align();
+    button.classList.toggle('is-open');
+  });
+
+  document.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('.training-load-info')) return;
+    button.classList.remove('is-open');
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    button.classList.remove('is-open');
+  });
+
+  align();
+}
+
+function alignAllMetaInfoTooltips() {
+  document.querySelectorAll('.meta-info-btn').forEach((btn) => {
+    alignMetaInfoTooltip(btn);
+  });
+}
+
+function closeOpenMetaInfoTooltips(exceptBtn = null) {
+  document.querySelectorAll('.meta-info-btn.is-open').forEach((btn) => {
+    if (exceptBtn && btn === exceptBtn) return;
+    btn.classList.remove('is-open');
+  });
+}
+
+function ensureMetaInfoTooltipHandlers() {
+  if (metaInfoTooltipHandlersBound) return;
+  metaInfoTooltipHandlersBound = true;
+
+  document.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('.meta-info-btn')) return;
+    closeOpenMetaInfoTooltips();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    closeOpenMetaInfoTooltips();
+  });
+
+  window.addEventListener('resize', () => {
+    alignAllMetaInfoTooltips();
+    if (trainingLoadTooltipHandlersBound) {
+      const btn = document.querySelector('.training-load-info');
+      if (btn instanceof HTMLElement) alignTrainingLoadTooltip(btn);
+    }
+  }, { passive: true });
+}
+
+function renderProjectionMetaInfo(container, shortLabel, tooltipText) {
+  if (!(container instanceof HTMLElement)) return;
+  const cleanTooltip = String(tooltipText || '').trim();
+  if (cleanTooltip === '') {
+    container.replaceChildren();
+    return;
+  }
+
+  const wrap = document.createElement('span');
+  wrap.className = 'meta-info-inline';
+
+  const text = document.createElement('span');
+  text.className = 'meta-info-label';
+  text.textContent = shortLabel;
+
+  const infoBtn = document.createElement('button');
+  infoBtn.type = 'button';
+  infoBtn.className = 'meta-info-btn';
+  infoBtn.setAttribute('aria-label', `${shortLabel}: informations de calcul`);
+  infoBtn.dataset.tooltip = cleanTooltip;
+  infoBtn.innerHTML = '<svg class="meta-info-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.8"></circle><line x1="12" y1="10" x2="12" y2="16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></line><circle cx="12" cy="7" r="1.2" fill="currentColor"></circle></svg>';
+  infoBtn.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    alignMetaInfoTooltip(infoBtn);
+    const shouldOpen = !infoBtn.classList.contains('is-open');
+    closeOpenMetaInfoTooltips(infoBtn);
+    infoBtn.classList.toggle('is-open', shouldOpen);
+  });
+  infoBtn.addEventListener('mouseenter', () => alignMetaInfoTooltip(infoBtn));
+  infoBtn.addEventListener('focus', () => alignMetaInfoTooltip(infoBtn));
+
+  ensureMetaInfoTooltipHandlers();
+  ensureTrainingLoadTooltipHandlers();
+  alignMetaInfoTooltip(infoBtn);
+
+  wrap.append(text, infoBtn);
+  container.replaceChildren(wrap);
+}
+
+function collectPositiveSecondsFromProjectionSeries(seriesList) {
+  return (Array.isArray(seriesList) ? seriesList : [])
+    .flatMap((line) => (Array.isArray(line?.values) ? line.values : []))
+    .reduce((acc, raw) => {
+      const sec = Number(raw);
+      if (Number.isFinite(sec) && sec > 0) {
+        acc.push(sec);
+      }
+      return acc;
+    }, []);
+}
+
+function renderProjectionHistoryControls(controlsEl, options, selectedOption, history) {
+  if (!controlsEl) return;
+  const buttons = options.map((option) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `projections-history-btn${option === selectedOption ? ' is-active' : ''}`;
+    btn.textContent = option === 'all' ? 'Toutes distances' : option;
+    btn.addEventListener('click', () => {
+      controlsEl.dataset.selectedProjectionDistance = option;
+      renderProjectionsHistoryChart(history);
+    });
+    return btn;
+  });
+  controlsEl.replaceChildren(...buttons);
+}
+
+function renderProjectionHistoryLegend(legendEl, visibleSeries) {
+  if (!(legendEl instanceof HTMLElement)) return;
+  const chips = visibleSeries.map((line) => {
+    const chip = document.createElement('span');
+    chip.className = 'projections-history-legend-item';
+
+    const dot = document.createElement('span');
+    dot.className = 'projections-history-legend-dot';
+    dot.style.background = typeof line?.color === 'string' && line.color.trim() !== '' ? line.color.trim() : 'var(--accent2)';
+
+    const text = document.createElement('span');
+    text.className = 'projections-history-legend-label';
+    text.textContent = String(line?.label || 'Projection');
+
+    chip.append(dot, text);
+    return chip;
+  });
+  legendEl.replaceChildren(...chips);
+}
+
+function renderProjectionHistoryYAxis(container, minY, yRange, padTop, cH) {
+  if (!(container instanceof HTMLElement)) return;
+  const yAxis = document.createElement('div');
+  yAxis.className = 'projections-history-yaxis';
+
+  [0, 0.25, 0.5, 0.75, 1].forEach((t) => {
+    const secVal = Math.round(minY + t * yRange);
+    const y = padTop + ((1 - t) * cH);
+    const row = document.createElement('span');
+    row.className = 'projections-history-yaxis-label';
+    row.style.top = `${y}px`;
+    row.textContent = formatHmsFromSeconds(secVal) || String(secVal);
+    yAxis.appendChild(row);
+  });
+
+  container.appendChild(yAxis);
+}
+
+function formatProjectionBarLabel(secondsRaw) {
+  const totalSeconds = Math.max(0, Math.round(Number(secondsRaw) || 0));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return formatHmsFromSeconds(totalSeconds) || String(totalSeconds);
+  }
+  if (seconds === 0) {
+    return `${minutes}'`;
+  }
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+function renderProjectionHistoryBars(svg, visibleSeries, monthCount, geometry, minY, yRange, cH) {
+  const {
+    padTop,
+    padLeft,
+    groupWidth,
+    groupInnerPad,
+    barGap,
+    barWidth,
+  } = geometry;
+
+  const ySc = (seconds) => padTop + (1 - ((seconds - minY) / yRange)) * cH;
+
+  visibleSeries.forEach((line, seriesIndex) => {
+    const color = typeof line?.color === 'string' && line.color.trim() !== '' ? line.color.trim() : 'var(--accent2)';
+    const values = Array.isArray(line?.values) ? line.values : [];
+    values.forEach((v, i) => {
+      const sec = Number(v);
+      if (!Number.isFinite(sec) || sec <= 0 || i >= monthCount) return;
+
+      const h = Math.max(4, cH - (ySc(sec) - padTop));
+      const x = padLeft + (i * groupWidth) + groupInnerPad + (seriesIndex * (barWidth + barGap));
+      const y = padTop + cH - h;
+      const rounded = Math.min(4, h / 2);
+
+      svg.appendChild(createSvgEl('rect', {
+        x: x.toFixed(1),
+        y: y.toFixed(1),
+        width: barWidth.toFixed(1),
+        height: h.toFixed(1),
+        rx: rounded.toFixed(1),
+        ry: rounded.toFixed(1),
+        fill: color,
+      }));
+
+      const valueLabel = formatProjectionBarLabel(sec);
+      const textY = Math.max(padTop + 10, y - 4);
+      svg.appendChild(createSvgEl('text', {
+        x: (x + (barWidth / 2)).toFixed(1),
+        y: textY.toFixed(1),
+        'text-anchor': 'middle',
+        fill: 'var(--text)',
+        'font-size': 10,
+        'font-weight': 700,
+        'font-family': 'monospace',
+      }, valueLabel));
+    });
+  });
+}
+
+function renderProjectionsHistoryChart(history) {
+  const container = document.getElementById('projections-history-chart-container');
+  const controlsEl = document.getElementById('projections-history-controls');
+  const legendEl = document.getElementById('projections-history-legend');
+  const metaEl = document.getElementById('projections-history-meta');
+  if (!container) return;
+
+  const labels = Array.isArray(history?.labels) ? history.labels : [];
+  const series = Array.isArray(history?.series) ? history.series : [];
+
+  const numericValues = collectPositiveSecondsFromProjectionSeries(series);
+
+  const hasData = Boolean(history?.hasData) && labels.length > 0 && series.length > 0 && numericValues.length > 0;
+  if (!hasData) {
+    if (controlsEl) controlsEl.replaceChildren();
+    if (legendEl) legendEl.replaceChildren();
+    container.replaceChildren();
+    if (metaEl) {
+      const emptyText = String(history?.emptyMessage || '').trim();
+      metaEl.textContent = emptyText;
+    }
+    return;
+  }
+
+  const seriesOptions = ['all', ...series.map((line) => String(line?.label || '').trim()).filter(Boolean)];
+  const controlsState = controlsEl?.dataset.selectedProjectionDistance || 'all';
+  const selectedDistance = seriesOptions.includes(controlsState) ? controlsState : 'all';
+  const visibleSeries = selectedDistance === 'all'
+    ? series
+    : series.filter((line) => String(line?.label || '').trim() === selectedDistance);
+
+  renderProjectionHistoryControls(controlsEl, seriesOptions, selectedDistance, history);
+  renderProjectionHistoryLegend(legendEl, visibleSeries);
+
+  const H = 232;
+  const PAD = { top: 18, right: 14, bottom: 44, left: 54 };
+  const minWidthPerMonth = selectedDistance === 'all' ? 136 : 104;
+  const minChartWidth = (labels.length * minWidthPerMonth) + PAD.left + PAD.right;
+  const W = Math.max(container.clientWidth || 760, minChartWidth);
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+
+  const visibleValues = collectPositiveSecondsFromProjectionSeries(visibleSeries);
+  if (!visibleValues.length) {
+    if (legendEl) legendEl.replaceChildren();
+    container.replaceChildren();
+    if (metaEl) {
+      const emptyText = String(history?.emptyMessage || '').trim();
+      metaEl.textContent = emptyText;
+    }
+    return;
+  }
+
+  const minRaw = Math.min(...visibleValues);
+  const maxRaw = Math.max(...visibleValues);
+  const yPad = Math.max(30, Math.round((maxRaw - minRaw) * 0.08));
+  const minY = Math.max(0, minRaw - yPad);
+  const maxY = maxRaw + yPad;
+  const yRange = Math.max(1, maxY - minY);
+
+  const monthCount = labels.length;
+  const seriesCount = Math.max(1, visibleSeries.length);
+  const groupWidth = cW / Math.max(1, monthCount);
+  const groupInnerPad = 10;
+  const barGap = 6;
+  const usableGroupWidth = Math.max(16, groupWidth - (groupInnerPad * 2));
+  const barWidth = Math.max(8, (usableGroupWidth - (barGap * (seriesCount - 1))) / seriesCount);
+
+  const svg = createSvgEl('svg', { width: W, height: H, xmlns: 'http://www.w3.org/2000/svg' });
+
+  [0, 0.25, 0.5, 0.75, 1].forEach((t) => {
+    const y = PAD.top + (1 - t) * cH;
+    svg.appendChild(createSvgEl('line', {
+      x1: PAD.left,
+      y1: y.toFixed(1),
+      x2: (W - PAD.right).toFixed(1),
+      y2: y.toFixed(1),
+      stroke: 'var(--border)',
+      'stroke-width': 0.7,
+      'stroke-dasharray': '2,3',
+    }));
+
+  });
+
+  labels.forEach((label, i) => {
+    const x = PAD.left + (i + 0.5) * groupWidth;
+    svg.appendChild(createSvgEl('text', {
+      x: x.toFixed(1),
+      y: (H - 24).toFixed(1),
+      'text-anchor': 'middle',
+      fill: 'var(--text-muted)',
+      'font-size': 10,
+      'font-family': 'monospace',
+    }, String(label || '—')));
+  });
+
+  renderProjectionHistoryBars(svg, visibleSeries, monthCount, {
+    padTop: PAD.top,
+    padLeft: PAD.left,
+    groupWidth,
+    groupInnerPad,
+    barGap,
+    barWidth,
+  }, minY, yRange, cH);
+
+  container.replaceChildren(svg);
+  renderProjectionHistoryYAxis(container, minY, yRange, PAD.top, cH);
+
+  if (container.dataset.scrollTracked !== '1') {
+    container.dataset.scrollTracked = '1';
+    container.addEventListener('scroll', () => {
+      container.dataset.userScrolled = '1';
+    }, { passive: true });
+  }
+
+  if (container.dataset.userScrolled !== '1') {
+    const defaultMonthIndex = Math.max(0, labels.length - 2);
+    const monthCenterX = PAD.left + ((defaultMonthIndex + 0.5) * groupWidth);
+    const targetScrollLeft = Math.max(0, monthCenterX - (container.clientWidth / 2));
+    container.scrollLeft = targetScrollLeft;
+  }
+
+  renderProjectionMetaInfo(metaEl, 'Methode historique', history?.meta || '');
 }
 
 // ============================================================

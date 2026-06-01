@@ -1,6 +1,6 @@
 <header class="app-header">
   <div class="header-left">
-    <div class="logo">RUN<span>/</span>TRACKER</div>
+    <a href="{{ path('app_home') }}" class="logo" aria-label="Retour a l'accueil">RUN<span>/</span>TRACKER</a>
     {% include 'components/_theme_toggle.html.twig' with { with_onclick: true } %}
   </div>
   <button

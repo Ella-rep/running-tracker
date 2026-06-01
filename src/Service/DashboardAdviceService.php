@@ -5,9 +5,6 @@ namespace App\Service;
 use App\Entity\Race;
 use App\Entity\RunLog;
 use App\Entity\User;
-use App\Entity\PlanDetails;
-use App\Repository\PlanDetailsRepository;
-use App\Repository\PlanProgressRepository;
 use App\Repository\RaceRepository;
 use App\Repository\RunLogRepository;
 
@@ -33,15 +30,14 @@ final class DashboardAdviceService
     public function __construct(
         private RunLogRepository $runLogs,
         private RaceRepository $races,
-        private PlanDetailsRepository $planDetails,
-        private PlanProgressRepository $planProgress,
+        private DashboardPlannedAdviceService $plannedAdvice,
         private MeteoService $meteo,
     ) {}
 
     /**
      * Resolves weather + training advice using deterministic priority rules.
      *
-     * @return array<int, array{title:string,text:string,tone:string,icon:string,color:string,badge:string}>
+    * @return array<int, array{title:string,text:string,tone:string,icon:string,color:string,badge:string,tempMin:?float,tempMax:?float}>
      */
     public function build(User $user, ?string $city = null): array
     {
@@ -83,6 +79,7 @@ final class DashboardAdviceService
         $todayStr = $today->format('Y-m-d');
         $yesterdayStr = $today->sub(new \DateInterval('P1D'))->format('Y-m-d');
         $tomorrowStr = $today->add(new \DateInterval('P1D'))->format('Y-m-d');
+        // Weekly context is computed on a rolling 7-day window ending today.
         $weekStartStr = $today->sub(new \DateInterval('P7D'))->format('Y-m-d');
 
         /** @var array<int, RunLog> $logs */
@@ -92,7 +89,7 @@ final class DashboardAdviceService
 
         $runsData = $this->extractRunsData($logs, $todayStr, $yesterdayStr, $weekStartStr);
         $nextRaceData = $this->findNextRace($races, $today);
-        $planned = $this->loadPlannedSessionsAroundToday($user, $todayStr, $tomorrowStr, $logs);
+        $planned = $this->plannedAdvice->buildPlannedContext($user, $todayStr, $tomorrowStr, $logs);
 
         return [
             'today' => $today,
@@ -133,6 +130,7 @@ final class DashboardAdviceService
                 $yesterdayRun = $log;
             }
             if ($date >= $weekStartStr && $date <= $todayStr) {
+                // Weekly load summary uses total distance and number of outings.
                 $weekKm += (float) ($log->getKm() ?? 0.0);
                 $weekCount++;
             }
@@ -184,6 +182,7 @@ final class DashboardAdviceService
         if ($latestRun !== null) {
             $latestDate = \DateTimeImmutable::createFromFormat('Y-m-d', $latestRun->getDate());
             if ($latestDate instanceof \DateTimeImmutable) {
+                // Absolute day gap between latest recorded run and today.
                 $daysSince = (int) $latestDate->diff($today)->format('%a');
             }
         }
@@ -194,80 +193,7 @@ final class DashboardAdviceService
     /** @param array<string,mixed> $ctx @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string}|null */
     private function matchPlannedAdvice(array $ctx): ?array
     {
-        $planned = $ctx['planned'];
-        $nextRace = $ctx['nextRace'];
-        $nextRaceDays = $ctx['nextRaceDays'];
-        $advice = null;
-
-        if ($planned['pastPending'] !== null) {
-            $pendingDate = $planned['pastPending']->getSessionDate()?->format('d/m');
-            $pendingPlanId = $planned['pastPending']->getPlan()->getId();
-            $pendingIndex = max(0, $planned['pastPending']->getPosition() - 1);
-            $advice = [
-                'title' => 'Séance passée non validée',
-                'text' => 'Si vous avez effectué cette séance, vous pouvez la cocher quand vous avez un moment.',
-                'tone' => 'warning',
-                'icon' => '☑️',
-                'color' => self::COLOR_WARNING,
-                'badge' => $pendingDate ? ('Depuis le ' . $pendingDate) : 'En retard',
-                'actionType' => 'openPlanSession',
-                'actionLabel' => 'Aller valider la séance',
-                'actionPlanId' => $pendingPlanId,
-                'actionSessionIndex' => $pendingIndex,
-            ];
-        } elseif (!empty($planned['today'])) {
-            $raceHint = ' Pense aussi à vérifier la météo avant de partir.';
-            if ($nextRace !== null && $nextRaceDays !== null && $nextRaceDays <= 2) {
-                $dist = $nextRace->getDistance() ?: 'course';
-                $raceHint = sprintf(' Focus course: %s (%s) approche.', $nextRace->getName(), $dist);
-            }
-
-            $todayCount = count($planned['today']);
-            $labelText = $this->plannedSessionsLabelList($planned['today']);
-
-            $advice = [
-                'title' => 'Séance planifiée aujourd\'hui',
-                'text' => sprintf(
-                    '%d séance%s planifiée%s aujourd\'hui: %s.%s',
-                    $todayCount,
-                    $todayCount > 1 ? 's' : '',
-                    $todayCount > 1 ? 's' : '',
-                    $labelText,
-                    $raceHint
-                ),
-                'tone' => 'info',
-                'icon' => '📅',
-                'color' => self::COLOR_INFO,
-                'badge' => 'Aujourd\'hui',
-            ];
-        } elseif (!empty($planned['tomorrow'])) {
-            $isIntense = false;
-            foreach ($planned['tomorrow'] as $tomorrowSession) {
-                if ($this->isIntensePlannedSession($tomorrowSession)) {
-                    $isIntense = true;
-                    break;
-                }
-            }
-            $advice = $isIntense
-                ? [
-                    'title' => 'Demain séance intense',
-                    'text' => 'Demain une séance intense est prévue, une journée plus légère aujourd\'hui peut aider à bien récupérer.',
-                    'tone' => 'warning',
-                    'icon' => '⚡',
-                    'color' => self::COLOR_WARNING,
-                    'badge' => 'Demain',
-                ]
-                : [
-                    'title' => 'Demain séance douce',
-                    'text' => 'Demain séance douce prévue, profite d\'aujourd\'hui pour une récupération active et adapte toi à la météo.',
-                    'tone' => 'info',
-                    'icon' => '🌤️',
-                    'color' => self::COLOR_INFO,
-                    'badge' => 'Demain',
-                ];
-        }
-
-        return $advice;
+        return $this->plannedAdvice->matchPlannedAdvice($ctx['planned'], $ctx['nextRace'], $ctx['nextRaceDays']);
     }
 
     /** @param array<string,mixed> $ctx @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string}|null */
@@ -353,6 +279,15 @@ final class DashboardAdviceService
 
         if ($todayRun !== null) {
             $advice = $this->buildTodayDoneAdvice($todayRun);
+        } elseif ($latestRun === null) {
+            $advice = [
+                'title' => 'Bienvenue dans ton suivi',
+                'text' => 'Aucune sortie enregistree pour le moment. Commence par ajouter ta premiere seance dans Logs pour lancer tes stats et conseils personnalises.',
+                'tone' => 'info',
+                'icon' => '👋',
+                'color' => self::COLOR_INFO,
+                'badge' => 'Premiere sortie',
+            ];
         } elseif ($daysSince === 1 && $this->isIntenseRun($yesterdayRun)) {
             $advice = $this->buildYesterdayIntenseAdvice($yesterdayRun);
         } elseif ($daysSince >= 3) {
@@ -473,6 +408,8 @@ final class DashboardAdviceService
             return null;
         }
 
+        // Above 35 km/week we display a dedicated high-load warning card.
+
         return [
             'title' => 'Charge elevee cette semaine',
             'text' => sprintf('%.1f km en %d sorties cette semaine. Bonne charge: ecoute ton corps et prends du repos si besoin.', $weekKm, $weekCount),
@@ -512,6 +449,7 @@ final class DashboardAdviceService
 
             if (!$isIntense) {
                 $allureSeconds = $this->paceToSeconds($log->getAllure());
+                // Faster than 8:00/km is treated as potentially intense.
                 $isIntense = $allureSeconds !== null && $allureSeconds < 480;
             }
         }
@@ -529,6 +467,7 @@ final class DashboardAdviceService
                 $m = (int) $parts[0];
                 $s = (int) $parts[1];
                 if ($m >= 0 && $s >= 0 && $s < 60) {
+                    // mm:ss per km -> total seconds per km.
                     $seconds = $m * 60 + $s;
                 }
             }
@@ -537,122 +476,4 @@ final class DashboardAdviceService
         return $seconds;
     }
 
-    /**
-    * @return array{pastPending:?PlanDetails,today:array<int,PlanDetails>,tomorrow:array<int,PlanDetails>}
-     */
-    private function loadPlannedSessionsAroundToday(User $user, string $todayStr, string $tomorrowStr, array $logs = []): array
-    {
-        $doneByProgress = [];
-        $progressRows = $this->planProgress->findBy([
-            'user' => $user,
-            'done' => true,
-        ]);
-        foreach ($progressRows as $progress) {
-            $planKey = (string) $progress->getPlanKey();
-            if (!isset($doneByProgress[$planKey])) {
-                $doneByProgress[$planKey] = [];
-            }
-            $doneByProgress[$planKey][$progress->getSessionIndex()] = true;
-        }
-
-        // Some historical rows can have stale isDone=false even when a linked run log exists.
-        // Build an in-memory set to avoid false "seance passee non validee" alerts.
-        $validatedByLog = [];
-        foreach ($logs as $log) {
-            if (!$log instanceof RunLog) {
-                continue;
-            }
-
-            $plannedSession = $log->getPlannedSession();
-            $plannedSessionId = $plannedSession?->getId();
-            if ($plannedSessionId !== null) {
-                $validatedByLog[$plannedSessionId] = true;
-            }
-        }
-
-        $rows = $this->planDetails->findBy(['user' => $user], ['sessionDate' => 'ASC', 'position' => 'ASC']);
-
-        $pastPending = null;
-        $today = [];
-        $tomorrow = [];
-
-        foreach ($rows as $row) {
-            $d = $row->getSessionDate();
-            if (!$d) {
-                continue;
-            }
-
-            $date = $d->format('Y-m-d');
-            $rowId = $row->getId();
-            $hasLinkedRunLog = $rowId !== null && isset($validatedByLog[$rowId]);
-            $sessionIndex = max(0, $row->getPosition() - 1);
-            $planId = $row->getPlan()->getId();
-            $planKey = is_int($planId) ? (string) $planId : '';
-            $isDoneByProgress = $planKey !== '' && isset($doneByProgress[$planKey][$sessionIndex]);
-
-            if ($date < $todayStr && !$row->isDone() && !$hasLinkedRunLog && !$isDoneByProgress && ($pastPending === null || $d > $pastPending->getSessionDate())) {
-                $pastPending = $row;
-            }
-
-            if ($date === $todayStr) {
-                $today[] = $row;
-            } elseif ($date === $tomorrowStr) {
-                $tomorrow[] = $row;
-            }
-        }
-
-        usort($today, static fn (PlanDetails $a, PlanDetails $b): int => ($a->getPosition() <=> $b->getPosition()));
-        usort($tomorrow, static fn (PlanDetails $a, PlanDetails $b): int => ($a->getPosition() <=> $b->getPosition()));
-
-        return ['pastPending' => $pastPending, 'today' => $today, 'tomorrow' => $tomorrow];
-    }
-
-    /** @param array<int,PlanDetails> $sessions */
-    private function plannedSessionsLabelList(array $sessions): string
-    {
-        $labels = [];
-        foreach ($sessions as $session) {
-            $label = $this->sessionLabel($session);
-            if ($label !== '' && !in_array($label, $labels, true)) {
-                $labels[] = $label;
-            }
-        }
-
-        if ($labels === []) {
-            return 'seance planifiee';
-        }
-
-        return implode(' | ', $labels);
-    }
-
-    private function sessionLabel(PlanDetails $session): string
-    {
-        $format = trim((string) $session->getFormat());
-        if ($format !== '') {
-            return $format;
-        }
-
-        return 'planifiee';
-    }
-
-    private function isIntensePlannedSession(PlanDetails $session): bool
-    {
-        $isIntense = false;
-
-        $pe = trim((string) ($session->getPe() ?? ''));
-        if (preg_match('/^(\d+)\/10$/', $pe, $m) === 1 && (int) $m[1] >= 5) {
-            $isIntense = true;
-        }
-
-        if (!$isIntense) {
-            $format = strtoupper((string) $session->getFormat());
-            $isIntense = str_contains($format, '@Z5')
-                || str_contains($format, '@Z4')
-                || str_contains($format, '10KM')
-                || str_contains($format, '5KM')
-                || str_contains($format, 'RACE');
-        }
-
-        return $isIntense;
-    }
 }

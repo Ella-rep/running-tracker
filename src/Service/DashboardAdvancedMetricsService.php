@@ -92,6 +92,7 @@ final class DashboardAdvancedMetricsService
         $monthStart = $this->resolveVisibleMonthStart($today, $datedRows);
         $monthKey = $monthStart->format('Y-m');
         $visibleDates = array_filter($datedRows, static fn (\DateTimeImmutable $sessionDate): bool => $sessionDate->format('Y-m') === $monthKey);
+        // Calendar summary is based only on the currently visible month.
         $visibleCount = count($visibleDates);
         $summary = 'Aucune séance programmée ce mois-ci';
         if ($visibleCount > 0) {
@@ -151,10 +152,13 @@ final class DashboardAdvancedMetricsService
         $acute = $acwr['acute'];
         $chronicTotal = $acwr['chronicTotal'];
 
+        // Chronic reference is the 28-day total normalized to one week.
         $chronic = $chronicTotal / 4.0;
+        // Ratio compares last 7 days against the normalized 28-day baseline.
         $ratio = $chronic > 0 ? round($acute / $chronic, 2) : null;
+        // Delta is the relative gap between acute and chronic (%).
         $deltaPct = $chronic > 0 ? (int) round((($acute - $chronic) / $chronic) * 100) : 0;
-        $status = $this->resolveTrainingLoadStatus($ratio);
+        $status = $this->resolveTrainingLoadStatus($ratio, $logs);
         $weekly = $this->buildWeeklyLoadTrend($dailyLoads, $today);
 
         return [
@@ -237,6 +241,7 @@ final class DashboardAdvancedMetricsService
                 'title' => $name,
                 'done' => $done,
                 'total' => $total,
+                // Completion percent is rounded to an integer for the dashboard card.
                 'pct' => $total > 0 ? (int) round(($done / $total) * 100) : 0,
                 'isExample' => $isExample,
                 'tracked' => $plan->isDashboardTracked(),
@@ -289,6 +294,7 @@ final class DashboardAdvancedMetricsService
         return array_reduce($rows, static function (array $carry, $row) use ($loggedDetailIds, $doneByProgress): array {
             $rowId = $row->getId();
             $sessionIndex = max(0, $row->getPosition() - 1);
+            // A session is considered done if marked done, logged, or flagged done in progress tracking.
             $isDone = $row->isDone()
                 || ($rowId !== null && isset($loggedDetailIds[$rowId]))
                 || isset($doneByProgress[$sessionIndex]);
@@ -350,7 +356,9 @@ final class DashboardAdvancedMetricsService
         $futureDates = array_values(array_filter($datedRows, static fn (\DateTimeImmutable $sessionDate): bool => $sessionDate >= $today));
         $visibleMonthKey = $currentMonthKey;
 
-        if (!in_array($currentMonthKey, $datedMonthKeys, true)) {            
+        // Prefer current month; if empty, jump to the next future month with sessions,
+        // otherwise fall back to the first month that has any dated session.
+        if (!in_array($currentMonthKey, $datedMonthKeys, true)) {
             if(!empty($futureDates)){
                 $visibleMonthKey = $futureDates[0]->format('Y-m');
             } elseif(!empty($datedMonthKeys)){
@@ -363,6 +371,7 @@ final class DashboardAdvancedMetricsService
     /** @param array<string,array<int,array<string,mixed>>> $itemsByDate @return array<string,mixed> */
     private function buildPlanCalendar(\DateTimeImmutable $monthStart, \DateTimeImmutable $today, array $itemsByDate, string $summary, string $emptyMessage): array
     {
+        // Build a fixed 6x7 grid (42 cells) starting on Monday for stable calendar layout.
         $calendarStart = $monthStart->modify(sprintf('-%d days', (int) $monthStart->format('N') - 1));
         $days = [];
         for ($i = 0; $i < 42; $i++) {
@@ -401,6 +410,7 @@ final class DashboardAdvancedMetricsService
             if ($durationMin === null || $durationMin <= 0) {
                 continue;
             }
+            // Weighted load = duration (minutes) x intensity factor by run type.
             $factor = match (strtoupper(trim((string) ($log->getRunType() ?? '')))) {
                 'EF', 'ENDURANCE' => 1.0,
                 'RECUP', 'RECUPERATION' => 0.8,
@@ -423,6 +433,9 @@ final class DashboardAdvancedMetricsService
         $durationSec = $this->durationToSeconds($log->getDuration());
         $durationMin = $durationSec !== null ? ($durationSec / 60.0) : null;
         $resolved = $durationMin;
+        // Fallback when duration is missing:
+        // 1) estimate from km * pace if pace exists
+        // 2) otherwise use a simple default of 6 min/km.
         if ($resolved === null || $resolved <= 0) {
             $km = (float) ($log->getKm() ?? 0.0);
             $paceSec = $this->paceToSeconds($log->getAllure());
@@ -435,7 +448,25 @@ final class DashboardAdvancedMetricsService
         return $resolved;
     }
 
-    /** @param array<string,float> $dailyLoads @return array{acute:float,chronicTotal:float} */
+    /**
+     * Computes ACWR-style rolling loads on a sliding window (not calendar months).
+     *
+     * Detail of the calculation:
+     * - Keep only sessions from D-27 to D (28 days total).
+     * - Acute load (7 days) = sum of loads from D-6 to D.
+     * - Chronic reference = sum of loads from D-27 to D, then divided by 4.
+     * - Ratio shown in UI = acute / chronic.
+    * - Status thresholds:
+    *   < 0.80 = Sous-charge, 0.80-0.89 = Sous-charge légère,
+    *   0.90-1.30 = Équilibre, 1.31-1.50 = Vigilance, > 1.50 = Surcharge.
+     *
+     * Example:
+     * - If 7-day load is 131.4 and 28-day total is 713.2,
+     *   chronic = 713.2 / 4 = 178.3 and ratio = 131.4 / 178.3 = 0.74.
+     *
+     * @param array<string,float> $dailyLoads
+     * @return array{acute:float,chronicTotal:float}
+     */
     private function computeAcwrLoads(array $dailyLoads, \DateTimeImmutable $today): array
     {
         $acute = 0.0;
@@ -457,24 +488,65 @@ final class DashboardAdvancedMetricsService
         return ['acute' => $acute, 'chronicTotal' => $chronicTotal];
     }
 
-    /** @return array{key:string,label:string,color:string,recommendation:string} */
-    private function resolveTrainingLoadStatus(?float $ratio): array
+    /**
+     * @param array<int,RunLog> $logs
+     * @return array{key:string,label:string,color:string,recommendation:string}
+     */
+    private function resolveTrainingLoadStatus(?float $ratio, array $logs): array
     {
         $status = [
             'key' => 'initial',
             'label' => 'Initialisation',
             'color' => 'var(--accent2)',
-            'recommendation' => 'Continue regulierement pour stabiliser ta charge de reference.',
+            'recommendation' => 'Continue régulièrement pour stabiliser ta charge de référence.',
         ];
+        // Ordered thresholds from lowest to highest load pressure.
         if ($ratio !== null && $ratio < 0.8) {
             $status = ['key' => 'under', 'label' => 'Sous-charge', 'color' => 'var(--z2)', 'recommendation' => 'Tu peux ajouter une séance facile ou un peu de volume progressif.'];
+        } elseif ($ratio !== null && $ratio < 0.9) {
+            $status = ['key' => 'under_watch', 'label' => 'Sous-charge légère', 'color' => 'var(--z4)', 'recommendation' => 'Tu es juste en dessous de ta base: une sortie facile supplémentaire peut suffire.'];
         } elseif ($ratio !== null && $ratio <= 1.3) {
-            $status = ['key' => 'balanced', 'label' => 'Equilibre', 'color' => self::COLOR_Z1, 'recommendation' => 'Charge bien equilibree: garde le cap et privilegie la regularite.'];
+            $status = ['key' => 'balanced', 'label' => 'Équilibre', 'color' => self::COLOR_Z1, 'recommendation' => 'Charge bien équilibrée: garde le cap et privilégie la régularité.'];
         } elseif ($ratio !== null && $ratio <= 1.5) {
             $status = ['key' => 'watch', 'label' => 'Vigilance', 'color' => 'var(--z3)', 'recommendation' => 'Légère hausse de charge: allège un peu et garde une séance très facile.'];
         } elseif ($ratio !== null) {
-            $status = ['key' => 'high', 'label' => 'Surcharge', 'color' => self::COLOR_ACCENT3, 'recommendation' => 'Charge trop elevee: fais 24-48h de recuperation et reporte l\'intensite.'];
+            $status = ['key' => 'high', 'label' => 'Surcharge', 'color' => self::COLOR_ACCENT3, 'recommendation' => 'Charge trop élevée: fais 24-48h de récupération et reporte l\'intensité.'];
         }
+
+        if (in_array($status['key'], ['under', 'under_watch'], true)) {
+            $dated = array_values(array_filter($logs, static fn (RunLog $log): bool => trim($log->getDate()) !== ''));
+            usort($dated, static fn (RunLog $a, RunLog $b): int => strcmp($b->getDate(), $a->getDate()));
+            $recent = array_slice($dated, 0, 3);
+
+            if (count($recent) === 3) {
+                $difficultCount = 0;
+                $heatHintCount = 0;
+
+                foreach ($recent as $log) {
+                    $effort = strtolower(trim((string) ($log->getPerceivedEffort() ?? '')));
+                    if ($effort === 'difficile') {
+                        $difficultCount++;
+                    }
+
+                    $notes = strtolower(trim((string) ($log->getNotes() ?? '')));
+                    if ($notes !== '') {
+                        foreach (['chaleur', 'chaud', 'canicule', 'soleil', 'hot', 'heat', 'temperature'] as $token) {
+                            if (str_contains($notes, $token)) {
+                                $heatHintCount++;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if ($difficultCount === 3) {
+                    $status['recommendation'] = $heatHintCount >= 2
+                        ? 'Ratio bas, mais tes 3 dernières sorties ont été tagguées difficiles et semblent liées à la chaleur. Garde une semaine légère, cours plutôt tôt/tard et privilégie hydratation et récupération.'
+                        : 'Ratio bas, mais tes 3 dernières sorties ont été tagguées difficiles. Mieux vaut consolider la récupération avant d\'ajouter du volume.';
+                }
+            }
+        }
+
         return $status;
     }
 
@@ -486,6 +558,7 @@ final class DashboardAdvancedMetricsService
         for ($offset = 7; $offset >= 0; $offset--) {
             $start = $monday->modify(sprintf('-%d week', $offset));
             $end = $start->modify('+6 day');
+            // Sum each Monday-Sunday bucket to feed the trend chart.
             $sum = 0.0;
             foreach ($dailyLoads as $date => $load) {
                 $day = $this->parseDay($date);
@@ -508,11 +581,13 @@ final class DashboardAdvancedMetricsService
         if (count($nonRace) < 4) {
             return;
         }
+        // Compare first half vs second half of the sample to detect pace trend.
         $half = intdiv(count($nonRace), 2);
         $first = array_slice($nonRace, 0, $half);
         $last = array_slice($nonRace, $half);
         $firstAvg = array_sum(array_map(fn (RunLog $r): int => $this->paceToSeconds($r->getAllure()) ?? 0, $first)) / max(1, count($first));
         $lastAvg = array_sum(array_map(fn (RunLog $r): int => $this->paceToSeconds($r->getAllure()) ?? 0, $last)) / max(1, count($last));
+        // Positive delta means improvement (faster pace in recent runs).
         $delta = (int) round($firstAvg - $lastAvg);
         $firstStart = $this->parseDay($first[0]->getDate());
         $firstEnd = $this->parseDay($first[count($first) - 1]->getDate());
@@ -527,6 +602,7 @@ final class DashboardAdvancedMetricsService
         }
         $details[] = sprintf('Allure moyenne debut de periode: %s/km.', substr($this->secondsToDuration((int) round($firstAvg)), 3));
         $details[] = sprintf('Allure moyenne fin de periode: %s/km.', substr($this->secondsToDuration((int) round($lastAvg)), 3));
+        // 15s/km guard band to avoid noisy "improved/degraded" flips.
         if ($delta > 15) {
             $alerts[] = ['ok' => true, 'title' => self::TITLE_PACE_PROGRESSION, 'msg' => sprintf('Amelioration moyenne de %s/km entre les premieres et dernieres sorties (base: %d sorties).', substr($this->secondsToDuration($delta), 3), count($nonRace)), 'details' => $details];
         } elseif ($delta < -15) {
@@ -553,6 +629,7 @@ final class DashboardAdvancedMetricsService
         if (count($efEntries) >= 2) {
             usort($efEntries, static fn (array $left, array $right): int => strcmp((string) $left['date'], (string) $right['date']));
             $efBpms = array_map(static fn (array $entry): int => (int) $entry['bpm'], $efEntries);
+            // Keep latest samples in details while global min/max/avg use full EF set.
             $recentEntries = array_slice($efEntries, -3);
             $details = [
                 sprintf('BPM moyen observe: %d bpm.', (int) round(array_sum($efBpms) / count($efBpms))),
@@ -577,6 +654,7 @@ final class DashboardAdvancedMetricsService
     private function appendTrainingGapAlert(array &$alerts, array $logs): void
     {
         $today = (new \DateTimeImmutable('today'))->setTime(0, 0, 0);
+        // Look only at recent history to avoid very old gaps skewing the warning.
         $windowStart = $today->modify(sprintf('-%d days', self::TRAINING_GAP_LOOKBACK_DAYS));
 
         $dated = array_values(array_filter($logs, function (RunLog $log) use ($windowStart): bool {
@@ -595,6 +673,7 @@ final class DashboardAdvancedMetricsService
         $maxGap = 0;
         $maxGapStart = null;
         $maxGapEnd = null;
+        // Compute maximum calendar-day gap between consecutive runs.
         for ($i = 1; $i < count($dated); $i++) {
             $d1 = $this->parseDay($dated[$i - 1]->getDate());
             $d2 = $this->parseDay($dated[$i]->getDate());
@@ -654,6 +733,7 @@ final class DashboardAdvancedMetricsService
                 $m = (int) $parts[0];
                 $s = (int) $parts[1];
                 if ($m >= 0 && $s >= 0 && $s < 60) {
+                    // mm:ss per km to total seconds per km.
                     $seconds = $m * 60 + $s;
                 }
             }
@@ -667,8 +747,10 @@ final class DashboardAdvancedMetricsService
         if ($duration) {
             $parts = explode(':', $duration);
             if (count($parts) === 3) {
+                // hh:mm:ss
                 $seconds = ((int) $parts[0] * 3600) + ((int) $parts[1] * 60) + (int) $parts[2];
             } elseif (count($parts) === 2) {
+                // mm:ss
                 $seconds = ((int) $parts[0] * 60) + (int) $parts[1];
             }
         }
@@ -677,6 +759,7 @@ final class DashboardAdvancedMetricsService
 
     private function secondsToDuration(int $seconds): string
     {
+        // Normalize seconds to hh:mm:ss for consistent display formatting.
         $h = intdiv($seconds, 3600);
         $m = intdiv($seconds % 3600, 60);
         $s = $seconds % 60;

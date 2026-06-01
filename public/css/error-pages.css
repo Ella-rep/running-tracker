@@ -1,48 +1,82 @@
 body.error-page-body {
   min-height: 100vh;
+  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
   background:
-    radial-gradient(1200px 500px at -15% -10%, color-mix(in srgb, var(--accent2) 24%, transparent), transparent 65%),
-    radial-gradient(900px 420px at 110% 120%, color-mix(in srgb, var(--z1) 20%, transparent), transparent 70%),
+    radial-gradient(1200px 500px at -15% -10%, color-mix(in srgb, var(--accent2) 22%, transparent), transparent 65%),
+    radial-gradient(900px 420px at 110% 120%, color-mix(in srgb, var(--z1) 16%, transparent), transparent 70%),
     var(--bg);
 }
 
+body.error-page-body .app-footer {
+  display: none;
+}
+
 .error-page-main {
-  min-height: 72vh;
-  display: grid;
+  width: min(920px, 100%);
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid !important;
   place-items: center;
-  padding: 24px;
+  padding: clamp(12px, 3vh, 26px);
 }
 
 .error-page-card {
+  display: block !important;
   width: 100%;
   max-width: 720px;
-  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
   border: 1px solid color-mix(in srgb, var(--border) 84%, #ffffff 16%);
-  border-radius: 22px;
-  padding: 30px;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(3px);
+  border-radius: 24px;
+  padding: 30px 30px 26px;
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(6px);
+  color: var(--text, #1b2533);
+  position: relative;
+}
+
+.error-page-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 4px;
+  border-radius: 24px 24px 0 0;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent2) 75%, #ffffff 25%), color-mix(in srgb, var(--z1) 70%, #ffffff 30%));
+}
+
+.error-page-card .error-page-title,
+.error-page-card .error-page-code,
+.error-page-card .error-page-text,
+.error-page-card .btn,
+.error-page-card .btn-ghost {
+  opacity: 1;
+  visibility: visible;
 }
 
 .error-page-code {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   color: var(--text-muted);
   font-size: 12px;
-  letter-spacing: 1.5px;
+  letter-spacing: 2px;
   text-transform: uppercase;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .error-page-title {
-  margin: 0 0 12px;
-  font-size: 34px;
-  line-height: 1.15;
+  margin: 0 0 10px;
+  font-size: clamp(34px, 3.8vw, 44px);
+  line-height: 1.06;
+  letter-spacing: -0.01em;
+  color: var(--text, #1b2533);
 }
 
 .error-page-text {
-  margin: 0 0 24px;
-  color: var(--text-muted);
+  margin: 0 0 20px;
+  color: var(--text-muted, #4a6076);
   max-width: 62ch;
+  font-size: 17px;
+  line-height: 1.42;
 }
 
 .error-page-help {
@@ -65,28 +99,64 @@ body.error-page-body {
 }
 
 .error-page-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   gap: 10px;
-  flex-wrap: wrap;
+  align-items: center;
+}
+
+.error-page-actions .btn,
+.error-page-actions .btn-ghost {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: 14px;
 }
 
 @media (max-width: 640px) {
+  body.error-page-body {
+    min-height: 100svh;
+    height: 100svh;
+  }
+
   .error-page-main {
-    padding: 14px;
+    min-height: 100svh;
+    padding: 10px;
   }
 
   .error-page-card {
-    border-radius: 16px;
-    padding: 20px;
+    border-radius: 18px;
+    padding: 18px 16px 14px;
   }
 
   .error-page-title {
-    font-size: 28px;
+    font-size: 40px;
+    line-height: 1.02;
+    margin-bottom: 8px;
+  }
+
+  .error-page-text {
+    font-size: 16px;
+    line-height: 1.32;
+    margin-bottom: 16px;
+  }
+
+  .error-page-code {
+    font-size: 11px;
+    margin-bottom: 8px;
+  }
+
+  .error-page-actions {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .error-page-actions .btn,
   .error-page-actions .btn-ghost {
     width: 100%;
     text-align: center;
+    min-height: 42px;
+    font-size: 14px;
   }
 }

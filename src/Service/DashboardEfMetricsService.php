@@ -73,12 +73,15 @@ final class DashboardEfMetricsService
 
         $firstPace = $this->paceToSeconds($first->getAllure()) ?? 0;
         $lastPace = $this->paceToSeconds($last->getAllure()) ?? 0;
+        // Positive pace delta means faster recent EF pace.
         $paceDelta = $firstPace - $lastPace;
 
+        // Aerobic index = pace seconds per km divided by BPM (lower is better).
         $firstIdx = round(($firstPace / max(1, (int) $first->getBpm())) * 100) / 100;
         $lastIdx = round(($lastPace / max(1, (int) $last->getBpm())) * 100) / 100;
         $idxDelta = $firstIdx - $lastIdx;
 
+        // Mean BPM over EF sample.
         $avgBpm = (int) round(array_sum(array_map(static fn (RunLog $r): int => (int) $r->getBpm(), $efRuns)) / count($efRuns));
 
         $paceSign = $paceDelta >= 0 ? '↗' : '↘';
@@ -164,6 +167,7 @@ final class DashboardEfMetricsService
     private function buildEfChartSeries(array $points): array
     {
         $paces = array_map(static fn (array $p): int => (int) $p['pace'], $points);
+        // Expand bounds a bit to avoid clipping chart edges.
         $minP = min($paces) - 10;
         $maxP = max($paces) + 10;
         $paceRange = max(1, $maxP - $minP);
@@ -181,6 +185,7 @@ final class DashboardEfMetricsService
 
         foreach ($points as $i => $p) {
             $x = $i / $den;
+            // Normalize pace/BPM values to [0..1] for SVG plotting.
             $paceY = 1 - (($p['pace'] - $minP) / $paceRange);
             $pacePoints[] = ['x' => round($x, 6), 'y' => round($paceY, 6)];
 
@@ -228,6 +233,7 @@ final class DashboardEfMetricsService
             if (count($bpmWindow) > 3) {
                 array_shift($bpmWindow);
             }
+            // Rolling average over up to 3 latest EF runs.
             $avg3 = count($bpmWindow) >= 2 ? round(array_sum($bpmWindow) / count($bpmWindow), 1) : null;
             $efBpmTrend[] = ['date' => $run->getDate(), 'bpm' => $bpmVal, 'avg3' => $avg3];
         }
@@ -243,6 +249,7 @@ final class DashboardEfMetricsService
 
         foreach ($efRuns as $i => $run) {
             $pace = $this->paceToSeconds($run->getAllure()) ?? 0;
+            // Aerobic index per run (sec/km per bpm).
             $idx = round(($pace / max(1, (int) $run->getBpm())) * 100) / 100;
             [$trendLabel, $trendColor] = $this->resolveEfTrend($idx, $prevIdx);
             $idxColor = $this->resolveEfIndexColor($efRuns, $i, $idx);
@@ -268,6 +275,7 @@ final class DashboardEfMetricsService
     private function resolveEfTrend(float $idx, ?float $prevIdx): array
     {
         $trend = ['—', self::COLOR_TEXT_MUTED];
+        // 0.05 guard band avoids noisy up/down trend switching.
         if ($prevIdx !== null && $idx < $prevIdx - 0.05) {
             $trend = ['↗ mieux', '#4ade80'];
         } elseif ($prevIdx !== null && $idx > $prevIdx + 0.05) {
@@ -285,6 +293,7 @@ final class DashboardEfMetricsService
         if ($index > 0) {
             $prevRunPace = $this->paceToSeconds($efRuns[$index - 1]->getAllure()) ?? 0;
             $prevRunIdx = round(($prevRunPace / max(1, (int) $efRuns[$index - 1]->getBpm())) * 100) / 100;
+            // Same threshold as trend labels to keep color and text consistent.
             if ($idx < $prevRunIdx - 0.05) {
                 $color = self::COLOR_Z1;
             } elseif ($idx > $prevRunIdx + 0.05) {
@@ -303,6 +312,7 @@ final class DashboardEfMetricsService
                 $m = (int) $parts[0];
                 $s = (int) $parts[1];
                 if ($m >= 0 && $s >= 0 && $s < 60) {
+                    // mm:ss per km -> total seconds per km.
                     $seconds = $m * 60 + $s;
                 }
             }
@@ -312,6 +322,7 @@ final class DashboardEfMetricsService
 
     private function secondsToDuration(int $seconds): string
     {
+        // Normalize absolute duration into hh:mm:ss.
         $h = intdiv($seconds, 3600);
         $m = intdiv($seconds % 3600, 60);
         $s = $seconds % 60;
@@ -320,6 +331,7 @@ final class DashboardEfMetricsService
 
     private function secondsToMmSs(int $seconds): string
     {
+        // Pace display format (minutes per kilometer).
         $m = intdiv($seconds, 60);
         $s = $seconds % 60;
         return sprintf('%02d:%02d', $m, $s);
