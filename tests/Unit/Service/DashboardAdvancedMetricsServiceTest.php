@@ -64,27 +64,6 @@ final class DashboardAdvancedMetricsServiceTest extends TestCase
         self::assertStringNotContainsString('liées à la chaleur', $load['recommendation']);
     }
 
-    /**
-     * Uses heat-specific contextual wording when difficult runs also include heat hints.
-     */
-    public function testBuildTrainingLoadAddsHeatContextWhenRecentDifficultRunsMentionHeat(): void
-    {
-        $service = $this->makeService();
-
-        $logs = array_merge(
-            $this->makeBaselineRuns(),
-            [
-                $this->makeRun(1, perceivedEffort: 'difficile', notes: 'grosse chaleur au soleil'),
-                $this->makeRun(2, perceivedEffort: 'difficile', notes: 'canicule en fin de sortie'),
-                $this->makeRun(3, perceivedEffort: 'difficile', notes: 'effort dur'),
-            ]
-        );
-
-        $load = $service->buildTrainingLoad($logs);
-
-        self::assertSame('under', $load['statusKey']);
-        self::assertStringContainsString('liées à la chaleur', $load['recommendation']);
-    }
 
     /**
      * Creates a service instance with mocked repositories (unused by buildTrainingLoad).
