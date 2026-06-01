@@ -25,9 +25,21 @@
   letter-spacing: 4px;
   color: var(--accent);
   text-transform: uppercase;
+  text-decoration: none;
 }
 
 .logo span { color: var(--text-muted); }
+
+.logo:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.logo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
 
 .app-header nav { display: flex; gap: 4px; }
 

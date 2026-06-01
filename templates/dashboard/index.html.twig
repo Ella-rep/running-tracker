@@ -4,7 +4,7 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
-  <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260522-mobile24">
+  <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260601-eftooltip3">
 {% endblock %}
 
 {% block body %}
@@ -77,13 +77,26 @@
         <div class="empty-hint">Pas encore assez de données.</div>
       </template>
       <div id="projections-meta" class="meta-small"></div>
+      <div id="projections-history-controls" class="projections-history-controls"></div>
+      <div id="projections-history-legend" class="projections-history-legend"></div>
+      <div id="projections-history-chart-container" class="projections-history-chart-container"></div>
+      <div id="projections-history-meta" class="meta-small"></div>
     </div>
     <div class="chart-wrap" id="ef-bpm-wrap" data-widget="ef_bpm">
       <div class="chart-title">Suivi BPM — Endurance Fondamentale</div>
       <div id="ef-bpm-chart-container" class="ef-bpm-chart-container"></div>
     </div>
     <div class="chart-wrap" id="training-load-wrap" data-widget="training_load">
-      <div class="chart-title">Charge d'entrainement</div>
+      <div class="chart-title training-load-title">
+        <span>Charge d'entrainement</span>
+        <button
+          type="button"
+          class="training-load-info"
+          aria-label="Comment est calculee la charge d'entrainement ?"
+          data-tooltip="On compare ta charge des 7 derniers jours avec ta base des 28 derniers jours. Ratio = charge 7j / (charge 28j ÷ 4). Sous-charge: ratio < 0.80. Sous-charge légère: 0.80 à 0.89. Équilibre: 0.90 à 1.30. Vigilance: 1.31 à 1.50. Surcharge: > 1.50. Ce n'est pas un calcul par mois calendaire: c'est une fenêtre glissante.">
+          i
+        </button>
+      </div>
       <div class="training-load-head">
         <span id="training-load-status" class="training-load-status">Initialisation</span>
         <span id="training-load-ratio" class="training-load-ratio">Ratio —</span>
@@ -157,5 +170,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260528-sessionlabel2"></script>
+  <script src="{{ asset('js/app.js') }}?v=20260601-advice-temps"></script>
 {% endblock %}

@@ -30,6 +30,7 @@ final class GoogleOAuthErrorReportService
      */
     public function collectRecentErrors(int $hours = self::DEFAULT_HOURS, int $sampleLimit = 15): array
     {
+        // Always keep at least a 1-hour window to avoid empty/negative ranges.
         $windowHours = max(1, $hours);
         $cutoff = new \DateTimeImmutable(sprintf('-%d hours', $windowHours));
         $files = $this->resolveLogFiles();
@@ -43,6 +44,7 @@ final class GoogleOAuthErrorReportService
         }
 
         if ($sampleLimit > 0 && count($samples) > $sampleLimit) {
+            // Keep the most recent sample lines only.
             $samples = array_slice($samples, -$sampleLimit);
         }
 
@@ -183,11 +185,25 @@ final class GoogleOAuthErrorReportService
 
     private function extractOauthErrorCode(string $line): string
     {
-        if (preg_match('/"oauth_error":"([^"]+)"/', $line, $matches)) {
+        if (preg_match('/"oauth_error"\s*:\s*"([^"]+)"/', $line, $matches)) {
             $value = trim($matches[1]);
             if ($value !== '') {
                 return $value;
             }
+        }
+
+        if (preg_match('/"oauth_error_description"\s*:\s*"([^"]+)"/', $line, $matches)) {
+            $value = trim($matches[1]);
+            if ($value !== '') {
+                // Description may directly contain canonical oauth error code.
+                if (preg_match('/\b(redirect_uri_mismatch|invalid_request|invalid_client|invalid_grant|unauthorized_client|unsupported_grant_type|invalid_scope|access_denied|server_error|temporarily_unavailable)\b/i', $value, $m)) {
+                    return strtolower($m[1]);
+                }
+            }
+        }
+
+        if (preg_match('/\b(redirect_uri_mismatch|invalid_request|invalid_client|invalid_grant|unauthorized_client|unsupported_grant_type|invalid_scope|access_denied|server_error|temporarily_unavailable)\b/i', $line, $matches)) {
+            return strtolower($matches[1]);
         }
 
         if (str_contains($line, 'access_denied')) {

@@ -12,18 +12,16 @@ final class MeteoService
     private const COLOR_WARNING = '#f0c040';
     private const COLOR_SUCCESS = '#4ade80';
     private const PROXY_TCP_SCHEME = 'tcp://';
-    
 
     // Default location: Paris. Can be changed later via constructor args/env binding.
     private const DEFAULT_LAT = 48.8566;
     private const DEFAULT_LON = 2.3522;
     private const DEFAULT_CITY_LABEL = 'Paris';
-    
 
     /**
      * Builds the weather advice card for the requested or inferred location.
      *
-     * @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string}
+     * @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string,tempMin:?float,tempMax:?float}
      */
     public function buildDailyAdvice(?string $city = null): array
     {
@@ -42,7 +40,7 @@ final class MeteoService
         );
     }
 
-    /** @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string}|null */
+    /** @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string,tempMin:?float,tempMax:?float}|null */
     private function buildLiveAdvice(float $lat, float $lon, string $label, array &$errors): ?array
     {
         $data = $this->fetchWeather($lat, $lon, $errors);
@@ -60,7 +58,7 @@ final class MeteoService
 
     /**
      * @param array<string,mixed> $data
-     * @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string}|null
+     * @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string,tempMin:?float,tempMax:?float}|null
      */
     private function buildAdviceFromApiPayload(array $data, string $label): ?array
     {
@@ -71,6 +69,10 @@ final class MeteoService
         $tempMax = null;
         if (is_array($daily['temperature_2m_max'] ?? null) && isset($daily['temperature_2m_max'][0])) {
             $tempMax = $this->asFloat($daily['temperature_2m_max'][0]);
+        }
+        $tempMin = null;
+        if (is_array($daily['temperature_2m_min'] ?? null) && isset($daily['temperature_2m_min'][0])) {
+            $tempMin = $this->asFloat($daily['temperature_2m_min'][0]);
         }
         $rain = $this->asFloat($current['precipitation'] ?? null);
         $wind = $this->asFloat($current['wind_speed_10m'] ?? null);
@@ -87,70 +89,120 @@ final class MeteoService
 
         $advice = [
             'title' => self::TITLE,
-            'text' => 'Meteo variable: adapte l\'allure a la sensation du jour et prevois une couche legere.',
+            'text' => $this->pickRandomAdvice([
+                'Meteo variable: adapte l\'allure a la sensation du jour et prevois une couche legere.',
+                'Conditions mixtes: reste attentif aux changements et hydrate-toi regulierement.',
+            ]),
             'tone' => 'info',
             'icon' => '🌥️',
             'color' => self::COLOR_INFO,
             'badge' => $this->buildBadge('', $label),
+            'tempMin' => $tempMin,
+            'tempMax' => $tempMax,
         ];
 
         if ($this->isHeatwave($temp, $tempMax)) {
             $advice = [
                 'title' => self::TITLE,
-                'text' => 'Alerte chaleur/canicule: si possible, privilegie une sortie tres tot ou tard, avec une intensite reduite et une hydratation reguliere.',
+                'text' => $this->pickRandomAdvice([
+                    'Alerte chaleur/canicule: si possible, privilegie une sortie tres tot ou tard, avec une intensite reduite et une hydratation reguliere.',
+                    'Conditions de canicule: fais ta sortie en debut ou fin de journee. Ralentis l\'intensite et bois beaucoup.',
+                    'Canicule detectee: opte pour une seance tres facile, tres tot le matin ou tard le soir. Protection solaire et hydratation essentielles.',
+                ]),
                 'tone' => 'warning',
                 'icon' => '🔥',
                 'color' => self::COLOR_WARNING,
                 'badge' => $this->buildBadge('', $label),
+                'tempMin' => $tempMin,
+                'tempMax' => $tempMax,
             ];
         } elseif ($this->isHot($temp, $tempMax)) {
             $advice = [
                 'title' => self::TITLE,
-                'text' => 'Chaleur marquee: une sortie plus tot/tard, avec une intensite adaptee et une hydratation reguliere, peut etre plus confortable.',
+                'text' => $this->pickRandomAdvice([
+                    'Chaleur marquee: une sortie plus tot/tard, avec une intensite adaptee et une hydratation reguliere, peut etre plus confortable.',
+                    'Chaleur attendue: prefere une seance legere en matinee ou soiree. Bois regulierement pendant la sortie.',
+                    'Temperatures elevees: opte pour un footing facile et reste hydrate. Les temperatures diminueront progressivement en fin de journee.',
+                ]),
                 'tone' => 'warning',
                 'icon' => '☀️',
                 'color' => self::COLOR_WARNING,
                 'badge' => $this->buildBadge('', $label),
+                'tempMin' => $tempMin,
+                'tempMax' => $tempMax,
             ];
         } elseif ($this->isRainy($rain, $precipProbMax)) {
             $advice = [
                 'title' => self::TITLE,
-                'text' => 'Pluie probable: tu peux prevoir une veste legere, limiter les allures rapides et privilegier un footing controle.',
+                'text' => $this->pickRandomAdvice([
+                    'Pluie probable: tu peux prevoir une veste legere, limiter les allures rapides et privilegier un footing controle.',
+                    'Pluie en vue: protege-toi avec une veste impermeablee. Ralentis pour mieux gerer l\'adheence au sol.',
+                    'Precipitation probable: choisis un parcours avec bon drainage et porte des vetements qui seches rapidement.',
+                ]),
                 'tone' => 'warning',
                 'icon' => '🌧️',
                 'color' => self::COLOR_WARNING,
                 'badge' => $this->buildBadge('', $label),
+                'tempMin' => $tempMin,
+                'tempMax' => $tempMax,
             ];
         } elseif ($this->isWindy($wind)) {
             $advice = [
                 'title' => self::TITLE,
-                'text' => 'Vent soutenu: pars tranquillement, abrite tes fractions si possible et garde un peu d\'energie pour le retour face au vent.',
+                'text' => $this->pickRandomAdvice([
+                    'Vent soutenu: pars tranquillement, abrite tes fractions si possible et garde un peu d\'energie pour le retour face au vent.',
+                    'Vent fort attendu: choisis un itineraire abrite et economise l\'energie pour affronter le vent au retour.',
+                    'Conditions ventees: gare-toi pres d\'un parcours boise ou entre les maisons pour minimiser les rafales.',
+                ]),
                 'tone' => 'info',
                 'icon' => '💨',
                 'color' => self::COLOR_INFO,
                 'badge' => $this->buildBadge('', $label),
+                'tempMin' => $tempMin,
+                'tempMax' => $tempMax,
             ];
         } elseif ($temp !== null && $temp <= 3.0) {
             $advice = [
                 'title' => self::TITLE,
-                'text' => 'Froid marque: un echauffement progressif, les extremites couvertes et une allure facile sur les premiers kilometres peuvent aider.',
+                'text' => $this->pickRandomAdvice([
+                    'Froid marque: un echauffement progressif, les extremites couvertes et une allure facile sur les premiers kilometres peuvent aider.',
+                    'Froid detecte: bien couvre les mains et les oreilles. Realise un vrai petit échauffement avant de partir.',
+                    'Temperature negative: couches thermales et gants sont tes amis. Pars tranquille et augmente l\'intensite progressivement.',
+                ]),
                 'tone' => 'info',
                 'icon' => '🧣',
                 'color' => self::COLOR_INFO,
                 'badge' => $this->buildBadge('', $label),
+                'tempMin' => $tempMin,
+                'tempMax' => $tempMax,
             ];
         } elseif (in_array($weatherCode, [0, 1], true)) {
             $advice = [
                 'title' => self::TITLE,
-                    'text' => 'Conditions favorables: bonne fenêtre pour ta séance. Une hydratation adaptée reste toujours utile.',
+                'text' => $this->pickRandomAdvice([
+                    'Conditions favorables: bonne fenetre pour ta seance. Une hydratation adaptee reste toujours utile.',
+                    'Beau temps: c\'est le moment ideal pour un bon footing. N\'oublie pas l\'hydratation et la protection solaire.',
+                    'Conditions ideales: saisis cette opportunite pour faire une belle seance. Profite du beau temps.',
+                ]),
                 'tone' => 'encourage',
                 'icon' => '🌤️',
                 'color' => self::COLOR_SUCCESS,
                 'badge' => $this->buildBadge('', $label),
+                'tempMin' => $tempMin,
+                'tempMax' => $tempMax,
             ];
         }
 
         return $advice;
+    }
+
+    /** @param array<string> $messages */
+    private function pickRandomAdvice(array $messages): string
+    {
+        if (empty($messages)) {
+            return 'Meteo variable.';
+        }
+        return $messages[array_rand($messages)];
     }
 
     /** @return array<string,mixed>|null */
@@ -181,7 +233,7 @@ final class MeteoService
         return $decoded;
     }
 
-    /** @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string} */
+    /** @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string,tempMin:?float,tempMax:?float} */
     private function buildErrorAdvice(string $label): array
     {
         return [
@@ -191,6 +243,8 @@ final class MeteoService
             'icon' => '⚠️',
             'color' => self::COLOR_WARNING,
             'badge' => $this->buildBadge('', $label),
+            'tempMin' => null,
+            'tempMax' => null,
         ];
     }
 
@@ -205,23 +259,27 @@ final class MeteoService
 
     private function isRainy(?float $rain, ?float $precipProbMax): bool
     {
+        // Rain trigger from either live precipitation or daily probability.
         return ($rain !== null && $rain >= 0.2)
             || ($precipProbMax !== null && $precipProbMax >= 60);
     }
 
     private function isWindy(?float $wind): bool
     {
+        // Wind speed threshold in km/h.
         return $wind !== null && $wind >= 30.0;
     }
 
     private function isHot(?float $temp, ?float $tempMax): bool
     {
+        // "Hot" warning threshold for current or max daily temperature.
         return ($temp !== null && $temp >= 25.0)
             || ($tempMax !== null && $tempMax >= 28.0);
     }
 
     private function isHeatwave(?float $temp, ?float $tempMax): bool
     {
+        // Higher threshold used for explicit heatwave/canicule messaging.
         return ($temp !== null && $temp >= 27.0)
             || ($tempMax !== null && $tempMax >= 30.0);
     }
@@ -237,8 +295,8 @@ final class MeteoService
     }
 
     /**
-     * @param array{title:string,text:string,tone:string,icon:string,color:string,badge:string} $advice
-     * @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string,cityStatus:string,cityMessage:string,cityApplied:bool,requestedCity:?string,appliedCity:string,detectedCity:?string,detectedCityStatus:string,detectedCityMessage:string}
+     * @param array{title:string,text:string,tone:string,icon:string,color:string,badge:string,tempMin:?float,tempMax:?float} $advice
+     * @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string,tempMin:?float,tempMax:?float,cityStatus:string,cityMessage:string,cityApplied:bool,requestedCity:?string,appliedCity:string,detectedCity:?string,detectedCityStatus:string,detectedCityMessage:string}
      */
     private function withCityFeedback(array $advice, string $requestedCity): array
     {
@@ -348,6 +406,7 @@ final class MeteoService
 
     private function fetchRawWithRetry(string $url, int $maxAttempts = 3): ?string
     {
+        // Retry a few times to smooth transient network/proxy errors.
         $attempts = max(1, $maxAttempts);
         for ($attempt = 1; $attempt <= $attempts; $attempt++) {
             $context = $this->buildHttpContext();
@@ -357,6 +416,7 @@ final class MeteoService
                 return $raw;
             }
 
+            // Small backoff between attempts (120ms).
             usleep(120000);
         }
 
@@ -397,6 +457,7 @@ final class MeteoService
             return null;
         }
 
+        // Normalize proxy URL into tcp://host:port for stream contexts.
         $normalized = $raw;
         if (str_starts_with($normalized, self::PROXY_TCP_SCHEME)) {
             return $normalized;
