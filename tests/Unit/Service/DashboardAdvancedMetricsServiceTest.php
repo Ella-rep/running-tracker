@@ -66,6 +66,24 @@ final class DashboardAdvancedMetricsServiceTest extends TestCase
 
 
     /**
+     * First-ever run must not produce a false "Surcharge" alert.
+     * When all sessions fall within the 7-day acute window there is no chronic
+     * baseline yet, so the ratio must be null and status must be "initial".
+     */
+    public function testBuildTrainingLoadReturnsInitialStatusForFirstRun(): void
+    {
+        $service = $this->makeService();
+
+        $logs = [$this->makeRun(0, duration: '00:45:00', runType: 'EF')];
+
+        $load = $service->buildTrainingLoad($logs);
+
+        self::assertTrue($load['hasData']);
+        self::assertNull($load['ratio'], 'ratio must be null when no chronic baseline exists');
+        self::assertSame('initial', $load['statusKey']);
+    }
+
+    /**
      * Creates a service instance with mocked repositories (unused by buildTrainingLoad).
      */
     private function makeService(): DashboardAdvancedMetricsService

@@ -18,9 +18,53 @@ final class DashboardAdvancedMetricsService
 {
     private const TRAINING_GAP_LOOKBACK_DAYS = 60;
     private const COLOR_TEXT_MUTED = 'var(--text-muted)';
-    private const COLOR_Z1 = 'var(--z1)';
+    private const COLOR_ACCENT2 = 'var(--accent2)';
     private const COLOR_ACCENT3 = 'var(--accent3)';
+    private const COLOR_Z1 = 'var(--z1)';
+    private const COLOR_Z2 = 'var(--z2)';
+    private const COLOR_Z3 = 'var(--z3)';
+    private const COLOR_Z4 = 'var(--z4)';
     private const TITLE_PACE_PROGRESSION = 'Progression allure';
+
+    /**
+     * Static config for each training load status.
+     * Thresholds are applied in resolveStatusKey(); only display data lives here.
+     *
+     * @var array<string,array{label:string,color:string,recommendation:string}>
+     */
+    private const STATUS_CONFIG = [
+        'initial' => [
+            'label'          => 'Initialisation',
+            'color'          => self::COLOR_ACCENT2,
+            'recommendation' => 'Continue régulièrement pour stabiliser ta charge de référence.',
+        ],
+        'under' => [
+            'label'          => 'Sous-charge',
+            'color'          => self::COLOR_Z2,
+            'recommendation' => 'Tu peux ajouter une séance facile ou un peu de volume progressif.',
+        ],
+        'under_watch' => [
+            'label'          => 'Sous-charge légère',
+            'color'          => self::COLOR_Z4,
+            'recommendation' => 'Tu es juste en dessous de ta base: une sortie facile supplémentaire peut suffire.',
+        ],
+        'balanced' => [
+            'label'          => 'Équilibre',
+            'color'          => self::COLOR_Z1,
+            'recommendation' => 'Charge bien équilibrée: garde le cap et privilégie la régularité.',
+        ],
+        'watch' => [
+            'label'          => 'Vigilance',
+            'color'          => self::COLOR_Z3,
+            'recommendation' => 'Légère hausse de charge: allège un peu et garde une séance très facile.',
+        ],
+        'high' => [
+            'label'          => 'Surcharge',
+            'color'          => self::COLOR_ACCENT3,
+            'recommendation' => 'Charge trop élevée: fais 24-48h de récupération et reporte l\'intensité.',
+        ],
+    ];
+
     private const MONTH_NAMES = [
         1 => 'janvier', 2 => 'fevrier', 3 => 'mars', 4 => 'avril', 5 => 'mai', 6 => 'juin',
         7 => 'juillet', 8 => 'aout', 9 => 'septembre', 10 => 'octobre', 11 => 'novembre', 12 => 'decembre',
@@ -155,7 +199,10 @@ final class DashboardAdvancedMetricsService
         // Chronic reference is the 28-day total normalized to one week.
         $chronic = $chronicTotal / 4.0;
         // Ratio compares last 7 days against the normalized 28-day baseline.
-        $ratio = $chronic > 0 ? round($acute / $chronic, 2) : null;
+        // chronicTotal > acute means at least some sessions predate the 7-day window,
+        // which is required for a meaningful chronic baseline. Without it (e.g. first run),
+        // ratio would always be 4.0 (acute / (acute/4)), producing a false "Surcharge" alert.
+        $ratio = ($chronic > 0 && $chronicTotal > $acute) ? round($acute / $chronic, 2) : null;
         // Delta is the relative gap between acute and chronic (%).
         $deltaPct = $chronic > 0 ? (int) round((($acute - $chronic) / $chronic) * 100) : 0;
         $status = $this->resolveTrainingLoadStatus($ratio, $logs);
@@ -494,24 +541,9 @@ final class DashboardAdvancedMetricsService
      */
     private function resolveTrainingLoadStatus(?float $ratio, array $logs): array
     {
-        $status = [
-            'key' => 'initial',
-            'label' => 'Initialisation',
-            'color' => 'var(--accent2)',
-            'recommendation' => 'Continue régulièrement pour stabiliser ta charge de référence.',
-        ];
-        // Ordered thresholds from lowest to highest load pressure.
-        if ($ratio !== null && $ratio < 0.8) {
-            $status = ['key' => 'under', 'label' => 'Sous-charge', 'color' => 'var(--z2)', 'recommendation' => 'Tu peux ajouter une séance facile ou un peu de volume progressif.'];
-        } elseif ($ratio !== null && $ratio < 0.9) {
-            $status = ['key' => 'under_watch', 'label' => 'Sous-charge légère', 'color' => 'var(--z4)', 'recommendation' => 'Tu es juste en dessous de ta base: une sortie facile supplémentaire peut suffire.'];
-        } elseif ($ratio !== null && $ratio <= 1.3) {
-            $status = ['key' => 'balanced', 'label' => 'Équilibre', 'color' => self::COLOR_Z1, 'recommendation' => 'Charge bien équilibrée: garde le cap et privilégie la régularité.'];
-        } elseif ($ratio !== null && $ratio <= 1.5) {
-            $status = ['key' => 'watch', 'label' => 'Vigilance', 'color' => 'var(--z3)', 'recommendation' => 'Légère hausse de charge: allège un peu et garde une séance très facile.'];
-        } elseif ($ratio !== null) {
-            $status = ['key' => 'high', 'label' => 'Surcharge', 'color' => self::COLOR_ACCENT3, 'recommendation' => 'Charge trop élevée: fais 24-48h de récupération et reporte l\'intensité.'];
-        }
+        $key = $this->resolveStatusKey($ratio);
+        $config = self::STATUS_CONFIG[$key];
+        $status = ['key' => $key, ...$config];
 
         if (in_array($status['key'], ['under', 'under_watch'], true)) {
             $dated = array_values(array_filter($logs, static fn (RunLog $log): bool => trim($log->getDate()) !== ''));
@@ -547,6 +579,24 @@ final class DashboardAdvancedMetricsService
             }
         }
 
+        return $status;
+    }
+
+    /**
+     * Maps an ACWR ratio to a STATUS_CONFIG key.
+     * Thresholds are ordered from most severe under-load to most severe over-load.
+     * A null ratio means no chronic baseline yet — return 'initial'.
+     */
+    private function resolveStatusKey(?float $ratio): string
+    {
+        switch($ratio){
+            case null: $status = 'initial'; break;
+            case $ratio < 0.8: $status = 'under'; break;
+            case $ratio < 0.9: $status = 'under_watch'; break;
+            case $ratio <= 1.3: $status = 'balanced'; break;
+            case $ratio <= 1.5: $status = 'watch'; break;
+            default: $status = 'high'; break;
+        }
         return $status;
     }
 
