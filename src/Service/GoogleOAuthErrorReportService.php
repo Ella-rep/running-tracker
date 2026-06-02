@@ -28,7 +28,7 @@ final class GoogleOAuthErrorReportService
      *   samples:list<string>
      * }
      */
-    public function collectRecentErrors(int $hours = self::DEFAULT_HOURS, int $sampleLimit = 15): array
+    public function collectRecentErrors(int $hours = self::DEFAULT_HOURS, int $sampleLimit = 30): array
     {
         // Always keep at least a 1-hour window to avoid empty/negative ranges.
         $windowHours = max(1, $hours);
@@ -167,7 +167,11 @@ final class GoogleOAuthErrorReportService
     private function isGoogleOAuthFailureLine(string $line): bool
     {
         return str_contains($line, 'Google OAuth authentication failure.')
-            || str_contains($line, 'OAuth Google:');
+            || str_contains($line, 'OAuth Google:')
+            || str_contains($line, 'oauth_error')
+            || str_contains($line, 'redirect_uri')
+            || str_contains($line, 'oauth')
+            || str_contains($line, 'google');
     }
 
     private function extractLogDate(string $line): ?\DateTimeImmutable
