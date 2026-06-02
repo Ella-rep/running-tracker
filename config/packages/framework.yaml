@@ -15,3 +15,5 @@ framework:
     validation:
         enabled: true
         enable_attributes: true
+    trusted_proxies: '127.0.0.1,0.0.0.0/0'
+    trusted_headers: ['x-forwarded-proto']
