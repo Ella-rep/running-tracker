@@ -13,6 +13,85 @@ final class MeteoService
     private const COLOR_SUCCESS = '#4ade80';
     private const PROXY_TCP_SCHEME = 'tcp://';
 
+    /**
+     * Full display config per weather condition.
+     * Each entry defines the icon, color, tone, and pool of advice messages for that condition.
+     * Add or edit conditions here without touching the resolution or rendering logic.
+     *
+     * @var array<string,array{icon:string,color:string,tone:string,messages:array<int,string>}>
+     */
+    private const ADVICE_CONFIG = [
+        'heatwave' => [
+            'icon'     => '🔥',
+            'color'    => self::COLOR_WARNING,
+            'tone'     => 'warning',
+            'messages' => [
+                'Alerte chaleur/canicule: si possible, privilégie une sortie très tôt ou tard, avec une intensité réduite et une hydratation régulière.',
+                'Conditions de canicule: fais ta sortie en début ou fin de journée. Ralentis l\'intensité et bois beaucoup.',
+                'Canicule détectée: opte pour une séance très facile, très tôt le matin ou tard le soir. Protection solaire et hydratation essentielles.',
+            ],
+        ],
+        'hot' => [
+            'icon'     => '☀️',
+            'color'    => self::COLOR_WARNING,
+            'tone'     => 'warning',
+            'messages' => [
+                'Chaleur marquée: une sortie plus tôt/tard, avec une intensité adaptée et une hydratation régulière, peut être plus confortable.',
+                'Chaleur attendue: préfère une séance légère en matinée ou soirée. Bois régulièrement pendant la sortie.',
+                'Températures élevées: opte pour un footing facile et reste hydraté. Les températures diminueront progressivement en fin de journée.',
+            ],
+        ],
+        'rainy' => [
+            'icon'     => '🌧️',
+            'color'    => self::COLOR_WARNING,
+            'tone'     => 'warning',
+            'messages' => [
+                'Pluie probable: tu peux prévoir une veste légère, limiter les allures rapides et privilégier un footing contrôle.',
+                'Pluie en vue: protège-toi avec une veste imperméable. Ralentis pour mieux gérer l\'adhérence au sol.',
+                'Précipitation probable: choisis un parcours avec bon drainage et porte des vêtements qui sèchent rapidement.',
+            ],
+        ],
+        'windy' => [
+            'icon'     => '💨',
+            'color'    => self::COLOR_INFO,
+            'tone'     => 'info',
+            'messages' => [
+                'Vent soutenu: pars tranquillement, abrite ta sortie si possible et garde un peu d\'énergie pour le retour face au vent.',
+                'Vent fort attendu: choisis un itinéraire abrité et économise l\'énergie pour affronter le vent au retour.',
+                'Conditions vents forts: évite les parcours boisés, tu peux choisir un itinéraire entre les maisons ou grands bâtiments pour minimiser les rafales.',
+            ],
+        ],
+        'cold' => [
+            'icon'     => '🧣',
+            'color'    => self::COLOR_INFO,
+            'tone'     => 'info',
+            'messages' => [
+                'Froid marqué: un échauffement progressif, les extrémités couvertes et une allure facile sur les premiers kilomètres peuvent aider.',
+                'Froid détecté: bien couvrir les mains et les oreilles. Réalise un vrai petit échauffement avant de partir.',
+                'Température négative: couches thermales et gants sont tes amis. Pars tranquille et augmente l\'intensité progressivement.',
+            ],
+        ],
+        'clear' => [
+            'icon'     => '🌤️',
+            'color'    => self::COLOR_SUCCESS,
+            'tone'     => 'encourage',
+            'messages' => [
+                'Conditions favorables: bonne fenêtre pour ta séance. Une hydratation adaptée reste toujours utile.',
+                'Beau temps: c\'est le moment idéal pour un bon footing. N\'oublie pas l\'hydratation et la protection solaire.',
+                'Conditions idéales: saisis cette opportunité pour faire une belle séance. Profite du beau temps.',
+            ],
+        ],
+        'default' => [
+            'icon'     => '🌥️',
+            'color'    => self::COLOR_INFO,
+            'tone'     => 'info',
+            'messages' => [
+                'Météo variable: adapte l\'allure a la sensation du jour et prévois une couche légère.',
+                'Conditions mixtes: reste attentif aux changements et hydrate-toi régulièrement.',
+            ],
+        ],
+    ];
+
     // Default location: Paris. Can be changed later via constructor args/env binding.
     private const DEFAULT_LAT = 48.8566;
     private const DEFAULT_LON = 2.3522;
@@ -50,7 +129,7 @@ final class MeteoService
 
         $advice = $this->buildAdviceFromApiPayload($data, $label);
         if ($advice === null) {
-              $errors[] = 'E3: réponse météo incomplète.';
+            $errors[] = 'E3: réponse météo incomplète.';
         }
 
         return $advice;
@@ -87,113 +166,36 @@ final class MeteoService
             return null;
         }
 
-        $advice = [
-            'title' => self::TITLE,
-            'text' => $this->pickRandomAdvice([
-                'Meteo variable: adapte l\'allure a la sensation du jour et prevois une couche legere.',
-                'Conditions mixtes: reste attentif aux changements et hydrate-toi regulierement.',
-            ]),
-            'tone' => 'info',
-            'icon' => '🌥️',
-            'color' => self::COLOR_INFO,
-            'badge' => $this->buildBadge('', $label),
+        $conditionKey = $this->resolveConditionKey($temp, $tempMax, $rain, $precipProbMax, $wind, $weatherCode);
+        $config = self::ADVICE_CONFIG[$conditionKey];
+
+        return [
+            'title'   => self::TITLE,
+            'text'    => $this->pickRandomAdvice($config['messages']),
+            'tone'    => $config['tone'],
+            'icon'    => $config['icon'],
+            'color'   => $config['color'],
+            'badge'   => $this->buildBadge('', $label),
             'tempMin' => $tempMin,
             'tempMax' => $tempMax,
         ];
+    }
 
-        if ($this->isHeatwave($temp, $tempMax)) {
-            $advice = [
-                'title' => self::TITLE,
-                'text' => $this->pickRandomAdvice([
-                    'Alerte chaleur/canicule: si possible, privilegie une sortie tres tot ou tard, avec une intensite reduite et une hydratation reguliere.',
-                    'Conditions de canicule: fais ta sortie en debut ou fin de journee. Ralentis l\'intensite et bois beaucoup.',
-                    'Canicule detectee: opte pour une seance tres facile, tres tot le matin ou tard le soir. Protection solaire et hydratation essentielles.',
-                ]),
-                'tone' => 'warning',
-                'icon' => '🔥',
-                'color' => self::COLOR_WARNING,
-                'badge' => $this->buildBadge('', $label),
-                'tempMin' => $tempMin,
-                'tempMax' => $tempMax,
-            ];
-        } elseif ($this->isHot($temp, $tempMax)) {
-            $advice = [
-                'title' => self::TITLE,
-                'text' => $this->pickRandomAdvice([
-                    'Chaleur marquee: une sortie plus tot/tard, avec une intensite adaptee et une hydratation reguliere, peut etre plus confortable.',
-                    'Chaleur attendue: prefere une seance legere en matinee ou soiree. Bois regulierement pendant la sortie.',
-                    'Temperatures elevees: opte pour un footing facile et reste hydrate. Les temperatures diminueront progressivement en fin de journee.',
-                ]),
-                'tone' => 'warning',
-                'icon' => '☀️',
-                'color' => self::COLOR_WARNING,
-                'badge' => $this->buildBadge('', $label),
-                'tempMin' => $tempMin,
-                'tempMax' => $tempMax,
-            ];
-        } elseif ($this->isRainy($rain, $precipProbMax)) {
-            $advice = [
-                'title' => self::TITLE,
-                'text' => $this->pickRandomAdvice([
-                    'Pluie probable: tu peux prevoir une veste legere, limiter les allures rapides et privilegier un footing controle.',
-                    'Pluie en vue: protege-toi avec une veste impermeablee. Ralentis pour mieux gerer l\'adheence au sol.',
-                    'Precipitation probable: choisis un parcours avec bon drainage et porte des vetements qui seches rapidement.',
-                ]),
-                'tone' => 'warning',
-                'icon' => '🌧️',
-                'color' => self::COLOR_WARNING,
-                'badge' => $this->buildBadge('', $label),
-                'tempMin' => $tempMin,
-                'tempMax' => $tempMax,
-            ];
-        } elseif ($this->isWindy($wind)) {
-            $advice = [
-                'title' => self::TITLE,
-                'text' => $this->pickRandomAdvice([
-                    'Vent soutenu: pars tranquillement, abrite tes fractions si possible et garde un peu d\'energie pour le retour face au vent.',
-                    'Vent fort attendu: choisis un itineraire abrite et economise l\'energie pour affronter le vent au retour.',
-                    'Conditions ventees: gare-toi pres d\'un parcours boise ou entre les maisons pour minimiser les rafales.',
-                ]),
-                'tone' => 'info',
-                'icon' => '💨',
-                'color' => self::COLOR_INFO,
-                'badge' => $this->buildBadge('', $label),
-                'tempMin' => $tempMin,
-                'tempMax' => $tempMax,
-            ];
-        } elseif ($temp !== null && $temp <= 3.0) {
-            $advice = [
-                'title' => self::TITLE,
-                'text' => $this->pickRandomAdvice([
-                    'Froid marque: un echauffement progressif, les extremites couvertes et une allure facile sur les premiers kilometres peuvent aider.',
-                    'Froid detecte: bien couvre les mains et les oreilles. Realise un vrai petit échauffement avant de partir.',
-                    'Temperature negative: couches thermales et gants sont tes amis. Pars tranquille et augmente l\'intensite progressivement.',
-                ]),
-                'tone' => 'info',
-                'icon' => '🧣',
-                'color' => self::COLOR_INFO,
-                'badge' => $this->buildBadge('', $label),
-                'tempMin' => $tempMin,
-                'tempMax' => $tempMax,
-            ];
-        } elseif (in_array($weatherCode, [0, 1], true)) {
-            $advice = [
-                'title' => self::TITLE,
-                'text' => $this->pickRandomAdvice([
-                    'Conditions favorables: bonne fenetre pour ta seance. Une hydratation adaptee reste toujours utile.',
-                    'Beau temps: c\'est le moment ideal pour un bon footing. N\'oublie pas l\'hydratation et la protection solaire.',
-                    'Conditions ideales: saisis cette opportunite pour faire une belle seance. Profite du beau temps.',
-                ]),
-                'tone' => 'encourage',
-                'icon' => '🌤️',
-                'color' => self::COLOR_SUCCESS,
-                'badge' => $this->buildBadge('', $label),
-                'tempMin' => $tempMin,
-                'tempMax' => $tempMax,
-            ];
-        }
-
-        return $advice;
+    /**
+     * Maps weather data to a condition key defined in ADVICE_CONFIG.
+     * Conditions are evaluated from most to least severe.
+     */
+    private function resolveConditionKey(?float $temp, ?float $tempMax, ?float $rain, ?float $precipProbMax, ?float $wind, int $weatherCode): string
+    {
+        return match (true) {
+            $this->isHeatwave($temp, $tempMax) => 'heatwave',
+            $this->isHot($temp, $tempMax) => 'hot',
+            $this->isRainy($rain, $precipProbMax) => 'rainy',
+            $this->isWindy($wind) => 'windy',
+            $temp !== null && $temp <= 3.0 => 'cold',
+            in_array($weatherCode, [0, 1], true) => 'clear',
+            default => 'default',
+        };
     }
 
     /** @param array<string> $messages */
@@ -361,7 +363,7 @@ final class MeteoService
             'source' => 'default',
         ];
     }
-    
+
     /** @return array{lat:float,lon:float,label:string}|null */
     private function fetchGeoByCity(string $city): ?array
     {
@@ -376,16 +378,16 @@ final class MeteoService
         $url = 'https://geocoding-api.open-meteo.com/v1/search?' . $query;
 
         $raw = $this->fetchRawWithRetry($url, 3);
-        
+
         if (is_string($raw) && $raw !== '') {
             $decoded = json_decode($raw, true);
-            
+
             if (is_array($decoded) && is_array($decoded['results'] ?? null) && isset($decoded['results'][0]) && is_array($decoded['results'][0])) {
                 $first = $decoded['results'][0];
-                
+
                 $lat = $this->asFloat($first['latitude'] ?? null);
                 $lon = $this->asFloat($first['longitude'] ?? null);
-                
+
                 if ($lat !== null && $lon !== null) {
                     $label = $this->buildGeoLabel(
                         (string) ($first['name'] ?? ''),
