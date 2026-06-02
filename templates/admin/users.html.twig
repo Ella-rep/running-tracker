@@ -100,6 +100,17 @@
         {% endfor %}
       </div>
     </div>
+    
+
+    <div class="chart-wrap admin-maintenance-card">
+      <div class="chart-title">Maintenance</div>
+      <div class="admin-maintenance-section">
+        <h4>Rapport erreurs Gmail/OAuth</h4>
+        <p class="admin-maintenance-desc">Collecte les erreurs OAuth Google des logs récents et envoie un rapport détaillé à l'adresse interne de contact.</p>
+        <button id="admin-gmail-report-btn" class="btn btn-ghost" onclick="adminSendGmailErrorReport()">Envoyer rapport Gmail</button>
+        <div id="admin-gmail-report-status" style="margin-top:12px;"></div>
+      </div>
+    </div>
 
     <div class="chart-wrap admin-announce-card">
       <div class="chart-title">Centre de communication</div>
@@ -189,16 +200,6 @@
         <button type="submit" class="btn">Rechercher</button>
         <a class="btn btn-ghost" href="{{ path('app_admin_users') }}">Reset</a>
       </form>
-    </div>
-
-    <div class="chart-wrap admin-maintenance-card">
-      <div class="chart-title">Maintenance</div>
-      <div class="admin-maintenance-section">
-        <h4>Rapport erreurs Gmail/OAuth</h4>
-        <p class="admin-maintenance-desc">Collecte les erreurs OAuth Google des logs récents et envoie un rapport détaillé à l'adresse interne de contact.</p>
-        <button id="admin-gmail-report-btn" class="btn btn-ghost" onclick="adminSendGmailErrorReport()">Envoyer rapport Gmail</button>
-        <div id="admin-gmail-report-status" style="margin-top:12px;"></div>
-      </div>
     </div>
 
     <div class="table-wrap admin-users-table-wrap">
