@@ -1,8 +1,17 @@
 #!/bin/bash
 # .git/hooks/commit-msg
-# Vérifie le format du commit, gère le bump, et supprime tous les tags [bump:xxx] du message final
+# Vérifie le format du commit, gère le bump, supprime [bump:xxx], et ne s'exécute que sur develop
 
 set -euo pipefail
+
+# -------------------------------
+# 0️⃣ Vérifier la branche courante
+# -------------------------------
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ "$BRANCH" != "develop" ]; then
+    echo "ℹ️ Hook bump ignoré (branche actuelle : $BRANCH, actif uniquement sur develop)."
+    exit 0
+fi
 
 COMMIT_MSG_FILE="$1"
 COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
@@ -62,7 +71,6 @@ fi
 # 4️⃣ Suppression des tags [bump:xxx] du message final
 # -------------------------------
 sed -i -E 's/\[bump:(major|minor|patch|none)\]//g' "$COMMIT_MSG_FILE"
-# Nettoyage des espaces multiples
 sed -i -E 's/[[:space:]]+$//' "$COMMIT_MSG_FILE"
 
 # -------------------------------
