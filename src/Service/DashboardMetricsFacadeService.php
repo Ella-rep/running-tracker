@@ -18,14 +18,15 @@ final class DashboardMetricsFacadeService
     private const PROJECTION_FACTOR_SHORTER_DISTANCE = 0.85;
     // Single tuning point: chart window long enough for trend, short enough to stay readable.
     private const PROJECTION_HISTORY_MONTHS = 8;
+    private const PROJECTION_RULES = "Règles de projection: \r\n- de plus courte à inférieure ou égale à 5 km x0.85 ; \r\n- jusqu'à 10kmde plus x1.0; \r\n- entre +10km et -40km x1.06 ; \r\n- marathon x1.12";
+
 
     public function __construct(
         private RunLogRepository $runLogs,
         private RaceRepository $races,
         private DashboardAdvancedMetricsService $advancedMetrics,
         private DashboardEfMetricsService $efMetrics,
-    ) {
-    }
+    ) {}
 
     /**
      * Builds the full dashboard payload used by frontend widgets.
@@ -236,7 +237,7 @@ final class DashboardMetricsFacadeService
             return $log->getDate() !== '' && $this->paceToSeconds($log->getAllure()) !== null && strtoupper((string) ($log->getRunType() ?? '')) !== 'RACE';
         }));
 
-        usort($valid, static fn (RunLog $a, RunLog $b) => strcmp($b->getDate(), $a->getDate()));
+        usort($valid, static fn(RunLog $a, RunLog $b) => strcmp($b->getDate(), $a->getDate()));
         $recent = array_slice($valid, 0, 5);
         $distances = [
             ['label' => '5 km', 'dist' => 5.0],
@@ -283,7 +284,7 @@ final class DashboardMetricsFacadeService
             : ' · Aucun D+ renseigne - allure brute utilisee';
 
         $meta = sprintf(
-            '%s (5 dernieres sorties): %s/km · Distance de reference: %.1f km · Regles projection: plus longue x1.06 ; marathon x1.12 ; plus courte x0.85%s',
+            '%s (5 dernieres sorties): %s/km · Distance de reference: %.1f km · ' . self::PROJECTION_RULES,
             $paceLabel,
             $avgAllureStr,
             $sourceDistanceKm,
@@ -295,13 +296,13 @@ final class DashboardMetricsFacadeService
 
     /**
      * @param array<int,RunLog> $runs
-         * @return array{paceSecList:array<int,int>,runsWithGap:int,sourceDistanceKm:float}
+     * @return array{paceSecList:array<int,int>,runsWithGap:int,sourceDistanceKm:float}
      */
     private function computeProjectionBasePace(array $runs): array
     {
         $paceSecList = [];
         $runsWithGap = 0;
-                $distanceKmList = [];
+        $distanceKmList = [];
 
         foreach ($runs as $log) {
             $gapSec = $this->paceToSeconds($log->getGap());
@@ -387,7 +388,7 @@ final class DashboardMetricsFacadeService
             'labels' => $labels,
             'series' => $series,
             'meta' => sprintf(
-                'Historique sur %d mois: chaque mois utilise 5 dernieres sorties comme base ; regles projection identiques (plus longue x1.06 ; marathon x1.12 ; plus courte x0.85).',
+                'Historique sur %d mois: chaque mois utilise 5 dernieres sorties comme base ; ' . self::PROJECTION_RULES,
                 self::PROJECTION_HISTORY_MONTHS
             ),
             'emptyMessage' => 'Pas assez de donnees mensuelles pour tracer l historique des projections.',
@@ -408,7 +409,7 @@ final class DashboardMetricsFacadeService
             $values = [];
             foreach ($monthKeys as $monthKey) {
                 $runs = $runsByMonth[$monthKey] ?? [];
-                usort($runs, static fn (RunLog $a, RunLog $b): int => strcmp($b->getDate(), $a->getDate()));
+                usort($runs, static fn(RunLog $a, RunLog $b): int => strcmp($b->getDate(), $a->getDate()));
                 $sample = array_slice($runs, 0, 5);
                 $base = $this->computeProjectionBasePace($sample);
                 $paceSecList = $base['paceSecList'];
@@ -438,17 +439,17 @@ final class DashboardMetricsFacadeService
         $linearSeconds = $avgSecPerKm * $safeTargetDistance;
 
         // Fixed projection rules requested by product:
-        // - shorter target distance: x0.85
+        // - shorter target distance: x0.85 (up to 5 km gap)
+        // - similar distance (up to 10 km gap): x1.0
         // - longer target distance: x1.06
         // - marathon target (42 km): x1.12
-        if ($safeTargetDistance < $safeSourceDistance) {
+        if ($safeTargetDistance < $safeSourceDistance || $safeTargetDistance === $safeSourceDistance || ($safeTargetDistance > $safeSourceDistance && $safeTargetDistance - $safeSourceDistance <= 5)) {
             return (int) round($linearSeconds * self::PROJECTION_FACTOR_SHORTER_DISTANCE);
         }
 
-        if ($safeTargetDistance === $safeSourceDistance) {
+        if ($safeTargetDistance > $safeSourceDistance && $safeTargetDistance - $safeSourceDistance > 5 && $safeTargetDistance - $safeSourceDistance <= 10) {
             return (int) round($linearSeconds);
         }
-
         $factor = self::PROJECTION_FACTOR_LONGER_DISTANCE;
         if ($safeTargetDistance >= 40.0) {
             $factor = self::PROJECTION_FACTOR_MARATHON;
