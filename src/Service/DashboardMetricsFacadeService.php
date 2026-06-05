@@ -18,7 +18,7 @@ final class DashboardMetricsFacadeService
     private const PROJECTION_FACTOR_SHORTER_DISTANCE = 0.85;
     // Single tuning point: chart window long enough for trend, short enough to stay readable.
     private const PROJECTION_HISTORY_MONTHS = 8;
-    private const PROJECTION_RULES = "Règles de projection: \r\n- de plus courte à inférieure ou égale à 5 km x0.85 ; \r\n- jusqu'à 10kmde plus x1.0; \r\n- entre +10km et -40km x1.06 ; \r\n- marathon x1.12";
+    private const PROJECTION_RULES = "Règles de projection: \r\n- de plus courte à inférieure ou égale à 2 km x0.85 ; \r\n- jusqu'à 5km de plus x1.0; \r\n- entre +5km et -40km x1.06 ; \r\n- marathon x1.12";
 
 
     public function __construct(
@@ -213,6 +213,7 @@ final class DashboardMetricsFacadeService
     {
         $vals = [];
         foreach ($logs as $log) {
+            if (strtoupper((string) ($log->getRunType() ?? '')) !== 'EF') continue;
             $bpm = $log->getBpm();
             if ($bpm !== null) {
                 $vals[] = $bpm;
@@ -439,15 +440,15 @@ final class DashboardMetricsFacadeService
         $linearSeconds = $avgSecPerKm * $safeTargetDistance;
 
         // Fixed projection rules requested by product:
-        // - shorter target distance: x0.85 (up to 5 km gap)
-        // - similar distance (up to 10 km gap): x1.0
+        // - shorter target distance: x0.85 (up to 2 km gap)
+        // - similar distance (up to 5 km gap): x1.0
         // - longer target distance: x1.06
         // - marathon target (42 km): x1.12
-        if ($safeTargetDistance < $safeSourceDistance || $safeTargetDistance === $safeSourceDistance || ($safeTargetDistance > $safeSourceDistance && $safeTargetDistance - $safeSourceDistance <= 5)) {
+        if ($safeTargetDistance < $safeSourceDistance || $safeTargetDistance === $safeSourceDistance || ($safeTargetDistance > $safeSourceDistance && $safeTargetDistance - $safeSourceDistance <= 2)) {
             return (int) round($linearSeconds * self::PROJECTION_FACTOR_SHORTER_DISTANCE);
         }
 
-        if ($safeTargetDistance > $safeSourceDistance && $safeTargetDistance - $safeSourceDistance > 5 && $safeTargetDistance - $safeSourceDistance <= 10) {
+        if ($safeTargetDistance > $safeSourceDistance && $safeTargetDistance - $safeSourceDistance > 2 && $safeTargetDistance - $safeSourceDistance <= 5) {
             return (int) round($linearSeconds);
         }
         $factor = self::PROJECTION_FACTOR_LONGER_DISTANCE;

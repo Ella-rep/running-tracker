@@ -66,8 +66,18 @@ final class DashboardAdvancedMetricsService
     ];
 
     private const MONTH_NAMES = [
-        1 => 'janvier', 2 => 'fevrier', 3 => 'mars', 4 => 'avril', 5 => 'mai', 6 => 'juin',
-        7 => 'juillet', 8 => 'aout', 9 => 'septembre', 10 => 'octobre', 11 => 'novembre', 12 => 'decembre',
+        1 => 'janvier',
+        2 => 'fevrier',
+        3 => 'mars',
+        4 => 'avril',
+        5 => 'mai',
+        6 => 'juin',
+        7 => 'juillet',
+        8 => 'aout',
+        9 => 'septembre',
+        10 => 'octobre',
+        11 => 'novembre',
+        12 => 'decembre',
     ];
 
     public function __construct(
@@ -75,8 +85,7 @@ final class DashboardAdvancedMetricsService
         private PlanRepository $plans,
         private PlanDetailsRepository $planDetails,
         private PlanProgressRepository $planProgress,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array{progress:array<string,mixed>,calendar:array<string,mixed>}
@@ -131,11 +140,11 @@ final class DashboardAdvancedMetricsService
         $datedRows = $aggregates['datedRows'];
         $itemsByDate = $aggregates['itemsByDate'];
 
-        usort($datedRows, static fn (\DateTimeImmutable $left, \DateTimeImmutable $right): int => $left <=> $right);
+        usort($datedRows, static fn(\DateTimeImmutable $left, \DateTimeImmutable $right): int => $left <=> $right);
 
         $monthStart = $this->resolveVisibleMonthStart($today, $datedRows);
         $monthKey = $monthStart->format('Y-m');
-        $visibleDates = array_filter($datedRows, static fn (\DateTimeImmutable $sessionDate): bool => $sessionDate->format('Y-m') === $monthKey);
+        $visibleDates = array_filter($datedRows, static fn(\DateTimeImmutable $sessionDate): bool => $sessionDate->format('Y-m') === $monthKey);
         // Calendar summary is based only on the currently visible month.
         $visibleCount = count($visibleDates);
         $summary = 'Aucune séance programmée ce mois-ci';
@@ -247,7 +256,7 @@ final class DashboardAdvancedMetricsService
      */
     private function selectTargetPlan(array $summaries): array
     {
-        $trackedSummaries = array_values(array_filter($summaries, static fn (array $summary): bool => (bool) ($summary['tracked'] ?? false)));
+        $trackedSummaries = array_values(array_filter($summaries, static fn(array $summary): bool => (bool) ($summary['tracked'] ?? false)));
 
         return [
             'targetPlan' => isset($trackedSummaries[0]) ? $trackedSummaries[0]['plan'] : null,
@@ -260,7 +269,7 @@ final class DashboardAdvancedMetricsService
      * @param array<int, array<int, mixed>> $rowsByPlanId
      * @param array<int, mixed> $loggedDetailIds
      * @param array<string, array<int,bool>> $doneByProgressByPlan
-    * @return array<int, array{id:int,title:string,done:int,total:int,pct:int,isExample:bool,tracked:bool,plan:Plan}>
+     * @return array<int, array{id:int,title:string,done:int,total:int,pct:int,isExample:bool,tracked:bool,plan:Plan}>
      */
     private function buildPlanSummaries(array $plans, array $rowsByPlanId, array $loggedDetailIds, array $doneByProgressByPlan): array
     {
@@ -399,18 +408,20 @@ final class DashboardAdvancedMetricsService
     {
         $monthStart = $today->modify('first day of this month')->setTime(0, 0, 0);
         $currentMonthKey = $monthStart->format('Y-m');
-        $datedMonthKeys = array_values(array_unique(array_map(static fn (\DateTimeImmutable $sessionDate): string => $sessionDate->format('Y-m'), $datedRows)));
-        $futureDates = array_values(array_filter($datedRows, static fn (\DateTimeImmutable $sessionDate): bool => $sessionDate >= $today));
+        $datedMonthKeys = array_values(array_unique(array_map(static fn(\DateTimeImmutable $sessionDate): string => $sessionDate->format('Y-m'), $datedRows)));
+        $futureDates = array_values(array_filter($datedRows, static fn(\DateTimeImmutable $sessionDate): bool => $sessionDate >= $today));
         $visibleMonthKey = $currentMonthKey;
 
         // Prefer current month; if empty, jump to the next future month with sessions,
         // otherwise fall back to the first month that has any dated session.
         if (!in_array($currentMonthKey, $datedMonthKeys, true)) {
-            if(!empty($futureDates)){
+            if (!empty($futureDates)) {
                 $visibleMonthKey = $futureDates[0]->format('Y-m');
-            } elseif(!empty($datedMonthKeys)){
+            } elseif (!empty($datedMonthKeys)) {
                 $visibleMonthKey = $datedMonthKeys[0];
-            }else{$visibleMonthKey=$currentMonthKey;}
+            } else {
+                $visibleMonthKey = $currentMonthKey;
+            }
         }
         return $visibleMonthKey === $currentMonthKey ? $monthStart : new \DateTimeImmutable($visibleMonthKey . '-01');
     }
@@ -461,12 +472,13 @@ final class DashboardAdvancedMetricsService
             $factor = match (strtoupper(trim((string) ($log->getRunType() ?? '')))) {
                 'EF', 'ENDURANCE' => 1.0,
                 'RECUP', 'RECUPERATION' => 0.8,
-                'TEMPO' => 1.4,
-                'SEUIL' => 1.7,
-                'VMA', 'INTERVAL', 'INTERVALLE', 'FRACTIONNE', 'FRACTIONNEE' => 2.0,
-                'RACE' => 2.3,
+                'SL' => 1.2,
+                'T', 'TEMPO' => 1.4,
+                'FL', 'SEUIL' => 1.7,
+                'FC', 'VMA', 'INTERVAL', 'INTERVALLE', 'FRACTIONNE', 'FRACTIONNEE' => 2.0,
                 default => 1.2,
             };
+
             $load = round($durationMin * $factor, 1);
             if ($load > 0) {
                 $dailyLoads[$date] = ($dailyLoads[$date] ?? 0.0) + $load;
@@ -503,9 +515,9 @@ final class DashboardAdvancedMetricsService
      * - Acute load (7 days) = sum of loads from D-6 to D.
      * - Chronic reference = sum of loads from D-27 to D, then divided by 4.
      * - Ratio shown in UI = acute / chronic.
-    * - Status thresholds:
-    *   < 0.80 = Sous-charge, 0.80-0.89 = Sous-charge légère,
-    *   0.90-1.30 = Équilibre, 1.31-1.50 = Vigilance, > 1.50 = Surcharge.
+     * - Status thresholds:
+     *   < 0.80 = Sous-charge, 0.80-0.89 = Sous-charge légère,
+     *   0.90-1.30 = Équilibre, 1.31-1.50 = Vigilance, > 1.50 = Surcharge.
      *
      * Example:
      * - If 7-day load is 131.4 and 28-day total is 713.2,
@@ -546,8 +558,8 @@ final class DashboardAdvancedMetricsService
         $status = ['key' => $key, ...$config];
 
         if (in_array($status['key'], ['under', 'under_watch'], true)) {
-            $dated = array_values(array_filter($logs, static fn (RunLog $log): bool => trim($log->getDate()) !== ''));
-            usort($dated, static fn (RunLog $a, RunLog $b): int => strcmp($b->getDate(), $a->getDate()));
+            $dated = array_values(array_filter($logs, static fn(RunLog $log): bool => trim($log->getDate()) !== ''));
+            usort($dated, static fn(RunLog $a, RunLog $b): int => strcmp($b->getDate(), $a->getDate()));
             $recent = array_slice($dated, 0, 3);
 
             if (count($recent) === 3) {
@@ -589,14 +601,27 @@ final class DashboardAdvancedMetricsService
      */
     private function resolveStatusKey(?float $ratio): string
     {
-        switch($ratio){
-            case null: $status = 'initial'; break;
-            case $ratio < 0.8: $status = 'under'; break;
-            case $ratio < 0.9: $status = 'under_watch'; break;
-            case $ratio <= 1.3: $status = 'balanced'; break;
-            case $ratio <= 1.5: $status = 'watch'; break;
-            default: $status = 'high'; break;
+        switch ($ratio) {
+            case null:
+                $status = 'initial';
+                break;
+            case $ratio < 0.8:
+                $status = 'under';
+                break;
+            case $ratio < 0.9:
+                $status = 'under_watch';
+                break;
+            case $ratio <= 1.3:
+                $status = 'balanced';
+                break;
+            case $ratio <= 1.5:
+                $status = 'watch';
+                break;
+            default:
+                $status = 'high';
+                break;
         }
+        
         return $status;
     }
 
@@ -627,17 +652,80 @@ final class DashboardAdvancedMetricsService
         $nonRace = array_values(array_filter($logs, function (RunLog $log): bool {
             return $log->getDate() !== '' && $this->paceToSeconds($log->getAllure()) !== null && strtoupper((string) ($log->getRunType() ?? '')) !== 'RACE';
         }));
-        usort($nonRace, static fn (RunLog $a, RunLog $b) => strcmp($a->getDate(), $b->getDate()));
+        usort($nonRace, static fn(RunLog $a, RunLog $b) => strcmp($a->getDate(), $b->getDate()));
         if (count($nonRace) < 4) {
             return;
         }
-        // Compare first half vs second half of the sample to detect pace trend.
-        $half = intdiv(count($nonRace), 2);
-        $first = array_slice($nonRace, 0, $half);
-        $last = array_slice($nonRace, $half);
-        $firstAvg = array_sum(array_map(fn (RunLog $r): int => $this->paceToSeconds($r->getAllure()) ?? 0, $first)) / max(1, count($first));
-        $lastAvg = array_sum(array_map(fn (RunLog $r): int => $this->paceToSeconds($r->getAllure()) ?? 0, $last)) / max(1, count($last));
-        // Positive delta means improvement (faster pace in recent runs).
+
+        // Group by normalized type so comparisons are EF vs EF, SL vs SL, etc.
+        $byType = [];
+        foreach ($nonRace as $log) {
+            $type = $this->normalizeRunType((string) ($log->getRunType() ?? ''));
+            $byType[$type][] = $log;
+        }
+        $typesWithData = array_filter($byType, static fn(array $group): bool => count($group) >= 4);
+
+        // No single type has enough samples — fall back to unfiltered comparison.
+        if (empty($typesWithData)) {
+            $this->appendMixedPaceAlert($alerts, $nonRace);
+            return;
+        }
+
+        $details = [];
+        $improvements = 0;
+        $declines = 0;
+
+        foreach ($typesWithData as $type => $group) {
+            $half = intdiv(count($group), 2);
+            $first = array_slice($group, 0, $half);
+            $last = array_slice($group, $half);
+            $firstAvg = array_sum(array_map(fn(RunLog $r): int => $this->paceToSeconds($r->getAllure()) ?? 0, $first)) / max(1, count($first));
+            $lastAvg = array_sum(array_map(fn(RunLog $r): int => $this->paceToSeconds($r->getAllure()) ?? 0, $last)) / max(1, count($last));
+            $delta = (int) round($firstAvg - $lastAvg);
+            $firstStart = $this->parseDay($first[0]->getDate());
+            $lastEnd = $this->parseDay($last[count($last) - 1]->getDate());
+            $periodStr = ($firstStart instanceof \DateTimeImmutable && $lastEnd instanceof \DateTimeImmutable)
+                ? sprintf(', %s au %s', $firstStart->format('d/m/Y'), $lastEnd->format('d/m/Y'))
+                : '';
+            $avgFirstStr = substr($this->secondsToDuration((int) round($firstAvg)), 3);
+            $avgLastStr = substr($this->secondsToDuration((int) round($lastAvg)), 3);
+
+            // 15s/km guard band to avoid noisy flips.
+            if ($delta > 15) {
+                $improvements++;
+                $details[] = sprintf('%s (%d sorties%s): amelioration de +%s/km. Debut: %s/km → Fin: %s/km.',
+                    $type, count($group), $periodStr, substr($this->secondsToDuration($delta), 3), $avgFirstStr, $avgLastStr);
+            } elseif ($delta < -15) {
+                $declines++;
+                $details[] = sprintf('%s (%d sorties%s): baisse de %s/km. Debut: %s/km → Fin: %s/km.',
+                    $type, count($group), $periodStr, substr($this->secondsToDuration(-$delta), 3), $avgFirstStr, $avgLastStr);
+            } else {
+                $details[] = sprintf('%s (%d sorties%s): allure stable. Debut: %s/km → Fin: %s/km.',
+                    $type, count($group), $periodStr, $avgFirstStr, $avgLastStr);
+            }
+        }
+
+        $typeCount = count($typesWithData);
+        $ok = $improvements >= $declines;
+        if ($improvements > $declines) {
+            $msg = sprintf('Progression detectee sur %d type(s) d\'entrainement (base: %d sorties).', $typeCount, count($nonRace));
+        } elseif ($declines > $improvements) {
+            $msg = sprintf('Baisse d\'allure sur %d type(s) d\'entrainement (base: %d sorties).', $typeCount, count($nonRace));
+        } else {
+            $msg = sprintf('Allure stable sur %d type(s) d\'entrainement (base: %d sorties).', $typeCount, count($nonRace));
+        }
+
+        $alerts[] = ['ok' => $ok, 'title' => self::TITLE_PACE_PROGRESSION, 'msg' => $msg, 'details' => $details];
+    }
+
+    /** @param array<int,array{ok:bool,title:string,msg:string,details?:array<int,string>}> $alerts @param array<int,RunLog> $logs */
+    private function appendMixedPaceAlert(array &$alerts, array $logs): void
+    {
+        $half = intdiv(count($logs), 2);
+        $first = array_slice($logs, 0, $half);
+        $last = array_slice($logs, $half);
+        $firstAvg = array_sum(array_map(fn(RunLog $r): int => $this->paceToSeconds($r->getAllure()) ?? 0, $first)) / max(1, count($first));
+        $lastAvg = array_sum(array_map(fn(RunLog $r): int => $this->paceToSeconds($r->getAllure()) ?? 0, $last)) / max(1, count($last));
         $delta = (int) round($firstAvg - $lastAvg);
         $firstStart = $this->parseDay($first[0]->getDate());
         $firstEnd = $this->parseDay($first[count($first) - 1]->getDate());
@@ -654,12 +742,25 @@ final class DashboardAdvancedMetricsService
         $details[] = sprintf('Allure moyenne fin de periode: %s/km.', substr($this->secondsToDuration((int) round($lastAvg)), 3));
         // 15s/km guard band to avoid noisy "improved/degraded" flips.
         if ($delta > 15) {
-            $alerts[] = ['ok' => true, 'title' => self::TITLE_PACE_PROGRESSION, 'msg' => sprintf('Amelioration moyenne de %s/km entre les premieres et dernieres sorties (base: %d sorties).', substr($this->secondsToDuration($delta), 3), count($nonRace)), 'details' => $details];
+            $alerts[] = ['ok' => true, 'title' => self::TITLE_PACE_PROGRESSION, 'msg' => sprintf('Amelioration moyenne de %s/km entre les premieres et dernieres sorties (base: %d sorties).', substr($this->secondsToDuration($delta), 3), count($logs)), 'details' => $details];
         } elseif ($delta < -15) {
-            $alerts[] = ['ok' => false, 'title' => self::TITLE_PACE_PROGRESSION, 'msg' => sprintf('Allure moyenne en baisse de %s/km sur les dernieres sorties (base: %d sorties).', substr($this->secondsToDuration(-$delta), 3), count($nonRace)), 'details' => $details];
+            $alerts[] = ['ok' => false, 'title' => self::TITLE_PACE_PROGRESSION, 'msg' => sprintf('Allure moyenne en baisse de %s/km sur les dernieres sorties (base: %d sorties).', substr($this->secondsToDuration(-$delta), 3), count($logs)), 'details' => $details];
         } else {
-            $alerts[] = ['ok' => true, 'title' => self::TITLE_PACE_PROGRESSION, 'msg' => sprintf('Allure globalement stable sur la periode recente (base: %d sorties).', count($nonRace)), 'details' => $details];
+            $alerts[] = ['ok' => true, 'title' => self::TITLE_PACE_PROGRESSION, 'msg' => sprintf('Allure globalement stable sur la periode recente (base: %d sorties).', count($logs)), 'details' => $details];
         }
+    }
+
+    private function normalizeRunType(string $type): string
+    {
+        return match(strtoupper(trim($type))) {
+            'EF', 'ENDURANCE'                                                    => 'EF',
+            'RECUP', 'RECUPERATION'                                              => 'RECUP',
+            'SL'                                                                 => 'SL',
+            'T', 'TEMPO'                                                         => 'T',
+            'FL', 'SEUIL'                                                        => 'FL',
+            'FC', 'VMA', 'INTERVAL', 'INTERVALLE', 'FRACTIONNE', 'FRACTIONNEE'  => 'FC',
+            default => strtoupper(trim($type)) ?: 'AUTRE',
+        };
     }
 
     /** @param array<int,array{ok:bool,title:string,msg:string,details?:array<int,string>}> $alerts @param array<int,RunLog> $logs */
@@ -677,8 +778,8 @@ final class DashboardAdvancedMetricsService
             }
         }
         if (count($efEntries) >= 2) {
-            usort($efEntries, static fn (array $left, array $right): int => strcmp((string) $left['date'], (string) $right['date']));
-            $efBpms = array_map(static fn (array $entry): int => (int) $entry['bpm'], $efEntries);
+            usort($efEntries, static fn(array $left, array $right): int => strcmp((string) $left['date'], (string) $right['date']));
+            $efBpms = array_map(static fn(array $entry): int => (int) $entry['bpm'], $efEntries);
             // Keep latest samples in details while global min/max/avg use full EF set.
             $recentEntries = array_slice($efEntries, -3);
             $details = [
@@ -715,7 +816,7 @@ final class DashboardAdvancedMetricsService
             $day = $this->parseDay($log->getDate());
             return $day instanceof \DateTimeImmutable && $day >= $windowStart;
         }));
-        usort($dated, static fn (RunLog $a, RunLog $b) => strcmp($a->getDate(), $b->getDate()));
+        usort($dated, static fn(RunLog $a, RunLog $b) => strcmp($a->getDate(), $b->getDate()));
         if (count($dated) < 2) {
             return;
         }

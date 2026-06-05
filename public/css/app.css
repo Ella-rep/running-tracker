@@ -684,6 +684,30 @@
 
   .alert-ok .alert-title { color: var(--z1); }
 
+  .alert-detail-toggle {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 2px 0;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .alert-details {
+    margin-top: 8px;
+  }
+
+  .alert-detail-line {
+    color: var(--text-muted);
+    font-size: 11px;
+    line-height: 1.7;
+    padding: 1px 0;
+  }
+
 
   @media (max-width: 640px) {
     main { padding: 16px; }
