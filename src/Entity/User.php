@@ -120,6 +120,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 128, nullable: true, unique: true)]
     private ?string $googleId = null;
 
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $meteoCity = null;
+
+
     #[ORM\OneToMany(targetEntity: RunLog::class, mappedBy: 'user', cascade: ['remove'])]
     private Collection $runLogs;
 
@@ -177,6 +181,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getGoogleId(): ?string { return $this->googleId; }
     public function setGoogleId(?string $googleId): static { $this->googleId = $googleId; return $this; }
+
+    public function getMeteoCity(): ?string { return $this->meteoCity; }
+    public function setMeteoCity(?string $city): static { $this->meteoCity = $city !== null ? trim($city) : null; return $this; }
 
     /** @return array<string, bool> */
     public function getDashboardWidgetVisibilityMap(): array

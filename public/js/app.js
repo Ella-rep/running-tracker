@@ -1612,11 +1612,24 @@ function renderDashboardAdvice(metrics = {}) {
       initial: '🧭',
     };
 
+    // Si une carte race/tapering est déjà présente, ne pas afficher la recommendation
+    // de charge (ex: "ajoute du volume" est contre-productif avant une course).
+    const raceCardPresent = items.some((item) => {
+      const badge = String(item?.badge || '').toLowerCase();
+      const icon = String(item?.icon || '');
+      return ['🏁', '😴', '🧘', '📉'].includes(icon) ||
+        badge.includes('tapering') || badge.includes('demain') || badge.includes('course');
+    });
+
+    const chargeText = raceCardPresent
+      ? comparisonText  // juste le constat, pas de conseil d'ajout de volume
+      : (recommendation ? `${recommendation} ${loadDetails}` : loadDetails);
+
     items.unshift({
       tone: toneByKey[load.statusKey] || 'info',
       icon: iconByKey[load.statusKey] || '⚖️',
       title,
-      text: recommendation ? `${recommendation} ${loadDetails}` : loadDetails,
+      text: chargeText,
       badge: `Charge ${level}`,
     });
   }
@@ -3048,22 +3061,32 @@ function renderTrainingLoad() {
   wrap.style.display = 'block';
 
   const statusEl = document.getElementById('training-load-status');
-  const ratioEl = document.getElementById('training-load-ratio');
-  const acuteEl = document.getElementById('training-load-acute');
-  const chronicEl = document.getElementById('training-load-chronic');
-  const deltaEl = document.getElementById('training-load-delta');
+  const humanEl = document.getElementById('training-load-human');
   const recoEl = document.getElementById('training-load-reco');
 
   setTrainingLoadStatusChip(statusEl, load);
 
-  if (ratioEl) ratioEl.textContent = load.ratio === null ? 'Ratio —' : `Ratio ${Number(load.ratio).toFixed(2)}`;
-  if (acuteEl) acuteEl.textContent = Number(load.acute || 0).toFixed(1);
-  if (chronicEl) chronicEl.textContent = Number(load.chronic || 0).toFixed(1);
-  if (deltaEl) {
+  // Phrase lisible par tous — traduit le delta % en langage courant
+  if (humanEl) {
     const delta = Number(load.deltaPct || 0);
-    deltaEl.textContent = `${delta >= 0 ? '+' : ''}${delta}%`;
-    deltaEl.style.color = getTrainingLoadDeltaColor(delta);
+    const absDelta = Math.abs(delta);
+    let humanText = '';
+    if (load.ratio === null) {
+      humanText = 'Pas encore assez de données pour établir ta base de référence.';
+    } else if (absDelta <= 10) {
+      humanText = 'Tu es dans ta moyenne habituelle cette semaine. ✅';
+    } else if (delta < -10 && delta >= -20) {
+      humanText = `Tu cours un peu moins que d'habitude cette semaine (−${absDelta}%).`;
+    } else if (delta < -20) {
+      humanText = `Tu cours nettement moins que d'habitude cette semaine (−${absDelta}%).`;
+    } else if (delta > 10 && delta <= 20) {
+      humanText = `Tu cours un peu plus que d'habitude cette semaine (+${absDelta}%).`;
+    } else {
+      humanText = `Tu cours nettement plus que d'habitude cette semaine (+${absDelta}%).`;
+    }
+    humanEl.textContent = humanText;
   }
+
   if (recoEl) recoEl.textContent = load.recommendation || '';
 
   renderTrainingLoadChart(Array.isArray(load.weekly) ? load.weekly : []);
@@ -3425,22 +3448,25 @@ function renderEfBpmChart() {
     }, String(bVal)));
   });
 
-  // X labels: monthly labels, reduce density only on very narrow screens
+  // X labels: monthly labels, reduce density only on very narrow screens.
+  // Anchor: start for first, end for last, middle for others — avoids overflow.
   const labelStep = W < 420 && n > 5 ? 2 : 1;
+  const drawnIndices = new Set();
   for (let i = 0; i < n; i += labelStep) {
+    drawnIndices.add(i);
     const x = xSc(i);
-    const label = String(trend[i].label || '—');
+    const anchor = i === 0 ? 'start' : (i === n - 1 ? 'end' : 'middle');
     svg.appendChild(createSvgEl('text', {
       x: x.toFixed(1), y: H - 4,
-      'text-anchor': 'middle', fill: 'var(--text-muted)', 'font-size': 8, 'font-family': 'monospace',
-    }, label));
+      'text-anchor': anchor, fill: 'var(--text-muted)', 'font-size': 8, 'font-family': 'monospace',
+    }, String(trend[i].label || '—')));
   }
-
-  if ((n - 1) % labelStep !== 0) {
+  // Always draw the last label if not already drawn
+  if (!drawnIndices.has(n - 1)) {
     const x = xSc(n - 1);
     svg.appendChild(createSvgEl('text', {
       x: x.toFixed(1), y: H - 4,
-      'text-anchor': 'middle', fill: 'var(--text-muted)', 'font-size': 8, 'font-family': 'monospace',
+      'text-anchor': 'end', fill: 'var(--text-muted)', 'font-size': 8, 'font-family': 'monospace',
     }, String(trend[n - 1].label || '—')));
   }
 
@@ -3456,11 +3482,11 @@ function renderEfBpmChart() {
     }));
   }
 
-  // BPM line
+  // BPM line — var(--z5) = couleur VO2max, visuellement distincte
   const bpmPts = trend.map((d, i) => `${xSc(i).toFixed(1)},${ySc(d.bpm).toFixed(1)}`).join(' ');
   svg.appendChild(createSvgEl('polyline', {
     points: bpmPts,
-    fill: 'none', stroke: 'var(--accent2)', 'stroke-width': 2, 'stroke-opacity': 0.85,
+    fill: 'none', stroke: 'var(--z5)', 'stroke-width': 2, 'stroke-opacity': 0.85,
   }));
 
   // Dots + explicit BPM labels above each point for readability/accessibility.
@@ -3470,7 +3496,7 @@ function renderEfBpmChart() {
     svg.appendChild(createSvgEl('circle', {
       cx,
       cy,
-      r: 3.5, fill: 'var(--accent2)', stroke: 'var(--surface)', 'stroke-width': 1.5,
+      r: 3.5, fill: 'var(--z5)', stroke: 'var(--surface)', 'stroke-width': 1.5,
     }));
     svg.appendChild(createSvgEl('text', {
       x: cx,
@@ -3491,6 +3517,7 @@ function renderEfBpmChart() {
   item1.className = 'ef-bpm-legend-item';
   const dot1 = document.createElement('span');
   dot1.className = 'ef-bpm-legend-dot';
+  dot1.style.background = 'var(--z5)';
   item1.appendChild(dot1);
   item1.appendChild(document.createTextNode('BPM (mensuel)'));
 
@@ -3576,11 +3603,45 @@ function renderProjections() {
     return card;
   });
   gridEl.replaceChildren(...cards);
-  renderProjectionMetaInfo(
-    document.getElementById('projections-meta'),
-    'Modele projection',
-    metrics.projectionsMeta || ''
-  );
+
+  // — Narrative (progression sur la période) —
+  const narrativeEl = document.getElementById('projections-narrative');
+  const narrative = metrics.projectionsNarrative;
+  if (narrativeEl) {
+    if (narrative && narrative.text) {
+      const icon = narrative.improving ? '📈' : '📉';
+      narrativeEl.textContent = `${icon} ${narrative.text}`;
+      narrativeEl.removeAttribute('hidden');
+    } else {
+      narrativeEl.setAttribute('hidden', '');
+    }
+  }
+
+  // — Projection course (prochaine course vs temps projeté) —
+  const raceProjectionEl = document.getElementById('race-projection');
+  const raceProj = metrics.raceProjection;
+  if (raceProjectionEl) {
+    if (raceProj && raceProj.projected) {
+      const statusIcon = { ahead: '✅', on_track: '✅', behind: '⚠️' }[raceProj.status] || '';
+      const objLine = raceProj.objective
+        ? `<span class="race-proj-obj">Objectif : <strong>${raceProj.objective}</strong></span>`
+        : '';
+      const daysLine = raceProj.daysTo != null
+        ? `<span class="race-proj-days">dans ${raceProj.daysTo} jour${raceProj.daysTo > 1 ? 's' : ''}</span>`
+        : '';
+      raceProjectionEl.innerHTML =
+        `<span class="race-proj-icon">🏁</span>` +
+        `<span class="race-proj-name">${raceProj.raceName}</span> ${daysLine}` +
+        ` · ${objLine}` +
+        ` <span class="race-proj-projected">Projeté : <strong>${raceProj.projected}</strong></span>` +
+        ` <span class="race-proj-status">${statusIcon} ${raceProj.statusText}</span>`;
+      raceProjectionEl.dataset.status = raceProj.status;
+      raceProjectionEl.removeAttribute('hidden');
+    } else {
+      raceProjectionEl.setAttribute('hidden', '');
+    }
+  }
+
   renderProjectionsHistoryChart(history);
 }
 
@@ -3859,7 +3920,6 @@ function renderProjectionsHistoryChart(history) {
   const container = document.getElementById('projections-history-chart-container');
   const controlsEl = document.getElementById('projections-history-controls');
   const legendEl = document.getElementById('projections-history-legend');
-  const metaEl = document.getElementById('projections-history-meta');
   if (!container) return;
 
   const labels = Array.isArray(history?.labels) ? history.labels : [];
@@ -3977,7 +4037,7 @@ function renderProjectionsHistoryChart(history) {
     container.scrollLeft = targetScrollLeft;
   }
 
-  renderProjectionMetaInfo(metaEl, 'Methode historique', history?.meta || '');
+  // Meta info supprimée — titre explicite dans le HTML remplace la bulle d'info.
 }
 
 // ============================================================

@@ -474,62 +474,72 @@
     box-sizing: border-box;
   }
 
+  /* ——— Session row ——— */
   .session-row {
     display: grid;
-    grid-template-columns: 20px minmax(0, 1fr);
+    grid-template-columns: 28px minmax(0, 1fr);
     grid-template-areas:
       'check meta'
       'check format';
     align-items: start;
     column-gap: 10px;
-    row-gap: 8px;
-    padding: 10px 12px;
+    row-gap: 6px;
+    padding: 12px 12px 14px;
     position: relative;
+    border-bottom: 1px solid var(--border);
   }
+
+  /* No separator after last session in a week */
+  .session-row:last-child { border-bottom: none; }
 
   .session-check {
     grid-area: check;
-    margin-top: 2px;
+    padding-top: 3px;
   }
 
+  /* ——— Meta row: badges + duration + action buttons ——— */
   .session-meta {
     grid-area: meta;
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 4px 6px;
     align-items: center;
     min-width: 0;
     overflow: visible;
   }
 
-  .session-meta .action-btns {
-    margin-left: auto;
-    opacity: 1;
+  /* Duration: inline with badges, no longer absolutely positioned */
+  .session-meta .duration-badge {
+    position: static;
+    order: 5;
+    min-width: auto;
+    justify-content: flex-start;
+    text-align: left;
+    font-size: 11px;
+    color: var(--text-muted);
   }
 
+  /* Action buttons at end of meta flex row */
+  .session-meta .action-btns {
+    order: 9;
+    margin-left: auto;
+    opacity: 1;
+    display: flex;
+    gap: 4px;
+  }
+
+  /* ——— Format text: full width, no right padding ——— */
   .session-format {
     grid-area: format;
     min-width: 0;
-    font-size: 14px;
-    line-height: 1.35;
-    padding-right: 72px;
+    font-size: 13px;
+    line-height: 1.45;
+    padding-right: 0;
+    color: var(--text);
+    word-break: break-word;
   }
 
-  .optional-tag {
-    display: inline-flex;
-    align-items: center;
-    white-space: nowrap;
-    min-width: 76px;
-    padding: 2px 7px;
-  }
-
-  .optional-tag--real {
-    min-width: 0;
-    max-width: min(56vw, 280px);
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
+  /* ——— Badges ——— */
   .session-date-badge,
   .session-meta .session-type-badge,
   .pe-badge,
@@ -540,28 +550,47 @@
   }
 
   .session-date-badge {
-    min-width: 86px;
+    min-width: 80px;
+    padding: 3px 7px;
   }
 
   .session-meta .session-type-badge {
-    min-width: 48px;
+    min-width: 40px;
+    padding: 3px 7px;
   }
 
   .pe-badge {
-    min-width: 58px;
+    min-width: 50px;
+    padding: 3px 7px;
   }
 
-  .session-date-badge,
-  .session-meta .session-type-badge,
-  .pe-badge {
+  /* Hide invisible placeholder slots on mobile — they serve alignment on desktop only */
+  .session-meta .session-meta-slot--empty {
+    display: none;
+  }
+
+  .optional-tag {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    min-width: 0;
     padding: 2px 7px;
   }
 
-  .duration-badge {
-    position: absolute;
-    right: 12px;
-    bottom: 10px;
-    margin-left: 0;
-    z-index: 1;
+  .optional-tag--real {
+    min-width: 0;
+    max-width: min(56vw, 280px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ——— Week card ——— */
+  .week-card {
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .week-header {
+    padding: 8px 12px;
   }
 }

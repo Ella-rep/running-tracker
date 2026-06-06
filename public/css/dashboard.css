@@ -1113,6 +1113,45 @@
   margin-top: 4px;
 }
 
+.chart-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: -10px 0 14px;
+}
+
+.projections-narrative {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  margin: 10px 0 2px;
+  padding: 6px 10px;
+  background: color-mix(in srgb, var(--z1) 8%, var(--bg-card));
+  border-left: 3px solid var(--z1);
+  border-radius: 4px;
+}
+
+.race-projection-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+  padding: 8px 12px;
+  margin: 6px 0 2px;
+  background: color-mix(in srgb, var(--accent2) 8%, var(--bg-card));
+  border: 1px solid color-mix(in srgb, var(--accent2) 25%, var(--border));
+  border-radius: 6px;
+}
+
+.race-projection-card[data-status="ahead"]   { border-color: color-mix(in srgb, var(--z1) 40%, var(--border)); }
+.race-projection-card[data-status="behind"]  { border-color: color-mix(in srgb, var(--z3) 40%, var(--border)); }
+
+.race-proj-name  { font-weight: 600; }
+.race-proj-days  { color: var(--text-muted); font-size: 0.82rem; }
+.race-proj-obj   { color: var(--text-muted); }
+.race-proj-projected { font-weight: 600; }
+.race-proj-status { color: var(--text-muted); font-size: 0.85rem; }
+
 .projections-history-chart-container {
   position: relative;
   height: 232px;
@@ -1238,6 +1277,7 @@
   font-size: 12px;
   font-weight: 500;
   line-height: 1.45;
+  white-space: pre-line;
   text-align: left;
   z-index: 10;
   opacity: 0;
@@ -1271,38 +1311,11 @@
   padding: 5px 10px;
 }
 
-.training-load-ratio {
-  font-size: 12px;
-  color: var(--text-muted);
-  font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-}
-
-.training-load-kpis {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.training-load-kpi {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 12px;
-}
-
-.training-load-kpi span {
-  display: block;
-  font-size: 10px;
-  color: var(--text-muted);
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  margin-bottom: 6px;
-}
-
-.training-load-kpi strong {
-  font-size: 20px;
-  line-height: 1;
+.training-load-human {
+  font-size: 13px;
+  color: var(--text);
+  margin: 8px 0 4px;
+  line-height: 1.45;
 }
 
 .training-load-reco {

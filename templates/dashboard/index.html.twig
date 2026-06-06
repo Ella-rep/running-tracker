@@ -76,14 +76,18 @@
       <template id="projection-empty-template">
         <div class="empty-hint">Pas encore assez de données.</div>
       </template>
-      <div id="projections-meta" class="meta-small"></div>
+      <div id="projections-narrative" class="projections-narrative" hidden></div>
+      <div id="race-projection" class="race-projection-card" hidden></div>
+      <div class="chart-title chart-title--sub">Évolution — basé sur les 5 dernières sorties du mois</div>
       <div id="projections-history-controls" class="projections-history-controls"></div>
       <div id="projections-history-legend" class="projections-history-legend"></div>
       <div id="projections-history-chart-container" class="projections-history-chart-container"></div>
-      <div id="projections-history-meta" class="meta-small"></div>
     </div>
     <div class="chart-wrap" id="ef-bpm-wrap" data-widget="ef_bpm">
       <div class="chart-title">Suivi BPM — Endurance Fondamentale</div>
+      <p class="chart-subtitle">
+        En endurance fondamentale (allure confortable), un BPM qui <strong>baisse</strong> avec le temps = tu deviens plus efficace à effort identique. Un BPM qui <strong>remonte</strong> = fatigue ou chaleur accumulée.
+      </p>
       <div id="ef-bpm-chart-container" class="ef-bpm-chart-container"></div>
     </div>
     <div class="chart-wrap" id="training-load-wrap" data-widget="training_load">
@@ -99,13 +103,8 @@
       </div>
       <div class="training-load-head">
         <span id="training-load-status" class="training-load-status">Initialisation</span>
-        <span id="training-load-ratio" class="training-load-ratio">Ratio —</span>
       </div>
-      <div class="training-load-kpis">
-        <div class="training-load-kpi"><span>7 jours</span><strong id="training-load-acute">—</strong></div>
-        <div class="training-load-kpi"><span>Base 28j/4</span><strong id="training-load-chronic">—</strong></div>
-        <div class="training-load-kpi"><span>Ecart</span><strong id="training-load-delta">—</strong></div>
-      </div>
+      <div id="training-load-human" class="training-load-human"></div>
       <div id="training-load-reco" class="training-load-reco"></div>
       <div id="training-load-chart" class="training-load-chart"></div>
     </div>
