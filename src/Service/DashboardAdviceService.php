@@ -32,7 +32,9 @@ final class DashboardAdviceService
         private RaceRepository $races,
         private DashboardPlannedAdviceService $plannedAdvice,
         private MeteoService $meteo,
+        private DashboardAdvancedMetricsService $advancedMetrics,
     ) {}
+
 
     /**
      * Resolves weather + training advice using deterministic priority rules.
@@ -51,7 +53,20 @@ final class DashboardAdviceService
             ?? $this->matchVolumeAdvice($ctx)
             ?? $this->buildDefaultAdvice($ctx['weekKm'], $ctx['weekCount']);
 
-        return [$weatherAdvice, $advice];
+        $result = [$weatherAdvice, $advice];
+
+        // Add coherence card only when a multi-signal situation is detected.
+        // The charge widget already handles solo-ratio feedback — avoid duplicating it.
+        $coherenceCard = $this->advancedMetrics->buildCoherenceHomeCard(
+            $ctx['logs'],
+            $ctx['nextRace'],
+            $ctx['nextRaceDays']
+        );
+        if ($coherenceCard !== null) {
+            $result[] = $coherenceCard;
+        }
+
+        return $result;
     }
 
     /**

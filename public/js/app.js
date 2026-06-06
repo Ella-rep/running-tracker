@@ -3576,6 +3576,45 @@ function renderProjections() {
     return card;
   });
   gridEl.replaceChildren(...cards);
+
+  // — Narrative (progression sur la période) —
+  const narrativeEl = document.getElementById('projections-narrative');
+  const narrative = metrics.projectionsNarrative;
+  if (narrativeEl) {
+    if (narrative && narrative.text) {
+      const icon = narrative.improving ? '📈' : '📉';
+      narrativeEl.textContent = `${icon} ${narrative.text}`;
+      narrativeEl.removeAttribute('hidden');
+    } else {
+      narrativeEl.setAttribute('hidden', '');
+    }
+  }
+
+  // — Projection course (prochaine course vs temps projeté) —
+  const raceProjectionEl = document.getElementById('race-projection');
+  const raceProj = metrics.raceProjection;
+  if (raceProjectionEl) {
+    if (raceProj && raceProj.projected) {
+      const statusIcon = { ahead: '✅', on_track: '✅', behind: '⚠️' }[raceProj.status] || '';
+      const objLine = raceProj.objective
+        ? `<span class="race-proj-obj">Objectif : <strong>${raceProj.objective}</strong></span>`
+        : '';
+      const daysLine = raceProj.daysTo != null
+        ? `<span class="race-proj-days">dans ${raceProj.daysTo} jour${raceProj.daysTo > 1 ? 's' : ''}</span>`
+        : '';
+      raceProjectionEl.innerHTML =
+        `<span class="race-proj-icon">🏁</span>` +
+        `<span class="race-proj-name">${raceProj.raceName}</span> ${daysLine}` +
+        ` · ${objLine}` +
+        ` <span class="race-proj-projected">Projeté : <strong>${raceProj.projected}</strong></span>` +
+        ` <span class="race-proj-status">${statusIcon} ${raceProj.statusText}</span>`;
+      raceProjectionEl.dataset.status = raceProj.status;
+      raceProjectionEl.removeAttribute('hidden');
+    } else {
+      raceProjectionEl.setAttribute('hidden', '');
+    }
+  }
+
   renderProjectionMetaInfo(
     document.getElementById('projections-meta'),
     'Modele projection',
