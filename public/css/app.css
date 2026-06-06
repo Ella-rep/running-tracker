@@ -293,6 +293,14 @@
     gap: 8px;
   }
 
+  .chart-title--sub {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-top: 24px;
+    margin-bottom: 10px;
+  }
+
   .chart-title::before {
     content: '';
     display: inline-block;

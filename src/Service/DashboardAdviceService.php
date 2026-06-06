@@ -47,7 +47,13 @@ final class DashboardAdviceService
         $weatherAdvice = $this->meteo->buildDailyAdvice(city: $city);
 
         // Priority order keeps advice stable: plan constraints first, then races, then recent activity.
-        $advice = $this->matchPlannedAdvice($ctx)
+        // Race advice takes priority over planned advice when race is ≤ 6 days away,
+        // to avoid "séance intense demain" when tomorrow is actually race day.
+        $nextRaceDays = $ctx['nextRaceDays'];
+        $raceIsClose = $nextRaceDays !== null && $nextRaceDays <= 6;
+
+        $advice = ($raceIsClose ? $this->matchRaceAdvice($ctx) : null)
+            ?? $this->matchPlannedAdvice($ctx)
             ?? $this->matchRaceAdvice($ctx)
             ?? $this->matchRecentRunAdvice($ctx)
             ?? $this->matchVolumeAdvice($ctx)
@@ -55,15 +61,25 @@ final class DashboardAdviceService
 
         $result = [$weatherAdvice, $advice];
 
-        // Add coherence card only when a multi-signal situation is detected.
-        // The charge widget already handles solo-ratio feedback — avoid duplicating it.
-        $coherenceCard = $this->advancedMetrics->buildCoherenceHomeCard(
-            $ctx['logs'],
-            $ctx['nextRace'],
-            $ctx['nextRaceDays']
-        );
-        if ($coherenceCard !== null) {
-            $result[] = $coherenceCard;
+        // Add coherence card only when a multi-signal situation is detected
+        // AND the main advice card doesn't already address the race/tapering topic
+        // (avoids duplicating "Course demain" + "Tapering en cours" simultaneously).
+        $raceCardActive = $raceIsClose && $advice !== null && in_array($advice['badge'] ?? '', [
+            $ctx['nextRace']?->getName() . ' · Demain',
+            $ctx['nextRace']?->getName() . ' · Dans 2 jours',
+            $ctx['nextRace']?->getName(),
+            'Jour de course',
+        ], true);
+
+        if (!$raceCardActive) {
+            $coherenceCard = $this->advancedMetrics->buildCoherenceHomeCard(
+                $ctx['logs'],
+                $ctx['nextRace'],
+                $ctx['nextRaceDays']
+            );
+            if ($coherenceCard !== null) {
+                $result[] = $coherenceCard;
+            }
         }
 
         return $result;
