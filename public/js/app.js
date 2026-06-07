@@ -2102,6 +2102,8 @@ function normalizeRace(r) {
     distance:  r.distance,
     objective: r.objective,
     result:    r.result,
+    dnfStatus:  r.dnfStatus ?? null,
+    dnfComment: r.dnfComment ?? null,
     statusClass: r.statusClass,
     statusLabel: r.statusLabel,
     resultDelta: r.resultDelta,
@@ -5843,7 +5845,19 @@ function buildRaceRow(r) {
   if (dateEl) dateEl.textContent = formatDate(r.date);
   if (distEl) distEl.textContent = r.distance || '—';
   if (objEl) objEl.textContent = r.objective || '—';
-  if (realEl) realEl.textContent = r.result || '—';
+  if (realEl) {
+    if (r.dnfStatus === 'dns' || r.dnfStatus === 'dnf') {
+      const span = document.createElement('span');
+      span.className = 'dnf-label';
+      span.textContent = r.dnfStatus.toUpperCase();
+      if (r.dnfComment) {
+        span.title = r.dnfComment;
+      }
+      realEl.replaceChildren(span);
+    } else {
+      realEl.textContent = r.result || '—';
+    }
+  }
   if (diffEl) {
     if (diff === '—') {
       diffEl.textContent = diff;
@@ -5855,7 +5869,7 @@ function buildRaceRow(r) {
     }
   }
   if (resultBtn) {
-    const hasResult = Boolean(String(r.result || '').trim());
+    const hasResult = Boolean(String(r.result || '').trim()) || r.dnfStatus === 'dns' || r.dnfStatus === 'dnf';
     resultBtn.title = hasResult ? 'Modifier résultat' : 'Saisir résultat';
     resultBtn.setAttribute('aria-label', resultBtn.title);
     resultBtn.classList.toggle('has-value', hasResult);
@@ -5943,13 +5957,36 @@ function openRaceResult(id) {
   if (!r) return;
   const idxEl = document.getElementById('rr-idx');
   const resultEl = document.getElementById('rr-real');
+  const statusEl = document.getElementById('rr-status');
+  const commentEl = document.getElementById('rr-comment');
+  const commentWrap = document.getElementById('rr-comment-wrap');
+  const resultWrap = document.getElementById('rr-result-wrap');
   if (!(idxEl instanceof HTMLInputElement) || !(resultEl instanceof HTMLInputElement)) {
     notify('⚠ Saisie resultat indisponible pour le moment');
     return;
   }
   idxEl.value = id;
   resultEl.value = r.result || '';
+
+  if (statusEl instanceof HTMLSelectElement) {
+    statusEl.value = r.dnfStatus || '';
+    // Trigger visibility update
+    updateRaceResultModalVisibility();
+  }
+  if (commentEl instanceof HTMLInputElement) {
+    commentEl.value = r.dnfComment || '';
+  }
   openModal('race-result-modal');
+}
+
+function updateRaceResultModalVisibility() {
+  const statusEl = document.getElementById('rr-status');
+  const resultWrap = document.getElementById('rr-result-wrap');
+  const commentWrap = document.getElementById('rr-comment-wrap');
+  if (!(statusEl instanceof HTMLSelectElement)) return;
+  const isDnx = statusEl.value === 'dns' || statusEl.value === 'dnf';
+  if (resultWrap) resultWrap.style.display = isDnx ? 'none' : '';
+  if (commentWrap) commentWrap.style.display = isDnx ? '' : 'none';
 }
 
 async function saveRaceResult() {
@@ -5960,6 +5997,12 @@ async function saveRaceResult() {
     return;
   }
 
+  const statusEl = document.getElementById('rr-status');
+  const commentEl = document.getElementById('rr-comment');
+  const dnfStatus = statusEl instanceof HTMLSelectElement ? statusEl.value : '';
+  const dnfComment = commentEl instanceof HTMLInputElement ? commentEl.value.trim() : '';
+  const isDnx = dnfStatus === 'dns' || dnfStatus === 'dnf';
+
   try {
     const updated = await apiFetch(`/races/${id}`, {
       method: 'PUT',
@@ -5968,7 +6011,9 @@ async function saveRaceResult() {
         date: current.date || '',
         distance: current.distance || null,
         objective: current.objective || null,
-        result: document.getElementById('rr-real').value.trim() || null,
+        result: isDnx ? null : (document.getElementById('rr-real').value.trim() || null),
+        dnfStatus: isDnx ? dnfStatus : null,
+        dnfComment: isDnx ? (dnfComment || null) : null,
       }),
     });
     const idx = racesData.findIndex((r) => r.id === id);
@@ -6007,7 +6052,7 @@ function ensureRaceModals() {
         <div class="form-grid">
           <div class="field"><label for="rm-name">Nom</label><input id="rm-name" type="text"></div>
           <div class="field"><label for="rm-date">Date</label><input id="rm-date" type="date"></div>
-          <div class="field"><label for="rm-dist">Distance</label><input id="rm-dist" type="text"></div>
+          <div class="field"><label for="rm-dist">Distance (km)</label><input id="rm-dist" type="text"></div>
           <div class="field"><label for="rm-obj">Objectif (hh:mm:ss)</label><input id="rm-obj" type="text"></div>
         </div>
         <div class="modal-actions">
@@ -6026,11 +6071,26 @@ function ensureRaceModals() {
     raceResultModal.className = 'modal-overlay';
     raceResultModal.innerHTML = `
       <div class="modal">
-        <button class="modal-close" onclick="closeModal('race-result-modal')">x</button>
-        <div class="modal-title">Saisir le resultat</div>
+        <button class="modal-close" onclick="closeModal('race-result-modal')">×</button>
+        <div class="modal-title">Saisir le résultat</div>
         <input type="hidden" id="rr-idx">
         <div class="form-grid">
-          <div class="field"><label for="rr-real">Resultat (hh:mm:ss)</label><input id="rr-real" type="text" placeholder="00:53:22"></div>
+          <div class="field">
+            <label for="rr-status">Statut</label>
+            <select id="rr-status" onchange="updateRaceResultModalVisibility()">
+              <option value="">✓ Terminée</option>
+              <option value="dns">DNS — Did Not Start</option>
+              <option value="dnf">DNF — Did Not Finish</option>
+            </select>
+          </div>
+          <div class="field" id="rr-result-wrap">
+            <label for="rr-real">Temps (hh:mm:ss)</label>
+            <input id="rr-real" type="text" placeholder="00:53:22">
+          </div>
+          <div class="field" id="rr-comment-wrap" style="display:none">
+            <label for="rr-comment">Commentaire (optionnel)</label>
+            <input id="rr-comment" type="text" placeholder="ex: chute au km 3">
+          </div>
         </div>
         <div class="modal-actions">
           <button class="btn" onclick="saveRaceResult()">Enregistrer</button>
@@ -6165,15 +6225,12 @@ async function initApp() {
   if (raceDateEl) raceDateEl.value = today;
 
   // Setup date input handlers for FR format (jj/mm/yyyy) conversion
+  // NOTE: Do NOT call showPicker() on click — the browser already opens the native
+  // date picker when the calendar icon is clicked. Adding showPicker() causes a
+  // double-open flicker on Chrome/Edge (picker opens twice in quick succession).
   ['log-date', 'r-date', 'lm-date', 'rm-date', 'pm-date'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
-      const tryOpenPicker = () => {
-        if (typeof el.showPicker === 'function') {
-          try { el.showPicker(); } catch {}
-        }
-      };
-      el.addEventListener('click', tryOpenPicker);
       el.addEventListener('change', (e) => {
         const val = e.target.value;
         if (val && !val.includes('-')) {

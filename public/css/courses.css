@@ -1,5 +1,49 @@
 /* Courses page specific styles */
 
+/* ---- Mobile responsive table ---- */
+@media (max-width: 768px) {
+  #courses .table-wrap {
+    overflow: auto;           /* override app.css overflow:hidden so horizontal scroll works */
+    -webkit-overflow-scrolling: touch;
+    border-radius: 10px;
+  }
+
+  #courses .table-wrap table {
+    min-width: 540px;
+  }
+
+  /* Hide less-critical columns on small screens */
+  #courses .table-wrap .races-diff {
+    display: none;
+  }
+
+  #courses .table-wrap th:nth-child(7) {
+    display: none;
+  }
+
+  /* Compact action buttons */
+  #courses .action-btns {
+    opacity: 1;
+    flex-wrap: nowrap;
+  }
+
+  #courses .form-card .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  /* On very small screens also hide objective */
+  #courses .table-wrap .races-obj {
+    display: none;
+  }
+
+  #courses .table-wrap th:nth-child(5) {
+    display: none;
+  }
+}
+/* ---- end mobile responsive ---- */
+
 .metric-gap { color: var(--accent2); }
 .metric-dplus { color: var(--z3); }
 .diff-good { color: var(--z1); }
@@ -35,4 +79,18 @@
 	background: color-mix(in srgb, var(--z5) 18%, var(--surface2));
 	color: color-mix(in srgb, var(--z5) 88%, var(--text));
 	border: 1px solid color-mix(in srgb, var(--z5) 56%, var(--border));
+}
+
+#courses .races-status .badge.badge-dns,
+#courses .races-status .badge.badge-dnf {
+	background: color-mix(in srgb, var(--accent3) 16%, var(--surface2));
+	color: color-mix(in srgb, var(--accent3) 80%, var(--text));
+	border: 1px solid color-mix(in srgb, var(--accent3) 45%, var(--border));
+}
+
+.dnf-label {
+	font-weight: 700;
+	color: var(--accent3);
+	letter-spacing: 0.5px;
+	cursor: help;
 }

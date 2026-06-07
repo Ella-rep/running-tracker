@@ -40,6 +40,8 @@ class Race
     private const STATUS_DONE_CLASS = 'badge-done';
     private const STATUS_NEXT_CLASS = 'badge-next';
     private const STATUS_FUTURE_CLASS = 'badge-future';
+    private const STATUS_DNS_CLASS = 'badge-dns';
+    private const STATUS_DNF_CLASS = 'badge-dnf';
 
     #[ORM\Id, ORM\GeneratedValue, ORM\Column]
     #[Groups(['race:read'])]
@@ -71,6 +73,15 @@ class Race
     #[ORM\Column(length: 12, nullable: true)]
     #[Groups(['race:read', 'race:write'])]
     private ?string $result = null;
+
+    /** Values: null (normal), 'dns' (Did Not Start), 'dnf' (Did Not Finish) */
+    #[ORM\Column(length: 3, nullable: true)]
+    #[Groups(['race:read', 'race:write'])]
+    private ?string $dnfStatus = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Groups(['race:read', 'race:write'])]
+    private ?string $dnfComment = null;
 
     #[ORM\Column]
     #[Groups(['race:read'])]
@@ -147,6 +158,30 @@ class Race
     public function setResult(?string $r): static { $this->result = $r; return $this; }
 
     /**
+     * Returns DNS/DNF status (null = normal, 'dns', 'dnf').
+     */
+    public function getDnfStatus(): ?string { return $this->dnfStatus; }
+
+    /**
+     * Sets DNS/DNF status.
+     */
+    public function setDnfStatus(?string $s): static
+    {
+        $this->dnfStatus = in_array($s, ['dns', 'dnf'], true) ? $s : null;
+        return $this;
+    }
+
+    /**
+     * Returns optional DNS/DNF comment.
+     */
+    public function getDnfComment(): ?string { return $this->dnfComment; }
+
+    /**
+     * Sets optional DNS/DNF comment.
+     */
+    public function setDnfComment(?string $c): static { $this->dnfComment = $c; return $this; }
+
+    /**
      * Returns entity creation timestamp.
      */
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
@@ -157,6 +192,14 @@ class Race
     #[Groups(['race:read'])]
     public function getStatusClass(): string
     {
+        if ($this->dnfStatus === 'dns') {
+            return self::STATUS_DNS_CLASS;
+        }
+
+        if ($this->dnfStatus === 'dnf') {
+            return self::STATUS_DNF_CLASS;
+        }
+
         if ($this->hasResult()) {
             return self::STATUS_DONE_CLASS;
         }
@@ -175,6 +218,14 @@ class Race
     #[Groups(['race:read'])]
     public function getStatusLabel(): string
     {
+        if ($this->dnfStatus === 'dns') {
+            return 'DNS';
+        }
+
+        if ($this->dnfStatus === 'dnf') {
+            return 'DNF';
+        }
+
         $label = 'A venir';
 
         if ($this->hasResult()) {
@@ -219,7 +270,9 @@ class Race
 
     private function hasResult(): bool
     {
-        return trim((string) $this->result) !== '';
+        return trim((string) $this->result) !== ''
+            || $this->dnfStatus === 'dns'
+            || $this->dnfStatus === 'dnf';
     }
 
     private function daysToRace(): ?int
