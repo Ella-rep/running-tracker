@@ -1,32 +1,82 @@
 /* Courses page specific styles */
 
-/* ---- Mobile responsive table ---- */
-/* Toutes les colonnes restent visibles — scroll horizontal sur petit écran */
-#courses .table-wrap {
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-#courses .table-wrap table {
-  min-width: 700px;
-}
-
+/* ---- Mobile responsive: card layout (≤768px) ---- */
 @media (max-width: 768px) {
-  #courses .table-wrap {
-    border-radius: 10px;
-  }
-
-  /* Action buttons toujours visibles (pas de hover needed sur touch) */
-  #courses .action-btns {
-    opacity: 1;
-    flex-wrap: nowrap;
-  }
-
+  /* Form en colonne */
   #courses .form-card .form-grid {
     grid-template-columns: 1fr;
   }
+
+  /* Table → cards */
+  #courses .table-wrap {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+    margin-bottom: 0;
+  }
+
+  #courses .table-wrap thead {
+    display: none;
+  }
+
+  #courses .table-wrap tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  #courses .table-wrap tr {
+    display: grid;
+    gap: 8px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface2);
+    padding: 12px 14px;
+  }
+
+  /* Chaque cellule = grille label | valeur */
+  #courses .table-wrap td {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    gap: 8px;
+    align-items: baseline;
+    border: 0;
+    padding: 0;
+  }
+
+  #courses .table-wrap td::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding-top: 2px;
+  }
+
+  /* Status badge : pleine largeur, sans label */
+  #courses .table-wrap td[data-label=""] {
+    grid-template-columns: 1fr;
+  }
+
+  #courses .table-wrap td[data-label=""]::before {
+    display: none;
+  }
+
+  /* Colonne actions : séparée en bas */
+  #courses .table-wrap td.races-actions {
+    margin-top: 4px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  #courses .action-btns {
+    opacity: 1;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
 }
-/* ---- end mobile responsive ---- */
+/* ---- end mobile card layout ---- */
 
 .metric-gap { color: var(--accent2); }
 .metric-dplus { color: var(--z3); }

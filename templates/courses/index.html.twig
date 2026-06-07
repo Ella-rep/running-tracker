@@ -4,7 +4,7 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
-<link rel="stylesheet" href="{{ asset('css/courses.css') }}?v=20260607-dnf-mobile2">
+<link rel="stylesheet" href="{{ asset('css/courses.css') }}?v=20260607-dnf-mobile3">
 {% endblock %}
 
 {% block body %}
@@ -38,14 +38,14 @@
         <tbody id="races-tbody">
           {% for r in racesView|default([]) %}
             <tr>
-              <td class="races-status"><span class="badge {{ r.statusClass }}">{{ r.statusLabel }}</span></td>
-              <td><strong class="races-name">{{ r.name }}</strong></td>
-              <td class="mono races-date">{{ r.date|date('d M Y') }}</td>
-              <td class="races-dist">{{ r.distance ?: '—' }}</td>
-              <td class="mono races-obj">{{ r.objective ?: '—' }}</td>
-              <td class="mono races-real">{{ r.result ?: '—' }}</td>
-              <td class="mono races-diff">{{ r.resultDelta }}</td>
-              <td>
+              <td class="races-status" data-label=""><span class="badge {{ r.statusClass }}">{{ r.statusLabel }}</span></td>
+              <td data-label="Course"><strong class="races-name">{{ r.name }}</strong></td>
+              <td class="mono races-date" data-label="Date">{{ r.date|date('d M Y') }}</td>
+              <td class="races-dist" data-label="Distance">{{ r.distance ?: '—' }}</td>
+              <td class="mono races-obj" data-label="Objectif">{{ r.objective ?: '—' }}</td>
+              <td class="mono races-real" data-label="Résultat">{{ r.result ?: '—' }}</td>
+              <td class="mono races-diff" data-label="Écart">{{ r.resultDelta }}</td>
+              <td class="races-actions" data-label="">
                 <div class="action-btns" style="opacity:1; display:flex; gap:6px; justify-content:flex-end;">
                   <details>
                     <summary class="action-btn action-btn-text" style="cursor:pointer; list-style:none;">Modifier</summary>
@@ -79,14 +79,14 @@
       </table>
       <template id="races-row-template">
         <tr>
-          <td class="races-status"></td>
-          <td><strong class="races-name"></strong></td>
-          <td class="mono races-date"></td>
-          <td class="races-dist"></td>
-          <td class="mono races-obj"></td>
-          <td class="mono races-real"></td>
-          <td class="mono races-diff"></td>
-          <td>
+          <td class="races-status" data-label=""></td>
+          <td data-label="Course"><strong class="races-name"></strong></td>
+          <td class="mono races-date" data-label="Date"></td>
+          <td class="races-dist" data-label="Distance"></td>
+          <td class="mono races-obj" data-label="Objectif"></td>
+          <td class="mono races-real" data-label="Résultat"></td>
+          <td class="mono races-diff" data-label="Écart"></td>
+          <td class="races-actions" data-label="">
             <div class="action-btns">
               <button class="action-btn action-btn-text races-result" title="Saisir résultat">Résultat</button>
               <button class="action-btn action-btn-text races-edit" title="Modifier la course">Modifier</button>

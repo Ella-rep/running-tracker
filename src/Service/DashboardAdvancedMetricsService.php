@@ -146,7 +146,7 @@ final class DashboardAdvancedMetricsService
 
     /**
      * @param array<int, RunLog> $logs
-     * @return array{hasData:bool,statusKey:string,statusLabel:string,statusColor:string,acute:float,chronic:float,ratio:float|null,deltaPct:int,recommendation:string,weekly:array<int,array{label:string,load:float}>}
+     * @return array{hasData:bool,statusKey:string,statusLabel:string,statusColor:string,acute:float,chronic:float,ratio:float|null,deltaPct:int,recommendation:string,monthly:array<int,array{label:string,load:float}>}
      */
     public function buildTrainingLoad(array $logs): array
     {
@@ -157,7 +157,7 @@ final class DashboardAdvancedMetricsService
                 'hasData' => false, 'statusKey' => 'none', 'statusLabel' => 'Pas de données',
                 'statusColor' => self::COLOR_TEXT_MUTED, 'acute' => 0.0, 'chronic' => 0.0,
                 'ratio' => null, 'deltaPct' => 0,
-                'recommendation' => 'Ajoute quelques sorties pour activer le suivi de charge.', 'weekly' => [],
+                'recommendation' => 'Ajoute quelques sorties pour activer le suivi de charge.', 'monthly' => [],
             ];
         }
 
@@ -169,14 +169,14 @@ final class DashboardAdvancedMetricsService
         $ratio = ($chronic > 0 && $chronicTotal > $acute) ? round($acute / $chronic, 2) : null;
         $deltaPct = $chronic > 0 ? (int) round((($acute - $chronic) / $chronic) * 100) : 0;
         $status = $this->resolveTrainingLoadStatus($ratio, $logs);
-        $weekly = $this->buildWeeklyLoadTrend($dailyLoads, $today);
+        $monthly = $this->buildMonthlyLoadTrend($dailyLoads, $today);
 
         return [
             'hasData' => true,
             'statusKey' => $status['key'], 'statusLabel' => $status['label'], 'statusColor' => $status['color'],
             'acute' => round($acute, 1), 'chronic' => round($chronic, 1),
             'ratio' => $ratio, 'deltaPct' => $deltaPct,
-            'recommendation' => $status['recommendation'], 'weekly' => $weekly,
+            'recommendation' => $status['recommendation'], 'monthly' => $monthly,
         ];
     }
 
@@ -528,21 +528,22 @@ final class DashboardAdvancedMetricsService
     }
 
     /** @param array<string,float> $dailyLoads @return array<int,array{label:string,load:float}> */
-    private function buildWeeklyLoadTrend(array $dailyLoads, \DateTimeImmutable $today): array
+    private function buildMonthlyLoadTrend(array $dailyLoads, \DateTimeImmutable $today): array
     {
-        $monday = $today->modify('monday this week');
-        $weekly = [];
-        for ($offset = 7; $offset >= 0; $offset--) {
-            $start = $monday->modify(sprintf('-%d week', $offset));
-            $end = $start->modify('+6 day');
+        $monthlyNames = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec'];
+        $monthly = [];
+        for ($offset = 5; $offset >= 0; $offset--) {
+            $monthStart = $today->modify(sprintf('first day of -%d month', $offset))->setTime(0, 0, 0);
+            $monthEnd = $monthStart->modify('last day of this month')->setTime(23, 59, 59);
             $sum = 0.0;
             foreach ($dailyLoads as $date => $load) {
                 $day = $this->parseDay($date);
-                if ($day !== null && $day >= $start && $day <= $end) $sum += $load;
+                if ($day !== null && $day >= $monthStart && $day <= $monthEnd) $sum += $load;
             }
-            $weekly[] = ['label' => $start->format('d/m'), 'load' => round($sum, 1)];
+            $monthIndex = (int) $monthStart->format('n') - 1;
+            $monthly[] = ['label' => $monthlyNames[$monthIndex], 'load' => round($sum, 1)];
         }
-        return $weekly;
+        return $monthly;
     }
 
     /** @param array<int,array{ok:bool,title:string,msg:string,details?:array<int,string>}> $alerts */
