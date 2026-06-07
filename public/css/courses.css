@@ -1,27 +1,22 @@
 /* Courses page specific styles */
 
 /* ---- Mobile responsive table ---- */
+/* Toutes les colonnes restent visibles — scroll horizontal sur petit écran */
+#courses .table-wrap {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#courses .table-wrap table {
+  min-width: 700px;
+}
+
 @media (max-width: 768px) {
   #courses .table-wrap {
-    overflow: auto;           /* override app.css overflow:hidden so horizontal scroll works */
-    -webkit-overflow-scrolling: touch;
     border-radius: 10px;
   }
 
-  #courses .table-wrap table {
-    min-width: 540px;
-  }
-
-  /* Hide less-critical columns on small screens */
-  #courses .table-wrap .races-diff {
-    display: none;
-  }
-
-  #courses .table-wrap th:nth-child(7) {
-    display: none;
-  }
-
-  /* Compact action buttons */
+  /* Action buttons toujours visibles (pas de hover needed sur touch) */
   #courses .action-btns {
     opacity: 1;
     flex-wrap: nowrap;
@@ -29,17 +24,6 @@
 
   #courses .form-card .form-grid {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 480px) {
-  /* On very small screens also hide objective */
-  #courses .table-wrap .races-obj {
-    display: none;
-  }
-
-  #courses .table-wrap th:nth-child(5) {
-    display: none;
   }
 }
 /* ---- end mobile responsive ---- */
