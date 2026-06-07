@@ -1578,14 +1578,14 @@ function renderDashboardAdvice(metrics = {}) {
     const title = titleByKey[load.statusKey] || 'Charge modérée';
 
     const comparisonByKey = {
-      under: 'Charge en baisse cette semaine.',
-      under_watch: 'Charge légèrement en baisse cette semaine.',
-      balanced: 'Semaine bien équilibrée.',
-      watch: 'Charge en hausse cette semaine.',
-      high: 'Semaine très chargée.',
+      under: 'Charge en baisse ce mois.',
+      under_watch: 'Charge légèrement en baisse ce mois.',
+      balanced: 'Mois bien équilibré.',
+      watch: 'Charge en hausse ce mois.',
+      high: 'Mois très chargé.',
       initial: 'Charge en cours de stabilisation.',
     };
-    let comparisonText = comparisonByKey[load.statusKey] || 'Charge stable cette semaine.';
+    let comparisonText = comparisonByKey[load.statusKey] || 'Charge stable ce mois.';
 
     if (load.statusKey === 'watch') {
       comparisonText += ' Garde une sortie très facile et privilégie une bonne nuit de sommeil.';
@@ -2102,6 +2102,8 @@ function normalizeRace(r) {
     distance:  r.distance,
     objective: r.objective,
     result:    r.result,
+    dnfStatus:  r.dnfStatus ?? null,
+    dnfComment: r.dnfComment ?? null,
     statusClass: r.statusClass,
     statusLabel: r.statusLabel,
     resultDelta: r.resultDelta,
@@ -3074,22 +3076,22 @@ function renderTrainingLoad() {
     if (load.ratio === null) {
       humanText = 'Pas encore assez de données pour établir ta base de référence.';
     } else if (absDelta <= 10) {
-      humanText = 'Tu es dans ta moyenne habituelle cette semaine. ✅';
+      humanText = 'Tu es dans ta moyenne habituelle ce mois. ✅';
     } else if (delta < -10 && delta >= -20) {
-      humanText = `Tu cours un peu moins que d'habitude cette semaine (−${absDelta}%).`;
+      humanText = `Tu cours un peu moins que d'habitude ce mois (−${absDelta}%).`;
     } else if (delta < -20) {
-      humanText = `Tu cours nettement moins que d'habitude cette semaine (−${absDelta}%).`;
+      humanText = `Tu cours nettement moins que d'habitude ce mois (−${absDelta}%).`;
     } else if (delta > 10 && delta <= 20) {
-      humanText = `Tu cours un peu plus que d'habitude cette semaine (+${absDelta}%).`;
+      humanText = `Tu cours un peu plus que d'habitude ce mois (+${absDelta}%).`;
     } else {
-      humanText = `Tu cours nettement plus que d'habitude cette semaine (+${absDelta}%).`;
+      humanText = `Tu cours nettement plus que d'habitude ce mois (+${absDelta}%).`;
     }
     humanEl.textContent = humanText;
   }
 
   if (recoEl) recoEl.textContent = load.recommendation || '';
 
-  renderTrainingLoadChart(Array.isArray(load.weekly) ? load.weekly : []);
+  renderTrainingLoadChart(Array.isArray(load.monthly) ? load.monthly : []);
 }
 
 function setTrainingLoadStatusChip(statusEl, load) {
@@ -3416,8 +3418,8 @@ function renderEfBpmChart() {
   if (wrap) wrap.style.display = '';
 
   const W = container.clientWidth || 600;
-  const H = 160;
-  const PAD = { top: 16, right: 32, bottom: 36, left: 42 };
+  const H = 170;
+  const PAD = { top: 16, right: 32, bottom: 46, left: 42 };
   const cW = W - PAD.left - PAD.right;
   const cH = H - PAD.top - PAD.bottom;
   const n = trend.length;
@@ -3448,25 +3450,27 @@ function renderEfBpmChart() {
     }, String(bVal)));
   });
 
-  // X labels: monthly labels, reduce density only on very narrow screens.
-  // Anchor: start for first, end for last, middle for others — avoids overflow.
-  const labelStep = W < 420 && n > 5 ? 2 : 1;
+  // X labels: rotated -35° to prevent overlap on mobile
+  const labelStep = W < 380 && n > 6 ? 2 : 1;
   const drawnIndices = new Set();
   for (let i = 0; i < n; i += labelStep) {
     drawnIndices.add(i);
     const x = xSc(i);
-    const anchor = i === 0 ? 'start' : (i === n - 1 ? 'end' : 'middle');
+    const labelY = H - 6;
     svg.appendChild(createSvgEl('text', {
-      x: x.toFixed(1), y: H - 4,
-      'text-anchor': anchor, fill: 'var(--text-muted)', 'font-size': 8, 'font-family': 'monospace',
+      x: x.toFixed(1), y: labelY.toFixed(1),
+      'text-anchor': 'end', fill: 'var(--text-muted)', 'font-size': 8, 'font-family': 'monospace',
+      transform: `rotate(-35, ${x.toFixed(1)}, ${labelY.toFixed(1)})`,
     }, String(trend[i].label || '—')));
   }
   // Always draw the last label if not already drawn
   if (!drawnIndices.has(n - 1)) {
     const x = xSc(n - 1);
+    const labelY = H - 6;
     svg.appendChild(createSvgEl('text', {
-      x: x.toFixed(1), y: H - 4,
+      x: x.toFixed(1), y: labelY.toFixed(1),
       'text-anchor': 'end', fill: 'var(--text-muted)', 'font-size': 8, 'font-family': 'monospace',
+      transform: `rotate(-35, ${x.toFixed(1)}, ${labelY.toFixed(1)})`,
     }, String(trend[n - 1].label || '—')));
   }
 
@@ -3867,51 +3871,43 @@ function formatProjectionBarLabel(secondsRaw) {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
-function renderProjectionHistoryBars(svg, visibleSeries, monthCount, geometry, minY, yRange, cH) {
-  const {
-    padTop,
-    padLeft,
-    groupWidth,
-    groupInnerPad,
-    barGap,
-    barWidth,
-  } = geometry;
-
+function renderProjectionHistoryLines(svg, visibleSeries, monthCount, padTop, padLeft, groupWidth, minY, yRange, cH) {
   const ySc = (seconds) => padTop + (1 - ((seconds - minY) / yRange)) * cH;
+  const xSc = (i) => padLeft + (i + 0.5) * groupWidth;
 
-  visibleSeries.forEach((line, seriesIndex) => {
+  visibleSeries.forEach((line) => {
     const color = typeof line?.color === 'string' && line.color.trim() !== '' ? line.color.trim() : 'var(--accent2)';
     const values = Array.isArray(line?.values) ? line.values : [];
-    values.forEach((v, i) => {
+
+    const pts = values.reduce((acc, v, i) => {
+      if (i >= monthCount) return acc;
       const sec = Number(v);
-      if (!Number.isFinite(sec) || sec <= 0 || i >= monthCount) return;
+      if (!Number.isFinite(sec) || sec <= 0) return acc;
+      acc.push({ x: xSc(i), y: ySc(sec), sec });
+      return acc;
+    }, []);
 
-      const h = Math.max(4, cH - (ySc(sec) - padTop));
-      const x = padLeft + (i * groupWidth) + groupInnerPad + (seriesIndex * (barWidth + barGap));
-      const y = padTop + cH - h;
-      const rounded = Math.min(4, h / 2);
+    if (pts.length < 1) return;
 
-      svg.appendChild(createSvgEl('rect', {
-        x: x.toFixed(1),
-        y: y.toFixed(1),
-        width: barWidth.toFixed(1),
-        height: h.toFixed(1),
-        rx: rounded.toFixed(1),
-        ry: rounded.toFixed(1),
-        fill: color,
+    if (pts.length > 1) {
+      svg.appendChild(createSvgEl('polyline', {
+        points: pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '),
+        fill: 'none', stroke: color, 'stroke-width': 2.2,
+        'stroke-opacity': 0.9, 'stroke-linejoin': 'round', 'stroke-linecap': 'round',
       }));
+    }
 
-      const valueLabel = formatProjectionBarLabel(sec);
-      const textY = Math.max(padTop + 10, y - 4);
+    pts.forEach((p) => {
+      svg.appendChild(createSvgEl('circle', {
+        cx: p.x.toFixed(1), cy: p.y.toFixed(1),
+        r: 4, fill: color, stroke: 'var(--surface)', 'stroke-width': 1.5,
+      }));
+      const labelY = Math.max(padTop + 10, p.y - 8);
       svg.appendChild(createSvgEl('text', {
-        x: (x + (barWidth / 2)).toFixed(1),
-        y: textY.toFixed(1),
-        'text-anchor': 'middle',
-        fill: 'var(--text)',
-        'font-size': 10,
-        'font-weight': 700,
-        'font-family': 'monospace',
-      }, valueLabel));
+        x: p.x.toFixed(1), y: labelY.toFixed(1),
+        'text-anchor': 'middle', fill: 'var(--text)',
+        'font-size': 9, 'font-weight': 700, 'font-family': 'monospace',
+      }, formatProjectionBarLabel(p.sec)));
     });
   });
 }
@@ -3949,11 +3945,11 @@ function renderProjectionsHistoryChart(history) {
   renderProjectionHistoryControls(controlsEl, seriesOptions, selectedDistance, history);
   renderProjectionHistoryLegend(legendEl, visibleSeries);
 
-  const H = 232;
-  const PAD = { top: 18, right: 14, bottom: 44, left: 54 };
-  const minWidthPerMonth = selectedDistance === 'all' ? 136 : 104;
+  const H = 200;
+  const PAD = { top: 22, right: 20, bottom: 36, left: 54 };
+  const minWidthPerMonth = 52;
   const minChartWidth = (labels.length * minWidthPerMonth) + PAD.left + PAD.right;
-  const W = Math.max(container.clientWidth || 760, minChartWidth);
+  const W = Math.max(container.clientWidth || 520, minChartWidth);
   const cW = W - PAD.left - PAD.right;
   const cH = H - PAD.top - PAD.bottom;
 
@@ -3970,18 +3966,13 @@ function renderProjectionsHistoryChart(history) {
 
   const minRaw = Math.min(...visibleValues);
   const maxRaw = Math.max(...visibleValues);
-  const yPad = Math.max(30, Math.round((maxRaw - minRaw) * 0.08));
+  const yPad = Math.max(30, Math.round((maxRaw - minRaw) * 0.12));
   const minY = Math.max(0, minRaw - yPad);
   const maxY = maxRaw + yPad;
   const yRange = Math.max(1, maxY - minY);
 
   const monthCount = labels.length;
-  const seriesCount = Math.max(1, visibleSeries.length);
   const groupWidth = cW / Math.max(1, monthCount);
-  const groupInnerPad = 10;
-  const barGap = 6;
-  const usableGroupWidth = Math.max(16, groupWidth - (groupInnerPad * 2));
-  const barWidth = Math.max(8, (usableGroupWidth - (barGap * (seriesCount - 1))) / seriesCount);
 
   const svg = createSvgEl('svg', { width: W, height: H, xmlns: 'http://www.w3.org/2000/svg' });
 
@@ -3996,14 +3987,13 @@ function renderProjectionsHistoryChart(history) {
       'stroke-width': 0.7,
       'stroke-dasharray': '2,3',
     }));
-
   });
 
   labels.forEach((label, i) => {
     const x = PAD.left + (i + 0.5) * groupWidth;
     svg.appendChild(createSvgEl('text', {
       x: x.toFixed(1),
-      y: (H - 24).toFixed(1),
+      y: (H - 10).toFixed(1),
       'text-anchor': 'middle',
       fill: 'var(--text-muted)',
       'font-size': 10,
@@ -4011,14 +4001,7 @@ function renderProjectionsHistoryChart(history) {
     }, String(label || '—')));
   });
 
-  renderProjectionHistoryBars(svg, visibleSeries, monthCount, {
-    padTop: PAD.top,
-    padLeft: PAD.left,
-    groupWidth,
-    groupInnerPad,
-    barGap,
-    barWidth,
-  }, minY, yRange, cH);
+  renderProjectionHistoryLines(svg, visibleSeries, monthCount, PAD.top, PAD.left, groupWidth, minY, yRange, cH);
 
   container.replaceChildren(svg);
   renderProjectionHistoryYAxis(container, minY, yRange, PAD.top, cH);
@@ -5843,7 +5826,19 @@ function buildRaceRow(r) {
   if (dateEl) dateEl.textContent = formatDate(r.date);
   if (distEl) distEl.textContent = r.distance || '—';
   if (objEl) objEl.textContent = r.objective || '—';
-  if (realEl) realEl.textContent = r.result || '—';
+  if (realEl) {
+    if (r.dnfStatus === 'dns' || r.dnfStatus === 'dnf') {
+      const span = document.createElement('span');
+      span.className = 'dnf-label';
+      span.textContent = r.dnfStatus.toUpperCase();
+      if (r.dnfComment) {
+        span.title = r.dnfComment;
+      }
+      realEl.replaceChildren(span);
+    } else {
+      realEl.textContent = r.result || '—';
+    }
+  }
   if (diffEl) {
     if (diff === '—') {
       diffEl.textContent = diff;
@@ -5855,7 +5850,7 @@ function buildRaceRow(r) {
     }
   }
   if (resultBtn) {
-    const hasResult = Boolean(String(r.result || '').trim());
+    const hasResult = Boolean(String(r.result || '').trim()) || r.dnfStatus === 'dns' || r.dnfStatus === 'dnf';
     resultBtn.title = hasResult ? 'Modifier résultat' : 'Saisir résultat';
     resultBtn.setAttribute('aria-label', resultBtn.title);
     resultBtn.classList.toggle('has-value', hasResult);
@@ -5943,13 +5938,36 @@ function openRaceResult(id) {
   if (!r) return;
   const idxEl = document.getElementById('rr-idx');
   const resultEl = document.getElementById('rr-real');
+  const statusEl = document.getElementById('rr-status');
+  const commentEl = document.getElementById('rr-comment');
+  const commentWrap = document.getElementById('rr-comment-wrap');
+  const resultWrap = document.getElementById('rr-result-wrap');
   if (!(idxEl instanceof HTMLInputElement) || !(resultEl instanceof HTMLInputElement)) {
     notify('⚠ Saisie resultat indisponible pour le moment');
     return;
   }
   idxEl.value = id;
   resultEl.value = r.result || '';
+
+  if (statusEl instanceof HTMLSelectElement) {
+    statusEl.value = r.dnfStatus || '';
+    // Trigger visibility update
+    updateRaceResultModalVisibility();
+  }
+  if (commentEl instanceof HTMLInputElement) {
+    commentEl.value = r.dnfComment || '';
+  }
   openModal('race-result-modal');
+}
+
+function updateRaceResultModalVisibility() {
+  const statusEl = document.getElementById('rr-status');
+  const resultWrap = document.getElementById('rr-result-wrap');
+  const commentWrap = document.getElementById('rr-comment-wrap');
+  if (!(statusEl instanceof HTMLSelectElement)) return;
+  const isDnx = statusEl.value === 'dns' || statusEl.value === 'dnf';
+  if (resultWrap) resultWrap.style.display = isDnx ? 'none' : '';
+  if (commentWrap) commentWrap.style.display = isDnx ? '' : 'none';
 }
 
 async function saveRaceResult() {
@@ -5960,6 +5978,12 @@ async function saveRaceResult() {
     return;
   }
 
+  const statusEl = document.getElementById('rr-status');
+  const commentEl = document.getElementById('rr-comment');
+  const dnfStatus = statusEl instanceof HTMLSelectElement ? statusEl.value : '';
+  const dnfComment = commentEl instanceof HTMLInputElement ? commentEl.value.trim() : '';
+  const isDnx = dnfStatus === 'dns' || dnfStatus === 'dnf';
+
   try {
     const updated = await apiFetch(`/races/${id}`, {
       method: 'PUT',
@@ -5968,7 +5992,9 @@ async function saveRaceResult() {
         date: current.date || '',
         distance: current.distance || null,
         objective: current.objective || null,
-        result: document.getElementById('rr-real').value.trim() || null,
+        result: isDnx ? null : (document.getElementById('rr-real').value.trim() || null),
+        dnfStatus: isDnx ? dnfStatus : null,
+        dnfComment: isDnx ? (dnfComment || null) : null,
       }),
     });
     const idx = racesData.findIndex((r) => r.id === id);
@@ -6007,7 +6033,7 @@ function ensureRaceModals() {
         <div class="form-grid">
           <div class="field"><label for="rm-name">Nom</label><input id="rm-name" type="text"></div>
           <div class="field"><label for="rm-date">Date</label><input id="rm-date" type="date"></div>
-          <div class="field"><label for="rm-dist">Distance</label><input id="rm-dist" type="text"></div>
+          <div class="field"><label for="rm-dist">Distance (km)</label><input id="rm-dist" type="text"></div>
           <div class="field"><label for="rm-obj">Objectif (hh:mm:ss)</label><input id="rm-obj" type="text"></div>
         </div>
         <div class="modal-actions">
@@ -6026,11 +6052,26 @@ function ensureRaceModals() {
     raceResultModal.className = 'modal-overlay';
     raceResultModal.innerHTML = `
       <div class="modal">
-        <button class="modal-close" onclick="closeModal('race-result-modal')">x</button>
-        <div class="modal-title">Saisir le resultat</div>
+        <button class="modal-close" onclick="closeModal('race-result-modal')">×</button>
+        <div class="modal-title">Saisir le résultat</div>
         <input type="hidden" id="rr-idx">
         <div class="form-grid">
-          <div class="field"><label for="rr-real">Resultat (hh:mm:ss)</label><input id="rr-real" type="text" placeholder="00:53:22"></div>
+          <div class="field">
+            <label for="rr-status">Statut</label>
+            <select id="rr-status" onchange="updateRaceResultModalVisibility()">
+              <option value="">✓ Terminée</option>
+              <option value="dns">DNS — Did Not Start</option>
+              <option value="dnf">DNF — Did Not Finish</option>
+            </select>
+          </div>
+          <div class="field" id="rr-result-wrap">
+            <label for="rr-real">Temps (hh:mm:ss)</label>
+            <input id="rr-real" type="text" placeholder="00:53:22">
+          </div>
+          <div class="field" id="rr-comment-wrap" style="display:none">
+            <label for="rr-comment">Commentaire (optionnel)</label>
+            <input id="rr-comment" type="text" placeholder="ex: chute au km 3">
+          </div>
         </div>
         <div class="modal-actions">
           <button class="btn" onclick="saveRaceResult()">Enregistrer</button>
@@ -6165,15 +6206,12 @@ async function initApp() {
   if (raceDateEl) raceDateEl.value = today;
 
   // Setup date input handlers for FR format (jj/mm/yyyy) conversion
+  // NOTE: Do NOT call showPicker() on click — the browser already opens the native
+  // date picker when the calendar icon is clicked. Adding showPicker() causes a
+  // double-open flicker on Chrome/Edge (picker opens twice in quick succession).
   ['log-date', 'r-date', 'lm-date', 'rm-date', 'pm-date'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
-      const tryOpenPicker = () => {
-        if (typeof el.showPicker === 'function') {
-          try { el.showPicker(); } catch {}
-        }
-      };
-      el.addEventListener('click', tryOpenPicker);
       el.addEventListener('change', (e) => {
         const val = e.target.value;
         if (val && !val.includes('-')) {

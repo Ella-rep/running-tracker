@@ -133,7 +133,16 @@ class CoursesController extends AbstractController
             return $this->redirectToRoute('app_courses');
         }
 
-        $race->setResult($this->nullableString($request->request->get('result')));
+        $dnfStatus = $this->nullableString($request->request->get('dnf_status'));
+        if (in_array($dnfStatus, ['dns', 'dnf'], true)) {
+            $race->setDnfStatus($dnfStatus);
+            $race->setDnfComment($this->nullableString($request->request->get('dnf_comment')));
+            $race->setResult(null);
+        } else {
+            $race->setDnfStatus(null);
+            $race->setDnfComment(null);
+            $race->setResult($this->nullableString($request->request->get('result')));
+        }
         $entityManager->flush();
 
         $this->addFlash(self::FLASH_SUCCESS, 'Résultat mis à jour.');
