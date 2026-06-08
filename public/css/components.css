@@ -207,3 +207,22 @@ tr:hover .action-btns,
 [data-theme="light"] .confirm-box {
   box-shadow: var(--shadow);
 }
+
+/* DNS/DNF badge in modal title */
+.badge-dns-dnf {
+  background: color-mix(in srgb, var(--accent3) 16%, var(--surface2));
+  color: color-mix(in srgb, var(--accent3) 80%, var(--text));
+  border: 1px solid color-mix(in srgb, var(--accent3) 45%, var(--border));
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  vertical-align: middle;
+}
+
+.modal-title-row .modal-title {
+  font-size: inherit;
+  font-weight: inherit;
+}
+

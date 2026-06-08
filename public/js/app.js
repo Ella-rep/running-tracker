@@ -2114,6 +2114,7 @@ function normalizeRace(r) {
     statusLabel: r.statusLabel,
     resultDelta: r.resultDelta,
     dnfStatus: r.dnfStatus || null,
+    comment: r.dnfComment || null,
   };
 }
 
@@ -2672,11 +2673,7 @@ function renderDashboard() {
 
   const raceTbody = document.getElementById('race-tbody');
   if (raceTbody && isWidgetEnabled('races_table')) {
-    const _todayKey = normalizeDateForStorage(new Date());
-    const upcomingRows = (Array.isArray(metrics.racesTable) ? metrics.racesTable : []).filter((r) => {
-      const raceDate = normalizeDateForStorage(r?.date);
-      return !!raceDate && raceDate >= _todayKey;
-    });
+    const upcomingRows = (Array.isArray(metrics.racesTable) ? metrics.racesTable : []).filter((r) => r?.upcoming === true);
 
     const rows = upcomingRows.map((r) => {
       const row = cloneTemplate('dashboard-race-row-template') || document.createElement('tr');
@@ -3088,6 +3085,7 @@ function renderPlanCalendar(calendar) {
       isDone: raceResult.length > 0 || !!race?.dnfStatus,
       isOptional: false,
       dnfStatus: race?.dnfStatus || null,
+      comment: race?.comment || null,
     });
   });
 
@@ -5017,10 +5015,13 @@ function ensureCalendarActionModal() {
     return {
       overlay,
       title: document.getElementById('calendar-action-title'),
+      badge: document.getElementById('calendar-action-title-badge'),
       subtitle: document.getElementById('calendar-action-subtitle'),
       inputWrap: document.getElementById('calendar-action-input-wrap'),
       inputLabel: document.querySelector('label[for="calendar-race-result-input"]'),
       input: document.getElementById('calendar-race-result-input'),
+      commentWrap: document.getElementById('calendar-action-comment-wrap'),
+      commentText: document.getElementById('calendar-action-comment-text'),
       buttons: document.getElementById('calendar-action-buttons'),
     };
   }
@@ -5031,11 +5032,18 @@ function ensureCalendarActionModal() {
   overlay.innerHTML = `
     <div class="modal">
       <button class="modal-close" aria-label="Fermer">x</button>
-      <div class="modal-title" id="calendar-action-title">Actions calendrier</div>
+      <div class="modal-title-row" style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span id="calendar-action-title" class="modal-title" style="margin:0">Actions calendrier</span>
+        <span id="calendar-action-title-badge" class="badge" style="display:none"></span>
+      </div>
       <div class="calendar-action-sub" id="calendar-action-subtitle"></div>
       <div class="field calendar-action-input" id="calendar-action-input-wrap" style="display:none">
         <label for="calendar-race-result-input">Resultat (hh:mm:ss)</label>
         <input type="text" id="calendar-race-result-input" placeholder="00:53:22">
+      </div>
+      <div id="calendar-action-comment-wrap" style="display:none;padding:10px 0 4px">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:6px">Commentaire</div>
+        <div id="calendar-action-comment-text" style="font-size:14px;color:var(--text);font-style:italic;min-height:20px"></div>
       </div>
       <div class="modal-actions" id="calendar-action-buttons"></div>
     </div>
@@ -5053,10 +5061,13 @@ function ensureCalendarActionModal() {
   return {
     overlay,
     title: document.getElementById('calendar-action-title'),
+    badge: document.getElementById('calendar-action-title-badge'),
     subtitle: document.getElementById('calendar-action-subtitle'),
     inputWrap: document.getElementById('calendar-action-input-wrap'),
     inputLabel: document.querySelector('label[for="calendar-race-result-input"]'),
     input: document.getElementById('calendar-race-result-input'),
+    commentWrap: document.getElementById('calendar-action-comment-wrap'),
+    commentText: document.getElementById('calendar-action-comment-text'),
     buttons: document.getElementById('calendar-action-buttons'),
   };
 }
@@ -5081,22 +5092,59 @@ function openCalendarActionModal(item) {
   modal.title.textContent = modalTitle;
   modal.subtitle.textContent = [item?.label, item?.format, item?.pe].filter(Boolean).join(' · ');
 
+  // Badge DNS/DNF
+  if (modal.badge) {
+    const dnfBadgeStatus = item?.kind === 'race' ? (item?.dnfStatus || null) : null;
+    if (dnfBadgeStatus) {
+      modal.badge.textContent = dnfBadgeStatus.toUpperCase();
+      modal.badge.className = 'badge badge-dns-dnf';
+      modal.badge.style.display = '';
+    } else {
+      modal.badge.style.display = 'none';
+      modal.badge.textContent = '';
+      modal.badge.className = 'badge';
+    }
+  }
+
   if (item?.kind === 'race') {
-    modal.inputWrap.style.display = 'block';
-    modal.inputLabel.textContent = 'Resultat (hh:mm:ss)';
-    modal.input.placeholder = '00:53:22';
-    modal.input.value = String(item?.result || '');
-    modal.buttons.appendChild(calendarActionButton('Enregistrer resultat', 'btn', () => {
-      void saveRaceResultFromCalendar(item, modal.input.value);
-    }));
-    modal.buttons.appendChild(calendarActionButton('Modifier la course', 'btn btn-ghost', () => {
-      const target = new URL('/courses', globalThis.location.origin);
-      if (Number.isFinite(Number(item?.raceId))) {
-        target.searchParams.set('editRaceId', String(Number(item.raceId)));
+    const isDnfRace = !!item?.dnfStatus;
+    if (isDnfRace) {
+      // DNS/DNF race: show comment, no result input
+      modal.inputWrap.style.display = 'none';
+      modal.input.value = '';
+      if (modal.commentWrap && modal.commentText) {
+        const commentText = String(item?.comment || '').trim();
+        modal.commentText.textContent = commentText || 'Pas de commentaire';
+        modal.commentText.style.color = commentText ? 'var(--text)' : 'var(--text-muted)';
+        modal.commentWrap.style.display = 'block';
       }
-      globalThis.location.href = target.toString();
-    }));
+      modal.buttons.appendChild(calendarActionButton('Modifier la course', 'btn btn-ghost', () => {
+        const target = new URL('/courses', globalThis.location.origin);
+        if (Number.isFinite(Number(item?.raceId))) {
+          target.searchParams.set('editRaceId', String(Number(item.raceId)));
+        }
+        globalThis.location.href = target.toString();
+      }));
+    } else {
+      // Normal race: show result input
+      if (modal.commentWrap) modal.commentWrap.style.display = 'none';
+      modal.inputWrap.style.display = 'block';
+      modal.inputLabel.textContent = 'Resultat (hh:mm:ss)';
+      modal.input.placeholder = '00:53:22';
+      modal.input.value = String(item?.result || '');
+      modal.buttons.appendChild(calendarActionButton('Enregistrer resultat', 'btn', () => {
+        void saveRaceResultFromCalendar(item, modal.input.value);
+      }));
+      modal.buttons.appendChild(calendarActionButton('Modifier la course', 'btn btn-ghost', () => {
+        const target = new URL('/courses', globalThis.location.origin);
+        if (Number.isFinite(Number(item?.raceId))) {
+          target.searchParams.set('editRaceId', String(Number(item.raceId)));
+        }
+        globalThis.location.href = target.toString();
+      }));
+    }
   } else if (item?.kind === 'personal') {
+    if (modal.commentWrap) modal.commentWrap.style.display = 'none';
     modal.inputWrap.style.display = 'block';
     modal.inputLabel.textContent = 'Titre';
     modal.input.placeholder = 'Ex: Renfo, RDV kine, Repos';
@@ -5110,6 +5158,7 @@ function openCalendarActionModal(item) {
       }));
     }
   } else {
+    if (modal.commentWrap) modal.commentWrap.style.display = 'none';
     modal.inputWrap.style.display = 'none';
     modal.input.value = '';
     if (item?.hasSessionRef && !item?.isCancelled) {
