@@ -19,7 +19,7 @@ final class Version20260608120000 extends AbstractMigration
 
     public function up(Schema $schema): void
     {
-        $this->addSql("ALTER TABLE plan_details ADD is_cancelled TINYINT(1) NOT NULL DEFAULT 0");
+        $this->addSql("ALTER TABLE plan_details ADD is_cancelled BOOLEAN NOT NULL DEFAULT FALSE");
     }
 
     public function down(Schema $schema): void
