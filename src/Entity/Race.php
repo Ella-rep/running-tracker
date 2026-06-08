@@ -25,9 +25,9 @@ use Symfony\Component\Validator\Constraints as Assert;
     security: 'is_granted("ROLE_USER")',
     operations: [
         new GetCollection(),
-        new Post(),
+        new Post(processor: 'App\\State\\RaceProcessor'),
         new Get(security: RACE_OWNER_SECURITY),
-        new Put(security: RACE_OWNER_SECURITY),
+        new Put(security: RACE_OWNER_SECURITY, processor: 'App\\State\\RaceProcessor'),
         new Delete(security: RACE_OWNER_SECURITY),
     ]
 )]
@@ -86,6 +86,25 @@ class Race
     #[ORM\Column]
     #[Groups(['race:read'])]
     private \DateTimeImmutable $createdAt;
+
+    /**
+     * Write-only helpers carried alongside a race result so the matching
+     * run-log can be enriched. Not persisted on the Race entity itself.
+     */
+    #[Groups(['race:write'])]
+    private float|int|string|null $logKm = null;
+
+    #[Groups(['race:write'])]
+    private int|string|null $logDplus = null;
+
+    #[Groups(['race:write'])]
+    private int|string|null $logBpm = null;
+
+    #[Groups(['race:write'])]
+    private ?string $logEffort = null;
+
+    #[Groups(['race:write'])]
+    private ?string $logNotes = null;
 
     /**
      * Initializes immutable creation timestamp.
@@ -185,6 +204,39 @@ class Race
      * Returns entity creation timestamp.
      */
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
+
+    /** Sets the optional distance override for the mirrored run-log. */
+    public function setLogKm(float|int|string|null $v): static { $this->logKm = $v; return $this; }
+
+    /** Sets the optional elevation gain for the mirrored run-log. */
+    public function setLogDplus(int|string|null $v): static { $this->logDplus = $v; return $this; }
+
+    /** Sets the optional average heart rate for the mirrored run-log. */
+    public function setLogBpm(int|string|null $v): static { $this->logBpm = $v; return $this; }
+
+    /** Sets the optional perceived effort for the mirrored run-log. */
+    public function setLogEffort(?string $v): static { $this->logEffort = $v; return $this; }
+
+    /** Sets the optional notes for the mirrored run-log. */
+    public function setLogNotes(?string $v): static { $this->logNotes = $v; return $this; }
+
+    /**
+     * Collects the write-only log helpers into the array consumed by
+     * RaceLogSyncService. Only keys explicitly provided are returned.
+     *
+     * @return array<string, mixed>
+     */
+    public function getLogExtra(): array
+    {
+        $extra = [];
+        if ($this->logKm !== null && $this->logKm !== '') { $extra['km'] = $this->logKm; }
+        if ($this->logDplus !== null) { $extra['dplus'] = $this->logDplus; }
+        if ($this->logBpm !== null) { $extra['bpm'] = $this->logBpm; }
+        if ($this->logEffort !== null) { $extra['perceivedEffort'] = $this->logEffort; }
+        if ($this->logNotes !== null) { $extra['notes'] = $this->logNotes; }
+
+        return $extra;
+    }
 
     /**
      * Returns race status CSS class for UI badges.

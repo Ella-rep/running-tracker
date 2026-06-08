@@ -2665,6 +2665,10 @@ function renderDashboard() {
   const raceTbody = document.getElementById('race-tbody');
   if (raceTbody && isWidgetEnabled('races_table')) {
     const upcomingRows = (Array.isArray(metrics.racesTable) ? metrics.racesTable : []).filter((r) => {
+      // Prefer the backend "upcoming" flag (excludes finished, DNS, DNF and past races).
+      if (r && Object.prototype.hasOwnProperty.call(r, 'upcoming')) {
+        return Boolean(r.upcoming);
+      }
       const statusClass = String(r?.statusClass || '').toLowerCase();
       const statusLabel = String(r?.statusLabel || '').toLowerCase();
       return statusClass !== 'badge-done' && !statusLabel.includes('termin');
@@ -3630,8 +3634,10 @@ function renderProjections() {
       const objLine = raceProj.objective
         ? `<span class="race-proj-obj">Objectif : <strong>${raceProj.objective}</strong></span>`
         : '';
-      const daysLine = raceProj.daysTo != null
-        ? `<span class="race-proj-days">dans ${raceProj.daysTo} jour${raceProj.daysTo > 1 ? 's' : ''}</span>`
+      const daysText = raceProj.daysLabel
+        || (raceProj.daysTo != null ? `dans ${raceProj.daysTo} jour${raceProj.daysTo > 1 ? 's' : ''}` : '');
+      const daysLine = daysText
+        ? `<span class="race-proj-days">${daysText}</span>`
         : '';
       raceProjectionEl.innerHTML =
         `<span class="race-proj-icon">🏁</span>` +
@@ -5949,6 +5955,21 @@ function openRaceResult(id) {
   idxEl.value = id;
   resultEl.value = r.result || '';
 
+  // Prefill / reset the auto-log fields (not stored on the race itself).
+  const kmEl = document.getElementById('rr-km');
+  const dplusEl = document.getElementById('rr-dplus');
+  const bpmEl = document.getElementById('rr-bpm');
+  const effortEl = document.getElementById('rr-effort');
+  const notesEl = document.getElementById('rr-notes');
+  if (kmEl instanceof HTMLInputElement) {
+    const distMatch = String(r.distance || '').replace(',', '.').match(/\d+(\.\d+)?/);
+    kmEl.value = distMatch ? distMatch[0] : '';
+  }
+  if (dplusEl instanceof HTMLInputElement) dplusEl.value = '';
+  if (bpmEl instanceof HTMLInputElement) bpmEl.value = '';
+  if (effortEl instanceof HTMLSelectElement) effortEl.value = '';
+  if (notesEl instanceof HTMLInputElement) notesEl.value = '';
+
   if (statusEl instanceof HTMLSelectElement) {
     statusEl.value = r.dnfStatus || '';
     // Trigger visibility update
@@ -5968,6 +5989,10 @@ function updateRaceResultModalVisibility() {
   const isDnx = statusEl.value === 'dns' || statusEl.value === 'dnf';
   if (resultWrap) resultWrap.style.display = isDnx ? 'none' : '';
   if (commentWrap) commentWrap.style.display = isDnx ? '' : 'none';
+  const logFields = document.getElementById('rr-log-fields');
+  const logHint = document.getElementById('rr-log-hint');
+  if (logFields) logFields.style.display = isDnx ? 'none' : '';
+  if (logHint) logHint.style.display = isDnx ? 'none' : '';
 }
 
 async function saveRaceResult() {
@@ -5984,18 +6009,36 @@ async function saveRaceResult() {
   const dnfComment = commentEl instanceof HTMLInputElement ? commentEl.value.trim() : '';
   const isDnx = dnfStatus === 'dns' || dnfStatus === 'dnf';
 
+  const resultValue = isDnx ? null : (document.getElementById('rr-real').value.trim() || null);
+  const readVal = (elId) => {
+    const el = document.getElementById(elId);
+    return el && 'value' in el ? String(el.value).trim() : '';
+  };
+
+  const payload = {
+    name: current.name || '',
+    date: current.date || '',
+    distance: current.distance || null,
+    objective: current.objective || null,
+    result: resultValue,
+    dnfStatus: isDnx ? dnfStatus : null,
+    dnfComment: isDnx ? (dnfComment || null) : null,
+  };
+
+  // When a real result is recorded, carry the optional log details so the
+  // server mirrors the race into the journal (type Course) automatically.
+  if (!isDnx && resultValue) {
+    payload.logKm = readVal('rr-km') || null;
+    payload.logDplus = readVal('rr-dplus') || null;
+    payload.logBpm = readVal('rr-bpm') || null;
+    payload.logEffort = readVal('rr-effort') || null;
+    payload.logNotes = readVal('rr-notes') || null;
+  }
+
   try {
     const updated = await apiFetch(`/races/${id}`, {
       method: 'PUT',
-      body: JSON.stringify({
-        name: current.name || '',
-        date: current.date || '',
-        distance: current.distance || null,
-        objective: current.objective || null,
-        result: isDnx ? null : (document.getElementById('rr-real').value.trim() || null),
-        dnfStatus: isDnx ? dnfStatus : null,
-        dnfComment: isDnx ? (dnfComment || null) : null,
-      }),
+      body: JSON.stringify(payload),
     });
     const idx = racesData.findIndex((r) => r.id === id);
     if (idx >= 0) racesData[idx] = normalizeRace(updated);
@@ -6073,6 +6116,22 @@ function ensureRaceModals() {
             <input id="rr-comment" type="text" placeholder="ex: chute au km 3">
           </div>
         </div>
+        <div class="form-grid" id="rr-log-fields">
+          <div class="field"><label for="rr-km">Distance (km)</label><input id="rr-km" type="number" step="0.01" placeholder="10"></div>
+          <div class="field"><label for="rr-dplus">D+ (mètres)</label><input id="rr-dplus" type="number" placeholder="0"></div>
+          <div class="field"><label for="rr-bpm">BPM moy.</label><input id="rr-bpm" type="number" placeholder="150"></div>
+          <div class="field"><label for="rr-effort">Ressenti</label>
+            <select id="rr-effort">
+              <option value="">—</option>
+              <option value="facile">Facile</option>
+              <option value="moderee">Modérée</option>
+              <option value="difficile">Difficile</option>
+              <option value="maximum">Maximum</option>
+            </select>
+          </div>
+          <div class="field" style="grid-column:1 / -1;"><label for="rr-notes">Notes (optionnel)</label><input id="rr-notes" type="text" placeholder="Sensations, météo, parcours…"></div>
+        </div>
+        <p class="section-sub" id="rr-log-hint" style="margin:4px 0 0;">La course sera ajoutée automatiquement à tes logs (type Course).</p>
         <div class="modal-actions">
           <button class="btn" onclick="saveRaceResult()">Enregistrer</button>
           <button class="btn btn-ghost" onclick="closeModal('race-result-modal')">Annuler</button>
