@@ -2114,6 +2114,7 @@ function normalizeRace(r) {
     statusLabel: r.statusLabel,
     resultDelta: r.resultDelta,
     dnfStatus: r.dnfStatus || null,
+    dnfComment: r.dnfComment || null,
     comment: r.dnfComment || null,
   };
 }
@@ -6229,13 +6230,55 @@ function openRaceResult(id) {
   if (!r) return;
   const idxEl = document.getElementById('rr-idx');
   const resultEl = document.getElementById('rr-real');
+  const statusEl = document.getElementById('rr-status');
+  const commentEl = document.getElementById('rr-comment');
+  const commentWrap = document.getElementById('rr-comment-wrap');
+  const resultWrap = document.getElementById('rr-result-wrap');
   if (!(idxEl instanceof HTMLInputElement) || !(resultEl instanceof HTMLInputElement)) {
     notify('⚠ Saisie resultat indisponible pour le moment');
     return;
   }
   idxEl.value = id;
   resultEl.value = r.result || '';
+
+  // Prefill / reset the auto-log fields (not stored on the race itself).
+  const kmEl = document.getElementById('rr-km');
+  const dplusEl = document.getElementById('rr-dplus');
+  const bpmEl = document.getElementById('rr-bpm');
+  const effortEl = document.getElementById('rr-effort');
+  const notesEl = document.getElementById('rr-notes');
+  if (kmEl instanceof HTMLInputElement) {
+    const distMatch = String(r.distance || '').replace(',', '.').match(/\d+(\.\d+)?/);
+    kmEl.value = distMatch ? distMatch[0] : '';
+  }
+  if (dplusEl instanceof HTMLInputElement) dplusEl.value = '';
+  if (bpmEl instanceof HTMLInputElement) bpmEl.value = '';
+  if (effortEl instanceof HTMLSelectElement) effortEl.value = '';
+  if (notesEl instanceof HTMLInputElement) notesEl.value = '';
+
+  if (statusEl instanceof HTMLSelectElement) {
+    statusEl.value = r.dnfStatus || '';
+    // Trigger visibility update
+    updateRaceResultModalVisibility();
+  }
+  if (commentEl instanceof HTMLInputElement) {
+    commentEl.value = r.dnfComment || '';
+  }
   openModal('race-result-modal');
+}
+
+function updateRaceResultModalVisibility() {
+  const statusEl = document.getElementById('rr-status');
+  const resultWrap = document.getElementById('rr-result-wrap');
+  const commentWrap = document.getElementById('rr-comment-wrap');
+  if (!(statusEl instanceof HTMLSelectElement)) return;
+  const isDnx = statusEl.value === 'dns' || statusEl.value === 'dnf';
+  if (resultWrap) resultWrap.style.display = isDnx ? 'none' : '';
+  if (commentWrap) commentWrap.style.display = isDnx ? '' : 'none';
+  const logFields = document.getElementById('rr-log-fields');
+  const logHint = document.getElementById('rr-log-hint');
+  if (logFields) logFields.style.display = isDnx ? 'none' : '';
+  if (logHint) logHint.style.display = isDnx ? 'none' : '';
 }
 
 async function saveRaceResult() {
@@ -6246,16 +6289,42 @@ async function saveRaceResult() {
     return;
   }
 
+  const statusEl = document.getElementById('rr-status');
+  const commentEl = document.getElementById('rr-comment');
+  const dnfStatus = statusEl instanceof HTMLSelectElement ? statusEl.value : '';
+  const dnfComment = commentEl instanceof HTMLInputElement ? commentEl.value.trim() : '';
+  const isDnx = dnfStatus === 'dns' || dnfStatus === 'dnf';
+
+  const resultValue = isDnx ? null : (document.getElementById('rr-real').value.trim() || null);
+  const readVal = (elId) => {
+    const el = document.getElementById(elId);
+    return el && 'value' in el ? String(el.value).trim() : '';
+  };
+
+  const payload = {
+    name: current.name || '',
+    date: current.date || '',
+    distance: current.distance || null,
+    objective: current.objective || null,
+    result: resultValue,
+    dnfStatus: isDnx ? dnfStatus : null,
+    dnfComment: isDnx ? (dnfComment || null) : null,
+  };
+
+  // When a real result is recorded, carry the optional log details so the
+  // server mirrors the race into the journal (type Course) automatically.
+  if (!isDnx && resultValue) {
+    payload.logKm = readVal('rr-km') || null;
+    payload.logDplus = readVal('rr-dplus') || null;
+    payload.logBpm = readVal('rr-bpm') || null;
+    payload.logEffort = readVal('rr-effort') || null;
+    payload.logNotes = readVal('rr-notes') || null;
+  }
+
   try {
     const updated = await apiFetch(`/races/${id}`, {
       method: 'PUT',
-      body: JSON.stringify({
-        name: current.name || '',
-        date: current.date || '',
-        distance: current.distance || null,
-        objective: current.objective || null,
-        result: document.getElementById('rr-real').value.trim() || null,
-      }),
+      body: JSON.stringify(payload),
     });
     const idx = racesData.findIndex((r) => r.id === id);
     if (idx >= 0) racesData[idx] = normalizeRace(updated);
@@ -6293,7 +6362,7 @@ function ensureRaceModals() {
         <div class="form-grid">
           <div class="field"><label for="rm-name">Nom</label><input id="rm-name" type="text"></div>
           <div class="field"><label for="rm-date">Date</label><input id="rm-date" type="date"></div>
-          <div class="field"><label for="rm-dist">Distance</label><input id="rm-dist" type="text"></div>
+          <div class="field"><label for="rm-dist">Distance (km)</label><input id="rm-dist" type="text"></div>
           <div class="field"><label for="rm-obj">Objectif (hh:mm:ss)</label><input id="rm-obj" type="text"></div>
         </div>
         <div class="modal-actions">
@@ -6312,12 +6381,43 @@ function ensureRaceModals() {
     raceResultModal.className = 'modal-overlay';
     raceResultModal.innerHTML = `
       <div class="modal">
-        <button class="modal-close" onclick="closeModal('race-result-modal')">x</button>
-        <div class="modal-title">Saisir le resultat</div>
+        <button class="modal-close" onclick="closeModal('race-result-modal')">×</button>
+        <div class="modal-title">Saisir le résultat</div>
         <input type="hidden" id="rr-idx">
         <div class="form-grid">
-          <div class="field"><label for="rr-real">Resultat (hh:mm:ss)</label><input id="rr-real" type="text" placeholder="00:53:22"></div>
+          <div class="field">
+            <label for="rr-status">Statut</label>
+            <select id="rr-status" onchange="updateRaceResultModalVisibility()">
+              <option value="">✓ Terminée</option>
+              <option value="dns">DNS — Did Not Start</option>
+              <option value="dnf">DNF — Did Not Finish</option>
+            </select>
+          </div>
+          <div class="field" id="rr-result-wrap">
+            <label for="rr-real">Temps (hh:mm:ss)</label>
+            <input id="rr-real" type="text" placeholder="00:53:22">
+          </div>
+          <div class="field" id="rr-comment-wrap" style="display:none">
+            <label for="rr-comment">Commentaire (optionnel)</label>
+            <input id="rr-comment" type="text" placeholder="ex: chute au km 3">
+          </div>
         </div>
+        <div class="form-grid" id="rr-log-fields">
+          <div class="field"><label for="rr-km">Distance (km)</label><input id="rr-km" type="number" step="0.01" placeholder="10"></div>
+          <div class="field"><label for="rr-dplus">D+ (mètres)</label><input id="rr-dplus" type="number" placeholder="0"></div>
+          <div class="field"><label for="rr-bpm">BPM moy.</label><input id="rr-bpm" type="number" placeholder="150"></div>
+          <div class="field"><label for="rr-effort">Ressenti</label>
+            <select id="rr-effort">
+              <option value="">—</option>
+              <option value="facile">Facile</option>
+              <option value="moderee">Modérée</option>
+              <option value="difficile">Difficile</option>
+              <option value="maximum">Maximum</option>
+            </select>
+          </div>
+          <div class="field" style="grid-column:1 / -1;"><label for="rr-notes">Notes (optionnel)</label><input id="rr-notes" type="text" placeholder="Sensations, météo, parcours…"></div>
+        </div>
+        <p class="section-sub" id="rr-log-hint" style="margin:4px 0 0;">La course sera ajoutée automatiquement à tes logs (type Course).</p>
         <div class="modal-actions">
           <button class="btn" onclick="saveRaceResult()">Enregistrer</button>
           <button class="btn btn-ghost" onclick="closeModal('race-result-modal')">Annuler</button>
