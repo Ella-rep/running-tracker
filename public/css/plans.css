@@ -1,5 +1,23 @@
 /* Plans page specific styles */
 
+/* Cancelled session row */
+.session-row.session-cancelled {
+  opacity: 0.55;
+}
+.session-row.session-cancelled .session-format,
+.session-row.session-cancelled .session-date-badge,
+.session-row.session-cancelled .session-type-badge,
+.session-row.session-cancelled .pe-badge,
+.session-row.session-cancelled .duration-badge {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+/* Cancel button active state */
+.action-btn.session-cancel.is-cancelled {
+  color: var(--accent);
+}
+
 .zone-legend {
   display: flex;
   gap: 12px;

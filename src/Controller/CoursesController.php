@@ -2,8 +2,10 @@
 
 namespace App\Controller;
 
+use App\Entity\PlanDetails;
 use App\Entity\Race;
 use App\Entity\User;
+use App\Repository\PlanDetailsRepository;
 use App\Repository\RaceRepository;
 use App\Service\RaceLogSyncService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -116,7 +118,7 @@ class CoursesController extends AbstractController
     }
 
     #[Route('/courses/{id<\d+>}/result', name: 'app_courses_result', methods: ['POST'])]
-    public function updateResult(int $id, Request $request, RaceRepository $raceRepository, EntityManagerInterface $entityManager, RaceLogSyncService $raceLogSync): RedirectResponse
+    public function updateResult(int $id, Request $request, RaceRepository $raceRepository, EntityManagerInterface $entityManager, RaceLogSyncService $raceLogSync, PlanDetailsRepository $planDetailsRepository): RedirectResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
@@ -145,6 +147,22 @@ class CoursesController extends AbstractController
             $race->setResult($this->nullableString($request->request->get('result')));
         }
         $entityManager->flush();
+
+        // Auto-cancel plan sessions on the same date when a race is marked DNS.
+        if ($user instanceof User) {
+            $raceDate = $race->getDate(); // 'Y-m-d' string
+            $planSessions = $planDetailsRepository->findBy(['user' => $user]);
+            foreach ($planSessions as $ps) {
+                if (!$ps instanceof PlanDetails) continue;
+                $sessionDate = $ps->getSessionDate()?->format('Y-m-d');
+                if ($sessionDate !== $raceDate) continue;
+                $sessionType = strtoupper(trim((string) ($ps->getSessionType() ?? '')));
+                if ($sessionType !== 'RACE') continue;
+                // DNS → cancel; anything else → restore
+                $ps->setIsCancelled($race->getDnfStatus() === 'dns');
+            }
+            $entityManager->flush();
+        }
 
         // Mirror a validated result (not DNS/DNF) into the run-log journal.
         $extra = [

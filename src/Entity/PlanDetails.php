@@ -92,6 +92,10 @@ class PlanDetails
     #[Groups(['plan_details:read', 'plan_details:write'])]
     private bool $isDone = false;
 
+    #[ORM\Column(options: ['default' => false])]
+    #[Groups(['plan_details:read', 'plan_details:write'])]
+    private bool $isCancelled = false;
+
     /**
      * Returns session identifier.
      */
@@ -220,12 +224,19 @@ class PlanDetails
     public function isDone(): bool { return $this->isDone; }
 
     /**
-     * Sets completion flag.
-     */
-    public function setIsDone(bool $isDone): static { $this->isDone = $isDone; return $this; }
-
-    /**
      * Sets completion flag (alias for serializer compatibility).
      */
     public function setDone(bool $done): static { $this->isDone = $done; return $this; }
+
+    /**
+     * Returns whether the session is cancelled (deliberately skipped).
+     */
+    #[Groups(['plan_details:read', 'plan_details:write'])]
+    #[SerializedName('isCancelled')]
+    public function isCancelled(): bool { return $this->isCancelled; }
+
+    /**
+     * Sets cancelled flag.
+     */
+    public function setIsCancelled(bool $isCancelled): static { $this->isCancelled = $isCancelled; return $this; }
 }

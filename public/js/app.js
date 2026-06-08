@@ -1060,6 +1060,13 @@ async function createPlanSessionInDb(planId, session) {
   });
 }
 
+async function cancelPlanSessionInDb(planId, detailId, isCancelled) {
+  await apiFetch(`/plans/${Number(planId)}/sessions/${Number(detailId)}/cancel`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isCancelled }),
+  });
+}
+
 async function updatePlanSessionInDb(planId, detailId, session) {
   const normalizedDetailId = Number(detailId);
   if (!Number.isFinite(normalizedDetailId)) {
@@ -1133,6 +1140,7 @@ function mapDbRowsToPlans(rows, plans) {
       total: sessionTotalMinutesValue(row),
       isOptional: sessionOptionalValue(row),
       opt: sessionOptionalValue(row),
+      isCancelled: !!row.isCancelled,
     };
 
     if (row.isDone) grouped[planId].done[idx] = true;
@@ -2105,6 +2113,7 @@ function normalizeRace(r) {
     statusClass: r.statusClass,
     statusLabel: r.statusLabel,
     resultDelta: r.resultDelta,
+    dnfStatus: r.dnfStatus || null,
   };
 }
 
@@ -2941,7 +2950,9 @@ function renderHomeWeekView() {
   (Array.isArray(racesData) ? racesData : []).forEach((race) => {
     const dateKey = normalizeDateForStorage(race?.date);
     if (!dateKey) return;
-    addItem(dateKey, { kind: 'race', label: race?.name || 'Course', format: race?.distance ? String(race.distance) : '' });
+    const raceResult = String(race?.result || '').trim();
+    const isDone = raceResult.length > 0 || !!race?.dnfStatus;
+    addItem(dateKey, { kind: 'race', label: race?.name || 'Course', format: race?.distance ? String(race.distance) : '', isDone });
   });
 
   // Personal events
@@ -3072,7 +3083,7 @@ function renderPlanCalendar(calendar) {
       format: race?.distance ? String(race.distance) : 'Course',
       pe: race?.objective ? `Obj ${race.objective}` : null,
       result: raceResult,
-      isDone: raceResult.length > 0,
+      isDone: raceResult.length > 0 || !!race?.dnfStatus,
       isOptional: false,
     });
   });
@@ -4052,10 +4063,6 @@ function renderProjectionsHistoryChart(history) {
     if (controlsEl) controlsEl.replaceChildren();
     if (legendEl) legendEl.replaceChildren();
     container.replaceChildren();
-    if (metaEl) {
-      const emptyText = String(history?.emptyMessage || '').trim();
-      metaEl.textContent = emptyText;
-    }
     return;
   }
 
@@ -4081,10 +4088,6 @@ function renderProjectionsHistoryChart(history) {
   if (!visibleValues.length) {
     if (legendEl) legendEl.replaceChildren();
     container.replaceChildren();
-    if (metaEl) {
-      const emptyText = String(history?.emptyMessage || '').trim();
-      metaEl.textContent = emptyText;
-    }
     return;
   }
 
@@ -4099,8 +4102,8 @@ function renderProjectionsHistoryChart(history) {
   const groupWidth = cW / Math.max(1, monthCount);
 
   const svg = createSvgEl('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'xMidYMid meet', xmlns: 'http://www.w3.org/2000/svg' });
-  svg.style.maxWidth = '100%';
-  svg.style.height = 'auto';
+  svg.style.width = `${W}px`;
+  svg.style.height = `${H}px`;
   svg.style.display = 'block';
 
   // Grid lines
@@ -4585,11 +4588,19 @@ function renderPlan(containerId, data, stateKey) {
       const durEl = row.querySelector('.duration-badge');
       const optEl = row.querySelector('.optional-tag');
       const editBtn = row.querySelector('.session-edit');
+      const cancelBtn = row.querySelector('.session-cancel');
       const delBtn = row.querySelector('.session-delete');
+      const isCancelled = !!s.isCancelled;
       if (checkEl) {
         checkEl.classList.toggle('done', done);
         checkEl.textContent = done ? '✓' : '';
       }
+      if (cancelBtn) {
+        cancelBtn.classList.toggle('is-cancelled', isCancelled);
+        cancelBtn.title = isCancelled ? 'Remettre la séance' : 'Annuler la séance';
+        cancelBtn.textContent = isCancelled ? '↩' : '✕';
+      }
+      row.classList.toggle('session-cancelled', isCancelled);
       appendFormattedZones(formatEl, s.format || '');
       if (isOptional && formatEl) {
         const optionalEl = document.createElement('span');
@@ -4641,6 +4652,24 @@ function renderPlan(containerId, data, stateKey) {
         editBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           openPlanEdit(stateKey, idx);
+        });
+      }
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const plan = stateKey.startsWith('extra:') ? getExtraPlan(stateKey.slice(6)) : state.plans?.find((p) => String(p.id) === stateKey);
+          const detailId = plan?.sessions?.[idx]?.detailId;
+          if (!Number.isFinite(Number(detailId))) { notify('⚠ Séance non sauvegardée, impossible d\'annuler.'); return; }
+          const next = !plan.sessions[idx].isCancelled;
+          plan.sessions[idx].isCancelled = next;
+          try {
+            await cancelPlanSessionInDb(plan.id, detailId, next);
+            notify(next ? 'Séance marquée annulée.' : 'Séance remise au programme.');
+          } catch (_) {
+            plan.sessions[idx].isCancelled = !next;
+            notify('⚠ Erreur lors de la mise à jour.');
+          }
+          renderPlansList();
         });
       }
       if (delBtn) {

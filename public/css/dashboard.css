@@ -1421,7 +1421,8 @@
 
 .ef-bpm-chart-container {
   position: relative;
-  height: 160px;
+  height: auto;
+  min-height: 200px;
   margin-top: 4px;
 }
 
