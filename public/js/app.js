@@ -1580,9 +1580,9 @@ function renderDashboardAdvice(metrics = {}) {
     const comparisonByKey = {
       under: 'Charge en baisse ce mois.',
       under_watch: 'Charge légèrement en baisse ce mois.',
-      balanced: 'Mois bien équilibré.',
+      balanced: 'Semaine bien équilibrée.',
       watch: 'Charge en hausse ce mois.',
-      high: 'Mois très chargé.',
+      high: 'Semaine très chargée.',
       initial: 'Charge en cours de stabilisation.',
     };
     let comparisonText = comparisonByKey[load.statusKey] || 'Charge stable ce mois.';
@@ -2102,8 +2102,6 @@ function normalizeRace(r) {
     distance:  r.distance,
     objective: r.objective,
     result:    r.result,
-    dnfStatus:  r.dnfStatus ?? null,
-    dnfComment: r.dnfComment ?? null,
     statusClass: r.statusClass,
     statusLabel: r.statusLabel,
     resultDelta: r.resultDelta,
@@ -2631,6 +2629,7 @@ function renderDashboard() {
   }
 
   if (isWidgetEnabled('plan_calendar')) renderPlanCalendar(metrics.planCalendar || null);
+  renderHomeWeekView();
 
   const barsSource = Array.isArray(metrics.monthlyBars) ? metrics.monthlyBars : [];
   const monthlyChart = document.getElementById('monthly-chart');
@@ -2665,10 +2664,6 @@ function renderDashboard() {
   const raceTbody = document.getElementById('race-tbody');
   if (raceTbody && isWidgetEnabled('races_table')) {
     const upcomingRows = (Array.isArray(metrics.racesTable) ? metrics.racesTable : []).filter((r) => {
-      // Prefer the backend "upcoming" flag (excludes finished, DNS, DNF and past races).
-      if (r && Object.prototype.hasOwnProperty.call(r, 'upcoming')) {
-        return Boolean(r.upcoming);
-      }
       const statusClass = String(r?.statusClass || '').toLowerCase();
       const statusLabel = String(r?.statusLabel || '').toLowerCase();
       return statusClass !== 'badge-done' && !statusLabel.includes('termin');
@@ -2906,6 +2901,110 @@ function buildPlanCalendarDaysForMonth(monthKey, apiDays, baseMonthKey, itemsByD
   }
 
   return days;
+}
+
+
+// ============================================================
+// HOME WEEK STRIP
+// ============================================================
+function renderHomeWeekView() {
+  const container = document.getElementById('home-week-strip');
+  if (!container) return;
+
+  const today = new Date();
+  const todayKey = normalizeDateForStorage(today);
+
+  // Build 7-day window: Mon → Sun of current week
+  const dow = (today.getDay() + 6) % 7; // Mon=0
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - dow);
+
+  const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+  // Merge plan items + races + personal events into a date→items map
+  const allItemsByDate = new Map();
+  const addItem = (dateKey, item) => {
+    if (!allItemsByDate.has(dateKey)) allItemsByDate.set(dateKey, []);
+    allItemsByDate.get(dateKey).push(item);
+  };
+
+  // Plan sessions
+  const metrics = dashboardMetrics || {};
+  const calendarData = metrics.planCalendar;
+  const itemsByDate = calendarData?.itemsByDate && typeof calendarData.itemsByDate === 'object'
+    ? calendarData.itemsByDate : {};
+  Object.entries(itemsByDate).forEach(([dateKey, items]) => {
+    (Array.isArray(items) ? items : []).forEach((it) => addItem(dateKey, it));
+  });
+
+  // Races
+  (Array.isArray(racesData) ? racesData : []).forEach((race) => {
+    const dateKey = normalizeDateForStorage(race?.date);
+    if (!dateKey) return;
+    addItem(dateKey, { kind: 'race', label: race?.name || 'Course', format: race?.distance ? String(race.distance) : '' });
+  });
+
+  // Personal events
+  (Array.isArray(calendarEventsData) ? calendarEventsData : []).forEach((evt) => {
+    if (!evt?.date) return;
+    addItem(evt.date, { kind: 'personal', label: evt.title || 'Perso', format: '' });
+  });
+
+  // Build day nodes
+  const dayNodes = DAY_LABELS.map((dayLabel, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    const dateKey = normalizeDateForStorage(d);
+    const isToday = dateKey === todayKey;
+    const isPast = d < today && !isToday;
+    const items = allItemsByDate.get(dateKey) || [];
+
+    const col = document.createElement('div');
+    col.className = 'hw-day' + (isToday ? ' hw-day--today' : '') + (isPast ? ' hw-day--past' : '');
+    col.dataset.date = dateKey;
+
+    const head = document.createElement('div');
+    head.className = 'hw-day-head';
+
+    const labelEl = document.createElement('span');
+    labelEl.className = 'hw-day-label';
+    labelEl.textContent = dayLabel;
+
+    const numEl = document.createElement('span');
+    numEl.className = 'hw-day-num';
+    numEl.textContent = String(d.getDate());
+
+    head.appendChild(labelEl);
+    head.appendChild(numEl);
+    col.appendChild(head);
+
+    if (items.length > 0) {
+      const badges = document.createElement('div');
+      badges.className = 'hw-badges';
+      items.slice(0, 3).forEach((it) => {
+        const badge = document.createElement('span');
+        const kind = it?.kind || 'session';
+        badge.className = 'hw-badge hw-badge--' + kind + (it?.isDone ? ' hw-badge--done' : '');
+        const sessionTypeLabels = { EF: 'EF', RECUP: 'Récup', SL: 'SL', T: 'Tempo', FL: 'Seuil', FC: 'FC', VMA: 'VMA', RACE: '🏁', race: '🏁', personal: '📌' };
+        const typeKey = (it?.sessionType || it?.kind || '').toUpperCase();
+        const shortLabel = sessionTypeLabels[typeKey] || (it?.label ? String(it.label).slice(0, 8) : '•');
+        badge.textContent = shortLabel;
+        if (it?.format) badge.title = String(it.format);
+        badges.appendChild(badge);
+      });
+      if (items.length > 3) {
+        const more = document.createElement('span');
+        more.className = 'hw-badge hw-badge--more';
+        more.textContent = `+${items.length - 3}`;
+        badges.appendChild(more);
+      }
+      col.appendChild(badges);
+    }
+
+    return col;
+  });
+
+  container.replaceChildren(...dayNodes);
 }
 
 function renderPlanCalendar(calendar) {
@@ -3454,23 +3553,22 @@ function renderEfBpmChart() {
     }, String(bVal)));
   });
 
-  // X labels: rotated -35° to prevent overlap on mobile
+  // X labels: rotated -35° to avoid overlap on mobile.
   const labelStep = W < 380 && n > 6 ? 2 : 1;
   const drawnIndices = new Set();
   for (let i = 0; i < n; i += labelStep) {
     drawnIndices.add(i);
     const x = xSc(i);
-    const labelY = H - 6;
+    const labelY = PAD.top + cH + 14;
     svg.appendChild(createSvgEl('text', {
       x: x.toFixed(1), y: labelY.toFixed(1),
       'text-anchor': 'end', fill: 'var(--text-muted)', 'font-size': 8, 'font-family': 'monospace',
       transform: `rotate(-35, ${x.toFixed(1)}, ${labelY.toFixed(1)})`,
     }, String(trend[i].label || '—')));
   }
-  // Always draw the last label if not already drawn
   if (!drawnIndices.has(n - 1)) {
     const x = xSc(n - 1);
-    const labelY = H - 6;
+    const labelY = PAD.top + cH + 14;
     svg.appendChild(createSvgEl('text', {
       x: x.toFixed(1), y: labelY.toFixed(1),
       'text-anchor': 'end', fill: 'var(--text-muted)', 'font-size': 8, 'font-family': 'monospace',
@@ -3634,10 +3732,8 @@ function renderProjections() {
       const objLine = raceProj.objective
         ? `<span class="race-proj-obj">Objectif : <strong>${raceProj.objective}</strong></span>`
         : '';
-      const daysText = raceProj.daysLabel
-        || (raceProj.daysTo != null ? `dans ${raceProj.daysTo} jour${raceProj.daysTo > 1 ? 's' : ''}` : '');
-      const daysLine = daysText
-        ? `<span class="race-proj-days">${daysText}</span>`
+      const daysLine = raceProj.daysTo != null
+        ? `<span class="race-proj-days">dans ${raceProj.daysTo} jour${raceProj.daysTo > 1 ? 's' : ''}</span>`
         : '';
       raceProjectionEl.innerHTML =
         `<span class="race-proj-icon">🏁</span>` +
@@ -3885,35 +3981,48 @@ function renderProjectionHistoryLines(svg, visibleSeries, monthCount, padTop, pa
     const color = typeof line?.color === 'string' && line.color.trim() !== '' ? line.color.trim() : 'var(--accent2)';
     const values = Array.isArray(line?.values) ? line.values : [];
 
+    // Build valid points
     const pts = values.reduce((acc, v, i) => {
       if (i >= monthCount) return acc;
       const sec = Number(v);
       if (!Number.isFinite(sec) || sec <= 0) return acc;
-      acc.push({ x: xSc(i), y: ySc(sec), sec });
+      acc.push({ x: xSc(i), y: ySc(sec), sec, i });
       return acc;
     }, []);
 
     if (pts.length < 1) return;
 
+    // Line
     if (pts.length > 1) {
+      const pointsStr = pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
       svg.appendChild(createSvgEl('polyline', {
-        points: pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '),
-        fill: 'none', stroke: color, 'stroke-width': 2.2,
-        'stroke-opacity': 0.9, 'stroke-linejoin': 'round', 'stroke-linecap': 'round',
+        points: pointsStr,
+        fill: 'none',
+        stroke: color,
+        'stroke-width': 2.2,
+        'stroke-opacity': 0.9,
+        'stroke-linejoin': 'round',
+        'stroke-linecap': 'round',
       }));
     }
 
+    // Dots + value labels
     pts.forEach((p) => {
       svg.appendChild(createSvgEl('circle', {
         cx: p.x.toFixed(1), cy: p.y.toFixed(1),
         r: 4, fill: color, stroke: 'var(--surface)', 'stroke-width': 1.5,
       }));
+      const label = formatProjectionBarLabel(p.sec);
       const labelY = Math.max(padTop + 10, p.y - 8);
       svg.appendChild(createSvgEl('text', {
-        x: p.x.toFixed(1), y: labelY.toFixed(1),
-        'text-anchor': 'middle', fill: 'var(--text)',
-        'font-size': 9, 'font-weight': 700, 'font-family': 'monospace',
-      }, formatProjectionBarLabel(p.sec)));
+        x: p.x.toFixed(1),
+        y: labelY.toFixed(1),
+        'text-anchor': 'middle',
+        fill: 'var(--text)',
+        'font-size': 9,
+        'font-weight': 700,
+        'font-family': 'monospace',
+      }, label));
     });
   });
 }
@@ -3982,6 +4091,7 @@ function renderProjectionsHistoryChart(history) {
 
   const svg = createSvgEl('svg', { width: W, height: H, xmlns: 'http://www.w3.org/2000/svg' });
 
+  // Grid lines
   [0, 0.25, 0.5, 0.75, 1].forEach((t) => {
     const y = PAD.top + (1 - t) * cH;
     svg.appendChild(createSvgEl('line', {
@@ -3995,6 +4105,7 @@ function renderProjectionsHistoryChart(history) {
     }));
   });
 
+  // X labels
   labels.forEach((label, i) => {
     const x = PAD.left + (i + 0.5) * groupWidth;
     svg.appendChild(createSvgEl('text', {
@@ -5832,19 +5943,7 @@ function buildRaceRow(r) {
   if (dateEl) dateEl.textContent = formatDate(r.date);
   if (distEl) distEl.textContent = r.distance || '—';
   if (objEl) objEl.textContent = r.objective || '—';
-  if (realEl) {
-    if (r.dnfStatus === 'dns' || r.dnfStatus === 'dnf') {
-      const span = document.createElement('span');
-      span.className = 'dnf-label';
-      span.textContent = r.dnfStatus.toUpperCase();
-      if (r.dnfComment) {
-        span.title = r.dnfComment;
-      }
-      realEl.replaceChildren(span);
-    } else {
-      realEl.textContent = r.result || '—';
-    }
-  }
+  if (realEl) realEl.textContent = r.result || '—';
   if (diffEl) {
     if (diff === '—') {
       diffEl.textContent = diff;
@@ -5856,7 +5955,7 @@ function buildRaceRow(r) {
     }
   }
   if (resultBtn) {
-    const hasResult = Boolean(String(r.result || '').trim()) || r.dnfStatus === 'dns' || r.dnfStatus === 'dnf';
+    const hasResult = Boolean(String(r.result || '').trim());
     resultBtn.title = hasResult ? 'Modifier résultat' : 'Saisir résultat';
     resultBtn.setAttribute('aria-label', resultBtn.title);
     resultBtn.classList.toggle('has-value', hasResult);
@@ -5944,55 +6043,13 @@ function openRaceResult(id) {
   if (!r) return;
   const idxEl = document.getElementById('rr-idx');
   const resultEl = document.getElementById('rr-real');
-  const statusEl = document.getElementById('rr-status');
-  const commentEl = document.getElementById('rr-comment');
-  const commentWrap = document.getElementById('rr-comment-wrap');
-  const resultWrap = document.getElementById('rr-result-wrap');
   if (!(idxEl instanceof HTMLInputElement) || !(resultEl instanceof HTMLInputElement)) {
     notify('⚠ Saisie resultat indisponible pour le moment');
     return;
   }
   idxEl.value = id;
   resultEl.value = r.result || '';
-
-  // Prefill / reset the auto-log fields (not stored on the race itself).
-  const kmEl = document.getElementById('rr-km');
-  const dplusEl = document.getElementById('rr-dplus');
-  const bpmEl = document.getElementById('rr-bpm');
-  const effortEl = document.getElementById('rr-effort');
-  const notesEl = document.getElementById('rr-notes');
-  if (kmEl instanceof HTMLInputElement) {
-    const distMatch = String(r.distance || '').replace(',', '.').match(/\d+(\.\d+)?/);
-    kmEl.value = distMatch ? distMatch[0] : '';
-  }
-  if (dplusEl instanceof HTMLInputElement) dplusEl.value = '';
-  if (bpmEl instanceof HTMLInputElement) bpmEl.value = '';
-  if (effortEl instanceof HTMLSelectElement) effortEl.value = '';
-  if (notesEl instanceof HTMLInputElement) notesEl.value = '';
-
-  if (statusEl instanceof HTMLSelectElement) {
-    statusEl.value = r.dnfStatus || '';
-    // Trigger visibility update
-    updateRaceResultModalVisibility();
-  }
-  if (commentEl instanceof HTMLInputElement) {
-    commentEl.value = r.dnfComment || '';
-  }
   openModal('race-result-modal');
-}
-
-function updateRaceResultModalVisibility() {
-  const statusEl = document.getElementById('rr-status');
-  const resultWrap = document.getElementById('rr-result-wrap');
-  const commentWrap = document.getElementById('rr-comment-wrap');
-  if (!(statusEl instanceof HTMLSelectElement)) return;
-  const isDnx = statusEl.value === 'dns' || statusEl.value === 'dnf';
-  if (resultWrap) resultWrap.style.display = isDnx ? 'none' : '';
-  if (commentWrap) commentWrap.style.display = isDnx ? '' : 'none';
-  const logFields = document.getElementById('rr-log-fields');
-  const logHint = document.getElementById('rr-log-hint');
-  if (logFields) logFields.style.display = isDnx ? 'none' : '';
-  if (logHint) logHint.style.display = isDnx ? 'none' : '';
 }
 
 async function saveRaceResult() {
@@ -6003,42 +6060,16 @@ async function saveRaceResult() {
     return;
   }
 
-  const statusEl = document.getElementById('rr-status');
-  const commentEl = document.getElementById('rr-comment');
-  const dnfStatus = statusEl instanceof HTMLSelectElement ? statusEl.value : '';
-  const dnfComment = commentEl instanceof HTMLInputElement ? commentEl.value.trim() : '';
-  const isDnx = dnfStatus === 'dns' || dnfStatus === 'dnf';
-
-  const resultValue = isDnx ? null : (document.getElementById('rr-real').value.trim() || null);
-  const readVal = (elId) => {
-    const el = document.getElementById(elId);
-    return el && 'value' in el ? String(el.value).trim() : '';
-  };
-
-  const payload = {
-    name: current.name || '',
-    date: current.date || '',
-    distance: current.distance || null,
-    objective: current.objective || null,
-    result: resultValue,
-    dnfStatus: isDnx ? dnfStatus : null,
-    dnfComment: isDnx ? (dnfComment || null) : null,
-  };
-
-  // When a real result is recorded, carry the optional log details so the
-  // server mirrors the race into the journal (type Course) automatically.
-  if (!isDnx && resultValue) {
-    payload.logKm = readVal('rr-km') || null;
-    payload.logDplus = readVal('rr-dplus') || null;
-    payload.logBpm = readVal('rr-bpm') || null;
-    payload.logEffort = readVal('rr-effort') || null;
-    payload.logNotes = readVal('rr-notes') || null;
-  }
-
   try {
     const updated = await apiFetch(`/races/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        name: current.name || '',
+        date: current.date || '',
+        distance: current.distance || null,
+        objective: current.objective || null,
+        result: document.getElementById('rr-real').value.trim() || null,
+      }),
     });
     const idx = racesData.findIndex((r) => r.id === id);
     if (idx >= 0) racesData[idx] = normalizeRace(updated);
@@ -6076,7 +6107,7 @@ function ensureRaceModals() {
         <div class="form-grid">
           <div class="field"><label for="rm-name">Nom</label><input id="rm-name" type="text"></div>
           <div class="field"><label for="rm-date">Date</label><input id="rm-date" type="date"></div>
-          <div class="field"><label for="rm-dist">Distance (km)</label><input id="rm-dist" type="text"></div>
+          <div class="field"><label for="rm-dist">Distance</label><input id="rm-dist" type="text"></div>
           <div class="field"><label for="rm-obj">Objectif (hh:mm:ss)</label><input id="rm-obj" type="text"></div>
         </div>
         <div class="modal-actions">
@@ -6095,43 +6126,12 @@ function ensureRaceModals() {
     raceResultModal.className = 'modal-overlay';
     raceResultModal.innerHTML = `
       <div class="modal">
-        <button class="modal-close" onclick="closeModal('race-result-modal')">×</button>
-        <div class="modal-title">Saisir le résultat</div>
+        <button class="modal-close" onclick="closeModal('race-result-modal')">x</button>
+        <div class="modal-title">Saisir le resultat</div>
         <input type="hidden" id="rr-idx">
         <div class="form-grid">
-          <div class="field">
-            <label for="rr-status">Statut</label>
-            <select id="rr-status" onchange="updateRaceResultModalVisibility()">
-              <option value="">✓ Terminée</option>
-              <option value="dns">DNS — Did Not Start</option>
-              <option value="dnf">DNF — Did Not Finish</option>
-            </select>
-          </div>
-          <div class="field" id="rr-result-wrap">
-            <label for="rr-real">Temps (hh:mm:ss)</label>
-            <input id="rr-real" type="text" placeholder="00:53:22">
-          </div>
-          <div class="field" id="rr-comment-wrap" style="display:none">
-            <label for="rr-comment">Commentaire (optionnel)</label>
-            <input id="rr-comment" type="text" placeholder="ex: chute au km 3">
-          </div>
+          <div class="field"><label for="rr-real">Resultat (hh:mm:ss)</label><input id="rr-real" type="text" placeholder="00:53:22"></div>
         </div>
-        <div class="form-grid" id="rr-log-fields">
-          <div class="field"><label for="rr-km">Distance (km)</label><input id="rr-km" type="number" step="0.01" placeholder="10"></div>
-          <div class="field"><label for="rr-dplus">D+ (mètres)</label><input id="rr-dplus" type="number" placeholder="0"></div>
-          <div class="field"><label for="rr-bpm">BPM moy.</label><input id="rr-bpm" type="number" placeholder="150"></div>
-          <div class="field"><label for="rr-effort">Ressenti</label>
-            <select id="rr-effort">
-              <option value="">—</option>
-              <option value="facile">Facile</option>
-              <option value="moderee">Modérée</option>
-              <option value="difficile">Difficile</option>
-              <option value="maximum">Maximum</option>
-            </select>
-          </div>
-          <div class="field" style="grid-column:1 / -1;"><label for="rr-notes">Notes (optionnel)</label><input id="rr-notes" type="text" placeholder="Sensations, météo, parcours…"></div>
-        </div>
-        <p class="section-sub" id="rr-log-hint" style="margin:4px 0 0;">La course sera ajoutée automatiquement à tes logs (type Course).</p>
         <div class="modal-actions">
           <button class="btn" onclick="saveRaceResult()">Enregistrer</button>
           <button class="btn btn-ghost" onclick="closeModal('race-result-modal')">Annuler</button>
@@ -6265,12 +6265,15 @@ async function initApp() {
   if (raceDateEl) raceDateEl.value = today;
 
   // Setup date input handlers for FR format (jj/mm/yyyy) conversion
-  // NOTE: Do NOT call showPicker() on click — the browser already opens the native
-  // date picker when the calendar icon is clicked. Adding showPicker() causes a
-  // double-open flicker on Chrome/Edge (picker opens twice in quick succession).
   ['log-date', 'r-date', 'lm-date', 'rm-date', 'pm-date'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
+      const tryOpenPicker = () => {
+        if (typeof el.showPicker === 'function') {
+          try { el.showPicker(); } catch {}
+        }
+      };
+      el.addEventListener('click', tryOpenPicker);
       el.addEventListener('change', (e) => {
         const val = e.target.value;
         if (val && !val.includes('-')) {
