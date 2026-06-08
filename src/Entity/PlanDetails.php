@@ -224,6 +224,11 @@ class PlanDetails
     public function isDone(): bool { return $this->isDone; }
 
     /**
+     * Sets completion flag.
+     */
+    public function setIsDone(bool $isDone): static { $this->isDone = $isDone; return $this; }
+
+    /**
      * Sets completion flag (alias for serializer compatibility).
      */
     public function setDone(bool $done): static { $this->isDone = $done; return $this; }

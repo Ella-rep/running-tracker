@@ -102,7 +102,7 @@ final class DashboardAdvancedMetricsServiceTest extends TestCase
     private function makeBaselineRuns(): array
     {
         $runs = [];
-        foreach ([10, 12, 14, 16, 18, 20, 22, 24, 26] as $daysAgo) {
+        foreach ([35, 40, 45, 50, 55, 60, 65, 70, 75] as $daysAgo) {
             $runs[] = $this->makeRun($daysAgo, duration: '01:00:00', runType: 'EF', perceivedEffort: 'facile');
         }
 
