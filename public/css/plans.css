@@ -1,5 +1,23 @@
 /* Plans page specific styles */
 
+/* Cancelled session row */
+.session-row.session-cancelled {
+  opacity: 0.55;
+}
+.session-row.session-cancelled .session-format,
+.session-row.session-cancelled .session-date-badge,
+.session-row.session-cancelled .session-type-badge,
+.session-row.session-cancelled .pe-badge,
+.session-row.session-cancelled .duration-badge {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+/* Cancel button active state */
+.action-btn.session-cancel.is-cancelled {
+  color: var(--accent);
+}
+
 .zone-legend {
   display: flex;
   gap: 12px;
@@ -593,4 +611,22 @@
   .week-header {
     padding: 8px 12px;
   }
+}
+
+/* Non-persisted placeholder sessions shown for empty plans */
+.week-card--placeholder {
+  border: 1px dashed var(--border, rgba(255,255,255,0.15));
+  opacity: 0.85;
+}
+.plans-placeholder-hint {
+  padding: 6px 12px 10px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.session-row--placeholder {
+  opacity: 0.7;
+  cursor: default;
+}
+.session-row--placeholder .session-check {
+  color: var(--text-muted);
 }

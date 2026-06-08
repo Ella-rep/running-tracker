@@ -164,7 +164,7 @@ final class DashboardPlannedAdviceService
         array $doneByProgress,
         array $validatedByLog
     ): bool {
-        if ($date >= $todayStr || $row->isDone()) {
+        if ($date >= $todayStr || $row->isDone() || $row->isCancelled()) {
             return false;
         }
 

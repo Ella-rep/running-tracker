@@ -4,7 +4,7 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
-<link rel="stylesheet" href="{{ asset('css/plans.css') }}?v=20260606-mobilefix1">
+<link rel="stylesheet" href="{{ asset('css/plans.css') }}?v=20260608-placeholder1">
 {% endblock %}
 
 {% block body %}
@@ -135,6 +135,7 @@
     <div class="zone-item"><div class="zone-dot zone-dot-z5"></div>Z5 VO2max</div>
   </div>
 
+      <script type="application/json" id="starter-placeholders-data">{{ starterPlaceholders|default([])|json_encode|raw }}</script>
       <div id="plans-detail-weeks">
         {% if hasSelectedPlan %}
           {% for week in selectedPlanView.weeks %}
@@ -175,7 +176,26 @@
               </div>
             </div>
           {% else %}
-            <div class="section-sub">Ce plan ne contient aucune séance.</div>
+            <div class="week-card week-card--placeholder">
+              <div class="week-header">
+                <span class="week-num">SÉANCES SUGGÉRÉES</span>
+                <span class="week-date">exemple</span>
+              </div>
+              <div class="plans-placeholder-hint">Ce plan est vide. Voici des séances types pour démarrer — ajoute tes propres séances avec « + Ajouter séance ».</div>
+              <div class="week-sessions">
+                {% for ph in starterPlaceholders|default([]) %}
+                  <div class="session-row session-row--placeholder">
+                    <div class="session-check" aria-hidden="true">○</div>
+                    <div class="session-format">{{ ph.format }}{% if ph.isOptional %} <span class="session-format-optional">(optionnel)</span>{% endif %}</div>
+                    <div class="session-meta">
+                      <span class="session-type-badge{% if not ph.sessionType %} session-meta-slot--empty{% endif %}">{{ ph.sessionType ?: 'TYPE' }}</span>
+                      <span class="pe-badge{% if not ph.pe %} session-meta-slot--empty{% endif %}">PE {{ ph.pe ?: '0/10' }}</span>
+                      <span class="duration-badge{% if not ph.totalMin %} session-meta-slot--empty{% endif %}">{{ ph.totalMin ?: '00' }}'</span>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
           {% endfor %}
         {% endif %}
       </div>
@@ -199,6 +219,7 @@
             <span class="duration-badge session-meta-slot--empty" aria-hidden="true">00'</span>
             <span class="optional-tag" hidden>(optionnel)</span>
             <div class="action-btns">
+              <button class="action-btn session-cancel" title="Annuler la séance">✕</button>
               <button class="action-btn session-edit" title="Modifier">✏️</button>
               <button class="action-btn del session-delete" title="Supprimer">🗑</button>
             </div>

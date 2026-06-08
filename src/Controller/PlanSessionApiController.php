@@ -113,6 +113,27 @@ final class PlanSessionApiController extends AbstractController
     }
 
     /**
+     * Toggles the isCancelled flag on a session without going through replaceForPlan.
+     */
+    #[Route('/api/plans/{planId<\d+>}/sessions/{detailId<\d+>}/cancel', name: 'api_plans_session_cancel', methods: ['PATCH'])]
+    public function toggleCancelSession(int $planId, int $detailId, Request $request): JsonResponse
+    {
+        $user = $this->requireUser();
+        $plan = $this->findOwnedPlan($planId, $user);
+
+        $details = $this->findPlanDetailsRows($plan, $user);
+        [, $row] = $this->findDetailRowById($details, $detailId);
+
+        $payload = $this->decodeJsonPayload($request);
+        $isCancelled = isset($payload['isCancelled']) ? (bool) $payload['isCancelled'] : !$row->isCancelled();
+
+        $row->setIsCancelled($isCancelled);
+        $this->entityManager->flush();
+
+        return $this->json(['isCancelled' => $isCancelled]);
+    }
+
+    /**
      * Deletes one session from the target plan.
      */
     #[Route('/api/plans/{planId<\d+>}/sessions/{detailId<\d+>}', name: 'api_plans_session_delete', methods: ['DELETE'])]

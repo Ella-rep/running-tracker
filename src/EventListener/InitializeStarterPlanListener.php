@@ -4,10 +4,8 @@ namespace App\EventListener;
 
 use ApiPlatform\Symfony\EventListener\EventPriorities;
 use App\Entity\Plan;
-use App\Entity\PlanDetails;
 use App\Entity\User;
 use App\Repository\PlanRepository;
-use App\Service\PlanSessionService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\Request;
@@ -20,7 +18,6 @@ final class InitializeStarterPlanListener
     public function __construct(
         private EntityManagerInterface $entityManager,
         private PlanRepository $plans,
-        private PlanSessionService $planSessionService,
     ) {
     }
 
@@ -37,42 +34,13 @@ final class InitializeStarterPlanListener
             return;
         }
 
+        // Create an empty starter plan. Its suggested sessions are rendered as
+        // non-persisted placeholders while the plan has no real session.
         $starterPlan = new Plan();
         $starterPlan->setUser($user);
         $starterPlan->setName('starter');
         $starterPlan->setDashboardTracked(false);
         $this->entityManager->persist($starterPlan);
         $this->entityManager->flush();
-
-        $sessions = $this->planSessionService->getSessionsForPlan($starterPlan);
-        foreach ($sessions as $index => $session) {
-            $detail = new PlanDetails();
-            $detail->setUser($user);
-            $detail->setPlan($starterPlan);
-            $detail->setPosition($index + 1);
-            $detail->setSem($session['sem'] ?? null);
-            $detail->setSessionDate($this->toDate($session['date'] ?? null));
-            $detail->setFormat($session['format'] ?? "45'@Z2");
-            $detail->setPe($session['pe'] ?? null);
-            $detail->setTotalMin($session['totalMin'] ?? null);
-            $detail->setIsOptional((bool) ($session['isOptional'] ?? false));
-            $detail->setIsDone(false);
-            $this->entityManager->persist($detail);
-        }
-
-        $this->entityManager->flush();
-    }
-
-    private function toDate(?string $value): ?\DateTimeImmutable
-    {
-        if (!$value) {
-            return null;
-        }
-
-        try {
-            return new \DateTimeImmutable($value);
-        } catch (\Throwable) {
-            return null;
-        }
     }
 }

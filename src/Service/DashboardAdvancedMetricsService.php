@@ -165,7 +165,7 @@ final class DashboardAdvancedMetricsService
         $acwr = $this->computeAcwrLoads($dailyLoads, $today);
         $acute = $acwr['acute'];
         $chronicTotal = $acwr['chronicTotal'];
-        $chronic = $chronicTotal / 4.0;
+        $chronic = $chronicTotal / 3.0;
         $ratio = ($chronic > 0 && $chronicTotal > $acute) ? round($acute / $chronic, 2) : null;
         $deltaPct = $chronic > 0 ? (int) round((($acute - $chronic) / $chronic) * 100) : 0;
         $status = $this->resolveTrainingLoadStatus($ratio, $logs);
@@ -303,6 +303,7 @@ final class DashboardAdvancedMetricsService
         return array_reduce($rows, static function (array $carry, $row) use ($loggedDetailIds, $doneByProgress): array {
             $rowId = $row->getId();
             $sessionIndex = max(0, $row->getPosition() - 1);
+            $isCancelled = $row->isCancelled();
             $isDone = $row->isDone() || ($rowId !== null && isset($loggedDetailIds[$rowId])) || isset($doneByProgress[$sessionIndex]);
             $carry['done'] += $isDone ? 1 : 0;
             $date = $row->getSessionDate();
@@ -315,6 +316,7 @@ final class DashboardAdvancedMetricsService
                 'kind' => 'session', 'detailId' => $rowId, 'planId' => $row->getPlan()->getId(),
                 'sessionType' => $row->getSessionType(), 'label' => sprintf('Séance %d', $row->getPosition()),
                 'format' => $row->getFormat(), 'pe' => $row->getPe(), 'isDone' => $isDone,
+                'isCancelled' => $isCancelled,
                 'hasLog' => $rowId !== null && isset($loggedDetailIds[$rowId]), 'isOptional' => $row->isOptional(),
             ];
             return $carry;
@@ -419,15 +421,16 @@ final class DashboardAdvancedMetricsService
     /** @param array<string,float> $dailyLoads @return array{acute:float,chronicTotal:float} */
     private function computeAcwrLoads(array $dailyLoads, \DateTimeImmutable $today): array
     {
+        // Monthly granularity: acute = current month (last 30 days), chronic = last 3 months total.
         $acute = 0.0;
         $chronicTotal = 0.0;
         foreach ($dailyLoads as $date => $load) {
             $day = $this->parseDay($date);
             if ($day === null) continue;
             $daysAgo = (int) floor(($today->getTimestamp() - $day->getTimestamp()) / 86400);
-            if ($daysAgo < 0 || $daysAgo > 27) continue;
+            if ($daysAgo < 0 || $daysAgo > 89) continue;
             $chronicTotal += $load;
-            if ($daysAgo <= 6) $acute += $load;
+            if ($daysAgo <= 29) $acute += $load;
         }
         return ['acute' => $acute, 'chronicTotal' => $chronicTotal];
     }
@@ -439,7 +442,7 @@ final class DashboardAdvancedMetricsService
         if (empty($dailyLoads)) return null;
         $today = (new \DateTimeImmutable('now'))->setTime(0, 0, 0);
         $acwr = $this->computeAcwrLoads($dailyLoads, $today);
-        $chronic = $acwr['chronicTotal'] / 4.0;
+        $chronic = $acwr['chronicTotal'] / 3.0;
         if ($chronic <= 0 || $acwr['chronicTotal'] <= $acwr['acute']) return null;
         return round($acwr['acute'] / $chronic, 2);
     }
