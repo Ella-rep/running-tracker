@@ -902,6 +902,18 @@
   background: color-mix(in srgb, var(--z2) 18%, var(--surface));
 }
 
+/* Cancelled sessions (isCancelled) */
+.plan-calendar-item.is-cancelled {
+  opacity: 0.45;
+  border-left-color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-muted) 8%, var(--surface));
+  box-shadow: none;
+}
+.plan-calendar-item.is-cancelled .plan-calendar-item-label,
+.plan-calendar-item.is-cancelled .plan-calendar-item-format {
+  text-decoration: line-through;
+}
+
 /* Past sessions (not done) — yellow like km bars */
 .plan-calendar-item.is-past:not(.is-done) {
   border-left-color: color-mix(in srgb, var(--z1) 68%, var(--z3));

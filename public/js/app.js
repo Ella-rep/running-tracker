@@ -2672,10 +2672,10 @@ function renderDashboard() {
 
   const raceTbody = document.getElementById('race-tbody');
   if (raceTbody && isWidgetEnabled('races_table')) {
+    const _todayKey = normalizeDateForStorage(new Date());
     const upcomingRows = (Array.isArray(metrics.racesTable) ? metrics.racesTable : []).filter((r) => {
-      const statusClass = String(r?.statusClass || '').toLowerCase();
-      const statusLabel = String(r?.statusLabel || '').toLowerCase();
-      return statusClass !== 'badge-done' && !statusLabel.includes('termin');
+      const raceDate = normalizeDateForStorage(r?.date);
+      return !!raceDate && raceDate >= _todayKey;
     });
 
     const rows = upcomingRows.map((r) => {
@@ -2791,6 +2791,7 @@ function buildPlanCalendarDayNodes(days, racesByDate, personalByDate) {
       if (normalizedKind === 'personal') entry.classList.add('is-personal');
       if (item?.isDone) entry.classList.add('is-done');
       if (item?.isOptional) entry.classList.add('is-optional');
+      if (item?.isCancelled) entry.classList.add('is-cancelled');
       if (!item?.isDone && normalizedKind === 'session') {
         if (dayKey && todayKey && dayKey < todayKey) entry.classList.add('is-past');
         else if (dayKey && todayKey && dayKey > todayKey) entry.classList.add('is-future');
@@ -2829,6 +2830,7 @@ function buildPlanCalendarDayNodes(days, racesByDate, personalByDate) {
         itemLabel = `${itemLabel} · ${itemSessionType}`;
       }
       if (normalizedKind === 'race') itemLabel = 'Course';
+      if (normalizedKind === 'race' && item?.dnfStatus) itemLabel = 'Course — ' + item.dnfStatus.toUpperCase();
       if (normalizedKind === 'personal') itemLabel = 'Perso';
       label.textContent = itemLabel;
       const format = document.createElement('div');
@@ -3085,6 +3087,7 @@ function renderPlanCalendar(calendar) {
       result: raceResult,
       isDone: raceResult.length > 0 || !!race?.dnfStatus,
       isOptional: false,
+      dnfStatus: race?.dnfStatus || null,
     });
   });
 
@@ -4135,8 +4138,20 @@ function renderProjectionsHistoryChart(history) {
 
   renderProjectionHistoryLines(svg, visibleSeries, monthCount, PAD.top, PAD.left, groupWidth, minY, yRange, cH);
 
+  [0, 0.25, 0.5, 0.75, 1].forEach((t) => {
+    const secVal = Math.round(minY + t * yRange);
+    const y = PAD.top + ((1 - t) * cH);
+    svg.appendChild(createSvgEl('text', {
+      x: PAD.left - 4,
+      y: y.toFixed(1),
+      'text-anchor': 'end',
+      'dominant-baseline': 'middle',
+      fill: 'var(--text-muted)',
+      'font-size': 10,
+      'font-family': 'monospace',
+    }, formatHmsFromSeconds(secVal) || String(secVal)));
+  });
   container.replaceChildren(svg);
-  renderProjectionHistoryYAxis(container, minY, yRange, PAD.top, cH);
 
   if (container.dataset.scrollTracked !== '1') {
     container.dataset.scrollTracked = '1';
@@ -4598,7 +4613,7 @@ function renderPlan(containerId, data, stateKey) {
       if (cancelBtn) {
         cancelBtn.classList.toggle('is-cancelled', isCancelled);
         cancelBtn.title = isCancelled ? 'Remettre la séance' : 'Annuler la séance';
-        cancelBtn.textContent = isCancelled ? '↩' : '✕';
+        cancelBtn.textContent = isCancelled ? '↩' : '⊘';
       }
       row.classList.toggle('session-cancelled', isCancelled);
       appendFormattedZones(formatEl, s.format || '');
@@ -5097,7 +5112,7 @@ function openCalendarActionModal(item) {
   } else {
     modal.inputWrap.style.display = 'none';
     modal.input.value = '';
-    if (item?.hasSessionRef) {
+    if (item?.hasSessionRef && !item?.isCancelled) {
       // Bouton pour sélectionner la séance prévue dans le formulaire de log
       modal.buttons.appendChild(calendarActionButton('Sélectionner pour log', 'btn', () => {
         // Redirige vers la page des logs avec les bons paramètres
