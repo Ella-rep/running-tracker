@@ -6586,4 +6586,9 @@ async function initApp() {
       safeRender(renderDashboard, 'dashboard-deferred-preset');
     }),
   ]).finally(() => {
-    setDashboar
+    setDashboardLoadingState(false);
+    safeRender(renderDashboard, 'dashboard-deferred-final');
+  });
+}
+
+initApp();
