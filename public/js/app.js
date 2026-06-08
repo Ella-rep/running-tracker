@@ -4500,9 +4500,89 @@ function deleteExtraPlan(planId) {
   });
 }
 
+function getStarterPlaceholders() {
+  try {
+    const el = document.getElementById('starter-placeholders-data');
+    if (!el) return [];
+    const parsed = JSON.parse(el.textContent || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function renderPlanPlaceholderBlock(container, sessions) {
+  const week = document.createElement('div');
+  week.className = 'week-card week-card--placeholder';
+
+  const header = document.createElement('div');
+  header.className = 'week-header';
+  const num = document.createElement('span');
+  num.className = 'week-num';
+  num.textContent = 'SÉANCES SUGGÉRÉES';
+  const date = document.createElement('span');
+  date.className = 'week-date';
+  date.textContent = 'exemple';
+  header.append(num, date);
+
+  const hint = document.createElement('div');
+  hint.className = 'plans-placeholder-hint';
+  hint.textContent = 'Ce plan est vide. Voici des séances types pour démarrer — ajoute tes propres séances avec « + Ajouter séance ».';
+
+  const list = document.createElement('div');
+  list.className = 'week-sessions';
+
+  sessions.forEach((s) => {
+    const row = document.createElement('div');
+    row.className = 'session-row session-row--placeholder';
+
+    const check = document.createElement('div');
+    check.className = 'session-check';
+    check.setAttribute('aria-hidden', 'true');
+    check.textContent = '○';
+
+    const fmt = document.createElement('div');
+    fmt.className = 'session-format';
+    appendFormattedZones(fmt, s.format || '');
+    if (s.isOptional) {
+      const opt = document.createElement('span');
+      opt.className = 'session-format-optional';
+      opt.textContent = ' (optionnel)';
+      fmt.appendChild(opt);
+    }
+
+    const meta = document.createElement('div');
+    meta.className = 'session-meta';
+    const type = document.createElement('span');
+    type.className = 'session-type-badge' + (s.sessionType ? '' : ' session-meta-slot--empty');
+    type.textContent = s.sessionType || 'TYPE';
+    const pe = document.createElement('span');
+    pe.className = 'pe-badge' + (s.pe ? '' : ' session-meta-slot--empty');
+    pe.textContent = 'PE ' + (s.pe || '0/10');
+    const dur = document.createElement('span');
+    dur.className = 'duration-badge' + (s.totalMin ? '' : ' session-meta-slot--empty');
+    dur.textContent = (s.totalMin || '00') + "'";
+    meta.append(type, pe, dur);
+
+    row.append(check, fmt, meta);
+    list.appendChild(row);
+  });
+
+  week.append(header, hint, list);
+  container.replaceChildren(week);
+}
+
 function renderPlan(containerId, data, stateKey) {
   const container = document.getElementById(containerId);
   if (!container) return;
+
+  if (!Array.isArray(data) || data.length === 0) {
+    const placeholders = getStarterPlaceholders();
+    if (placeholders.length) {
+      renderPlanPlaceholderBlock(container, placeholders);
+      return;
+    }
+  }
 
   const dateSortValue = (value) => {
     const iso = normalizeDateForStorage(value);

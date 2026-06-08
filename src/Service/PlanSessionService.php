@@ -24,6 +24,16 @@ class PlanSessionService
         return $this->starterSessions();
     }
 
+    /**
+     * Suggested sessions shown as non-persisted placeholders for empty plans.
+     *
+     * @return array<int, array{sem:int, date:?string, format:string, sessionType:?string, pe:?string, totalMin:?int, isOptional:bool}>
+     */
+    public function getPlaceholderSessions(): array
+    {
+        return $this->starterSessions();
+    }
+
     /** @return array<int, array{sem:int, date:?string, format:string, sessionType:?string, pe:?string, totalMin:?int, isOptional:bool}> */
     private function starterSessions(): array
     {

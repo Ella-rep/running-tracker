@@ -34,6 +34,7 @@ class PlansController extends AbstractController
     public function index(
         PlanRepository $planRepository,
         PlanDetailsRepository $planDetailsRepository,
+        PlanSessionService $planSessionService,
         ?int $planId = null,
     ): Response
     {
@@ -46,6 +47,7 @@ class PlansController extends AbstractController
                 'selectedPlanView' => null,
                 'requestedPlanNotFound' => $planId !== null,
                 'hasExamplePlan' => false,
+                'starterPlaceholders' => $planSessionService->getPlaceholderSessions(),
             ]);
         }
 
@@ -99,6 +101,7 @@ class PlansController extends AbstractController
             'selectedPlanView' => $selectedPlanView,
             'requestedPlanNotFound' => $requestedPlanNotFound,
             'hasExamplePlan' => $hasExamplePlan,
+            'starterPlaceholders' => $planSessionService->getPlaceholderSessions(),
         ]);
     }
 
@@ -107,7 +110,6 @@ class PlansController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         PlanRepository $planRepository,
-        PlanSessionService $planSessionService,
     ): RedirectResponse {
         $user = $this->getUser();
         if (!$user instanceof User) {
@@ -139,25 +141,8 @@ class PlansController extends AbstractController
         $entityManager->persist($plan);
         $entityManager->flush();
 
-        $sessions = $planSessionService->getSessionsForPlan($plan);
-        foreach ($sessions as $index => $session) {
-            $detail = (new PlanDetails())
-                ->setUser($user)
-                ->setPlan($plan)
-                ->setPosition($index + 1)
-                ->setSem($session['sem'] ?? null)
-                ->setSessionDate(isset($session['date']) && $session['date'] ? new \DateTimeImmutable((string) $session['date']) : null)
-                ->setFormat((string) ($session['format'] ?? '45\'@Z2'))
-                ->setSessionType($session['sessionType'] ?? null)
-                ->setPe($session['pe'] ?? null)
-                ->setTotalMin($session['totalMin'] ?? null)
-                ->setIsOptional((bool) ($session['isOptional'] ?? false))
-                ->setIsDone(false);
-
-            $entityManager->persist($detail);
-        }
-
-        $entityManager->flush();
+        // Starter/template sessions are no longer persisted: empty plans show
+        // non-persisted placeholder suggestions instead.
         $this->addFlash(self::FLASH_SUCCESS, 'Plan créé.');
 
         return $this->redirectToRoute('app_plans_detail', ['planId' => $plan->getId()]);
