@@ -7,6 +7,7 @@ namespace App\Controller;
 use App\Entity\User;
 use App\Repository\UserRepository;
 use App\Service\GoogleOAuthErrorReportService;
+use App\Service\RaceLogSyncService;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -145,6 +146,55 @@ final class PlanMaintenanceApiController extends AbstractController
                 'errors' => $report['count'],
                 'window_hours' => $report['window_hours'],
                 'codes' => $report['codes'],
+            ]);
+        } catch (AccessDeniedHttpException $e) {
+            return $this->json([
+                'message' => $e->getMessage(),
+                'error' => 'access_denied',
+            ], 403);
+        } catch (\Throwable $e) {
+            return $this->json([
+                'message' => $e->getMessage(),
+                'error' => 'internal_error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Creates missing run-logs for every finished race (all users).
+     * Lets users recover races entered before auto-logging existed, without
+     * re-keying everything by hand. Route defined in config/routes/admin.yaml.
+     */
+    public function backfillRaceLogs(
+        UserRepository $userRepository,
+        RaceLogSyncService $raceLogSync
+    ): JsonResponse {
+        try {
+            $admin = $this->requireAdminUser();
+
+            $created = 0;
+            $usersTouched = 0;
+            foreach ($userRepository->findAll() as $user) {
+                if (!$user instanceof User) {
+                    continue;
+                }
+                $count = $raceLogSync->backfillForUser($user);
+                if ($count > 0) {
+                    $created += $count;
+                    $usersTouched++;
+                }
+            }
+
+            $this->logger->warning('Admin maintenance: race-to-log backfill executed.', [
+                'admin' => $admin->getUserIdentifier(),
+                'logs_created' => $created,
+                'users_touched' => $usersTouched,
+            ]);
+
+            return $this->json([
+                'message' => sprintf('%d course(s) ajoutee(s) aux logs (%d utilisateur(s)).', $created, $usersTouched),
+                'created' => $created,
+                'users' => $usersTouched,
             ]);
         } catch (AccessDeniedHttpException $e) {
             return $this->json([

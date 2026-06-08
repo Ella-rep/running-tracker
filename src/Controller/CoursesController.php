@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Race;
 use App\Entity\User;
 use App\Repository\RaceRepository;
+use App\Service\RaceLogSyncService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -115,7 +116,7 @@ class CoursesController extends AbstractController
     }
 
     #[Route('/courses/{id<\d+>}/result', name: 'app_courses_result', methods: ['POST'])]
-    public function updateResult(int $id, Request $request, RaceRepository $raceRepository, EntityManagerInterface $entityManager): RedirectResponse
+    public function updateResult(int $id, Request $request, RaceRepository $raceRepository, EntityManagerInterface $entityManager, RaceLogSyncService $raceLogSync): RedirectResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
@@ -144,6 +145,16 @@ class CoursesController extends AbstractController
             $race->setResult($this->nullableString($request->request->get('result')));
         }
         $entityManager->flush();
+
+        // Mirror a validated result (not DNS/DNF) into the run-log journal.
+        $extra = [
+            'km' => $this->nullableString($request->request->get('km')),
+            'dplus' => $this->nullableString($request->request->get('dplus')),
+            'bpm' => $this->nullableString($request->request->get('bpm')),
+            'perceivedEffort' => $this->nullableString($request->request->get('perceivedEffort')),
+            'notes' => $this->nullableString($request->request->get('notes')),
+        ];
+        $raceLogSync->syncForRace($race, array_filter($extra, static fn ($v) => $v !== null), overwrite: true);
 
         $this->addFlash(self::FLASH_SUCCESS, 'Résultat mis à jour.');
         return $this->redirectToRoute('app_courses');

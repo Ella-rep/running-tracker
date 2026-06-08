@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Controller;
 
 use App\Entity\Race;
+use App\Entity\RunLog;
 use App\Entity\User;
 use App\Tests\Factory\UserFactory;
 use Doctrine\DBAL\Connection;
@@ -149,6 +150,92 @@ final class CoursesControllerWebTest extends WebTestCase
         self::assertSame('2026-09-01', $unchanged->getDate());
         self::assertSame('10km', $unchanged->getDistance());
         self::assertSame('00:48:00', $unchanged->getObjective());
+    }
+
+    /**
+     * Validating a real race result mirrors it into the run-log journal.
+     */
+    public function testValidatingResultCreatesRunLog(): void
+    {
+        $user = $this->createUserFixture();
+        $this->authenticateClient($user);
+
+        $this->client->request('POST', '/courses/create', [
+            '_token' => $this->csrfFromForm('/courses', '/courses/create'),
+            'name' => 'Marathon de Test',
+            'date' => '2026-10-10',
+            'distance' => '42km',
+            'objective' => '04:00:00',
+        ]);
+        self::assertResponseRedirects('/courses');
+
+        $race = $this->entityManager->getRepository(Race::class)->findOneBy([
+            'user' => $user,
+            'name' => 'Marathon de Test',
+        ]);
+        self::assertInstanceOf(Race::class, $race);
+
+        $this->client->request('POST', '/courses/' . $race->getId() . '/result', [
+            '_token' => $this->csrfFromForm('/courses', '/courses/' . $race->getId() . '/result'),
+            'result' => '03:55:00',
+            'bpm' => '155',
+            'perceivedEffort' => 'difficile',
+        ]);
+        self::assertResponseRedirects('/courses');
+
+        $this->entityManager->clear();
+        $log = $this->entityManager->getRepository(RunLog::class)->findOneBy([
+            'courseName' => 'Marathon de Test',
+        ]);
+        self::assertInstanceOf(RunLog::class, $log, 'Validating a race result must create a matching run log.');
+        self::assertSame('Race', $log->getRunType());
+        self::assertSame('2026-10-10', $log->getDate());
+        self::assertSame('03:55:00', $log->getDuration());
+        self::assertEqualsWithDelta(42.2, (float) $log->getKm(), 0.01);
+        self::assertSame(155, $log->getBpm());
+        self::assertNotNull($log->getAllure());
+    }
+
+    /**
+     * Marking a race DNS must not create a run log and must clear the result.
+     */
+    public function testMarkingDnsDoesNotCreateRunLog(): void
+    {
+        $user = $this->createUserFixture();
+        $this->authenticateClient($user);
+
+        $this->client->request('POST', '/courses/create', [
+            '_token' => $this->csrfFromForm('/courses', '/courses/create'),
+            'name' => 'Course DNS Test',
+            'date' => '2026-10-12',
+            'distance' => '10km',
+            'objective' => '00:50:00',
+        ]);
+        self::assertResponseRedirects('/courses');
+
+        $race = $this->entityManager->getRepository(Race::class)->findOneBy([
+            'user' => $user,
+            'name' => 'Course DNS Test',
+        ]);
+        self::assertInstanceOf(Race::class, $race);
+
+        $this->client->request('POST', '/courses/' . $race->getId() . '/result', [
+            '_token' => $this->csrfFromForm('/courses', '/courses/' . $race->getId() . '/result'),
+            'dnf_status' => 'dns',
+            'dnf_comment' => 'Blessure',
+        ]);
+        self::assertResponseRedirects('/courses');
+
+        $this->entityManager->clear();
+        $updated = $this->entityManager->getRepository(Race::class)->find($race->getId());
+        self::assertInstanceOf(Race::class, $updated);
+        self::assertSame('dns', $updated->getDnfStatus());
+        self::assertNull($updated->getResult());
+
+        $log = $this->entityManager->getRepository(RunLog::class)->findOneBy([
+            'courseName' => 'Course DNS Test',
+        ]);
+        self::assertNull($log, 'A DNS race must not create a run log.');
     }
 
     /**

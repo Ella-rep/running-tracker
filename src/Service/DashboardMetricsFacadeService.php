@@ -173,8 +173,8 @@ final class DashboardMetricsFacadeService
 
         $nextRace = null;
         foreach ($races as $race) {
-            if (trim((string) ($race->getResult() ?? '')) !== '') {
-                continue; // already finished
+            if ($this->raceIsClosed($race)) {
+                continue; // already finished, DNS or DNF
             }
             $raceDate = \DateTimeImmutable::createFromFormat('Y-m-d', $race->getDate());
             if (!$raceDate instanceof \DateTimeImmutable) {
@@ -257,11 +257,52 @@ final class DashboardMetricsFacadeService
             'raceDate'   => (string) $nextRace->getDate(),
             'raceDist'   => $raceDistRaw,
             'daysTo'     => $daysTo,
+            'daysLabel'  => $this->humanizeDaysTo($daysTo),
             'objective'  => $objective,
             'projected'  => $projTime,
             'status'     => $status,
             'statusText' => $statusText,
         ];
+    }
+
+    /**
+     * Returns true when a race should no longer be treated as upcoming
+     * (it has a recorded result, or was marked DNS / DNF).
+     */
+    private function raceIsClosed(Race $race): bool
+    {
+        if (trim((string) ($race->getResult() ?? '')) !== '') {
+            return true;
+        }
+
+        return in_array($race->getDnfStatus(), ['dns', 'dnf'], true);
+    }
+
+    /**
+     * Converts a signed day delta into a human-readable French label.
+     * Examples: -1 => "Passé", 0 => "Aujourd'hui", 1 => "Demain",
+     * 3 => "Dans 3 jours", 14 => "Dans 2 semaines", 30 => "Dans 1 mois".
+     */
+    private function humanizeDaysTo(int $days): string
+    {
+        if ($days < 0) {
+            return 'Passé';
+        }
+        if ($days === 0) {
+            return "Aujourd'hui";
+        }
+        if ($days === 1) {
+            return 'Demain';
+        }
+        if ($days <= 6) {
+            return sprintf('Dans %d jours', $days);
+        }
+        if ($days <= 27) {
+            $weeks = (int) round($days / 7);
+            return sprintf('Dans %d semaine%s', $weeks, $weeks > 1 ? 's' : '');
+        }
+        $months = max(1, (int) round($days / 30));
+        return sprintf('Dans %d mois', $months);
     }
 
     /**
@@ -283,7 +324,7 @@ final class DashboardMetricsFacadeService
     }
 
     /**
-     * @return array<int, array{statusClass:string,statusLabel:string,name:string,date:string,dist:string,obj:string,real:string}>
+     * @return array<int, array{statusClass:string,statusLabel:string,upcoming:bool,name:string,date:string,dist:string,obj:string,real:string}>
      */
     private function buildDashboardRacesTable(User $user): array
     {
@@ -293,28 +334,37 @@ final class DashboardMetricsFacadeService
         $rows = [];
         foreach ($races as $race) {
             $days = $this->daysTo($today, $race->getDate());
-            $weeksToRace = (int) ceil(max(0, $days) / 7);
             $result = trim((string) ($race->getResult() ?? ''));
+            $dnfStatus = $race->getDnfStatus();
 
-            $statusClass = 'badge-future';
-            $statusLabel = $days < 0 ? 'Passée' : sprintf('S-%d', $weeksToRace);
+            // Default: an upcoming race, labelled with a human relative date.
+            $statusClass = $days <= 14 ? 'badge-next' : 'badge-future';
+            $statusLabel = $this->humanizeDaysTo($days);
+            $upcoming = true;
 
-            if ($result !== '') {
+            if ($dnfStatus === 'dns') {
+                $statusClass = 'badge-dns';
+                $statusLabel = 'DNS';
+                $upcoming = false;
+            } elseif ($dnfStatus === 'dnf') {
+                $statusClass = 'badge-dnf';
+                $statusLabel = 'DNF';
+                $upcoming = false;
+            } elseif ($result !== '') {
                 $statusClass = 'badge-done';
                 $statusLabel = '✓ Terminée';
-            } elseif ($days <= 14) {
-                $statusClass = 'badge-next';
-                $statusLabel = $days <= 7
-                    ? sprintf('J-%d', $days)
-                    : sprintf('S-%d', $weeksToRace);
-            } elseif ($weeksToRace <= 2) {
-                $statusClass = 'badge-next';
-                $statusLabel = sprintf('S-%d', $weeksToRace);
+                $upcoming = false;
+            } elseif ($days < 0) {
+                // Past race without a recorded result: keep it out of "à venir".
+                $statusClass = 'badge-future';
+                $statusLabel = 'Passé';
+                $upcoming = false;
             }
 
             $rows[] = [
                 'statusClass' => $statusClass,
                 'statusLabel' => $statusLabel,
+                'upcoming' => $upcoming,
                 'name' => $race->getName(),
                 'date' => $race->getDate(),
                 'dist' => (string) ($race->getDistance() ?? ''),

@@ -184,7 +184,9 @@ final class DashboardAdviceService
 
         foreach ($races as $race) {
             $result = trim((string) ($race->getResult() ?? ''));
-            if ($result !== '') {
+            // Skip finished races, and races marked DNS (Did Not Start) or DNF (Did Not Finish):
+            // they must never resurface as "next race" / "jour de course".
+            if ($result !== '' || in_array($race->getDnfStatus(), ['dns', 'dnf'], true)) {
                 continue;
             }
 
