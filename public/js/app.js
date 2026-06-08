@@ -3229,7 +3229,10 @@ function renderTrainingLoadChart(weeklyData) {
   const maxVal = Math.max(1, ...weeklyData.map((w) => Number(w.load || 0)));
   const barW = cW / weeklyData.length;
 
-  const svg = createSvgEl('svg', { width: W, height: H, xmlns: 'http://www.w3.org/2000/svg' });
+  const svg = createSvgEl('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'xMidYMid meet', xmlns: 'http://www.w3.org/2000/svg' });
+  svg.style.maxWidth = '100%';
+  svg.style.height = 'auto';
+  svg.style.display = 'block';
 
   const pts = [];
   weeklyData.forEach((w, i) => {
@@ -3335,7 +3338,10 @@ function renderEF() {
 
   const allPts = (chart.pacePoints || []).map(p => `${xSc(Number(p.x || 0)).toFixed(1)},${ySc(Number(p.y || 0)).toFixed(1)}`).join(' ');
   const bPts = (chart.bpmPoints || []).map(p => `${xSc(Number(p.x || 0)).toFixed(1)},${ySc(Number(p.y || 0)).toFixed(1)}`).join(' ');
-  const svg = createSvgEl('svg', { width: W, height: H, xmlns: 'http://www.w3.org/2000/svg' });
+  const svg = createSvgEl('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'xMidYMid meet', xmlns: 'http://www.w3.org/2000/svg' });
+  svg.style.maxWidth = '100%';
+  svg.style.height = 'auto';
+  svg.style.display = 'block';
 
   (chart.paceTicks || []).forEach((tick) => {
     const t = Number(tick.t || 0);
@@ -3535,7 +3541,10 @@ function renderEfBpmChart() {
   const xSc = (i) => PAD.left + (i / Math.max(1, n - 1)) * cW;
   const ySc = (v) => PAD.top + (1 - (v - minB) / bpmRange) * cH;
 
-  const svg = createSvgEl('svg', { width: W, height: H, xmlns: 'http://www.w3.org/2000/svg' });
+  const svg = createSvgEl('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'xMidYMid meet', xmlns: 'http://www.w3.org/2000/svg' });
+  svg.style.maxWidth = '100%';
+  svg.style.height = 'auto';
+  svg.style.display = 'block';
 
   // Grid lines + Y labels
   const yTicks = [0, 0.25, 0.5, 0.75, 1];
@@ -4089,7 +4098,10 @@ function renderProjectionsHistoryChart(history) {
   const monthCount = labels.length;
   const groupWidth = cW / Math.max(1, monthCount);
 
-  const svg = createSvgEl('svg', { width: W, height: H, xmlns: 'http://www.w3.org/2000/svg' });
+  const svg = createSvgEl('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'xMidYMid meet', xmlns: 'http://www.w3.org/2000/svg' });
+  svg.style.maxWidth = '100%';
+  svg.style.height = 'auto';
+  svg.style.display = 'block';
 
   // Grid lines
   [0, 0.25, 0.5, 0.75, 1].forEach((t) => {
