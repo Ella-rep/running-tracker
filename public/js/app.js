@@ -4276,7 +4276,8 @@ function renderPlansList() {
 
   const nodes = (state.extraPlans || []).map(ep => {
     const sessions = Array.isArray(ep.sessions) ? ep.sessions : [];
-    const done = Object.values(ep.done || {}).filter(Boolean).length;
+    const validIndexes = new Set(sessions.map((_, i) => i));
+    const done = Object.entries(ep.done || {}).filter(([idx, v]) => v && validIndexes.has(Number(idx))).length;
     return planCard(ep.id, ep.title, ep.sub, sessions.length, done, true);
   });
   list.replaceChildren(...nodes);
