@@ -2580,10 +2580,24 @@ function renderDashboard() {
         const metaEl = node.querySelector('.plan-progress-card-meta');
         const actionEl = node.querySelector('.plan-progress-card-action');
 
-        if (titleEl) titleEl.textContent = String(plan.title || 'Plan');
+        if (titleEl) {
+          titleEl.textContent = String(plan.title || 'Plan');
+          if (plan.paused) {
+            const pausedBadge = document.createElement('span');
+            pausedBadge.className = 'badge-future';
+            pausedBadge.textContent = 'En pause';
+            pausedBadge.style.marginLeft = '0.5rem';
+            titleEl.appendChild(pausedBadge);
+          }
+        }
         if (pctEl) pctEl.textContent = `${Number(plan.pct || 0)}%`;
         if (fillEl) fillEl.style.width = `${Number(plan.pct || 0)}%`;
-        if (metaEl) metaEl.textContent = `${Number(plan.done || 0)} / ${Number(plan.total || 0)} séances complétées`;
+        if (metaEl) {
+          metaEl.textContent = `${Number(plan.done || 0)} / ${Number(plan.total || 0)} séances complétées`;
+          if (plan.paused) {
+            metaEl.textContent += ' · Plan en pause';
+          }
+        }
         if (actionEl instanceof HTMLButtonElement) {
           actionEl.textContent = 'Retirer';
           actionEl.addEventListener('click', () => {
@@ -2695,6 +2709,7 @@ function renderDashboard() {
     raceTbody.replaceChildren(...rows);
   }
 
+  renderPauseBadge(metrics.pauseStatus || null);
   renderCoherence();
   renderProjections();
   renderTrainingLoad();
@@ -3212,6 +3227,18 @@ function renderTrainingLoad() {
   const statusEl = document.getElementById('training-load-status');
   const humanEl = document.getElementById('training-load-human');
   const recoEl = document.getElementById('training-load-reco');
+
+  if (load.statusKey === 'paused' || load.statusKey === 'recovery') {
+    if (statusEl) {
+      statusEl.textContent = load.statusLabel || 'Mode pause actif';
+      statusEl.style.color = '#8b9cf4';
+      statusEl.style.borderColor = 'color-mix(in srgb, #8b9cf4 65%, var(--border))';
+      statusEl.style.background = 'color-mix(in srgb, #8b9cf4 16%, var(--surface2))';
+    }
+    if (humanEl) humanEl.textContent = load.recommendation || '';
+    if (recoEl) recoEl.textContent = '';
+    return;
+  }
 
   setTrainingLoadStatusChip(statusEl, load);
 
@@ -6623,3 +6650,109 @@ async function initApp() {
 }
 
 initApp();
+
+// ============================================================
+// HEALTH PAUSE
+// ============================================================
+function renderPauseBadge(pauseStatus) {
+  const badge = document.getElementById('pause-badge');
+  const badgeText = document.getElementById('pause-badge-text');
+  const resumeBtn = document.getElementById('pause-resume-btn');
+  if (!badge) return;
+
+  const active = pauseStatus?.active === true;
+  const recoveryActive = pauseStatus?.recoveryWindowActive === true;
+  const daysRemaining = Number(pauseStatus?.recoveryDaysRemaining || 0);
+
+  if (active) {
+    badge.classList.remove('hidden');
+    const since = pauseStatus.startedAt
+      ? new Date(pauseStatus.startedAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long' })
+      : '';
+    if (badgeText) badgeText.textContent = `Mode pause actif depuis le ${since}`;
+    if (resumeBtn) resumeBtn.style.display = '';
+  } else if (recoveryActive) {
+    badge.classList.remove('hidden');
+    badge.querySelector('.pause-badge-icon').textContent = '🌱';
+    if (badgeText) badgeText.textContent = `Reprise en cours — encore ${daysRemaining} jour${daysRemaining > 1 ? 's' : ''} de recalibrage`;
+    if (resumeBtn) resumeBtn.style.display = 'none';
+  } else {
+    badge.classList.add('hidden');
+    if (badge.querySelector('.pause-badge-icon')) badge.querySelector('.pause-badge-icon').textContent = '🌿';
+    if (resumeBtn) resumeBtn.style.display = '';
+  }
+}
+
+async function activatePause(type, estimatedDays) {
+  try {
+    const body = {};
+    if (type) body.type = type;
+    if (estimatedDays && estimatedDays > 0) body.estimatedDays = estimatedDays;
+
+    await apiFetch('/health-pause/activate', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    await loadAllData();
+  } catch (err) {
+    showNotif('Erreur lors de l\'activation du mode pause', 'error');
+  }
+}
+
+async function resumePause() {
+  try {
+    await apiFetch('/health-pause/resume', { method: 'POST', body: '{}' });
+    await loadAllData();
+  } catch (err) {
+    showNotif('Erreur lors de la reprise', 'error');
+  }
+}
+
+function setupPauseModal() {
+  const openBtn = document.getElementById('pause-open-btn');
+  const cancelBtn = document.getElementById('pause-cancel-btn');
+  const submitBtn = document.getElementById('pause-submit-btn');
+  const overlay = document.getElementById('pause-modal-overlay');
+  const resumeBtn = document.getElementById('pause-resume-btn');
+
+  if (openBtn && overlay) {
+    openBtn.addEventListener('click', () => overlay.classList.remove('hidden'));
+  }
+
+  if (cancelBtn && overlay) {
+    cancelBtn.addEventListener('click', () => overlay.classList.add('hidden'));
+  }
+
+  if (overlay) {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.classList.add('hidden');
+    });
+    overlay.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') overlay.classList.add('hidden');
+    });
+  }
+
+  if (submitBtn) {
+    submitBtn.addEventListener('click', async () => {
+      const typeSelect = document.getElementById('pause-type-select');
+      const daysInput = document.getElementById('pause-days-input');
+      const type = typeSelect instanceof HTMLSelectElement && typeSelect.value ? typeSelect.value : null;
+      const days = daysInput instanceof HTMLInputElement && daysInput.value ? Number(daysInput.value) : null;
+
+      submitBtn.disabled = true;
+      if (overlay) overlay.classList.add('hidden');
+      await activatePause(type, days);
+      submitBtn.disabled = false;
+    });
+  }
+
+  if (resumeBtn) {
+    resumeBtn.addEventListener('click', async () => {
+      resumeBtn.disabled = true;
+      await resumePause();
+      resumeBtn.disabled = false;
+    });
+  }
+}
+
+document.addEventListener('DOMContentLoaded', setupPauseModal);

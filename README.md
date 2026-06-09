@@ -7,8 +7,17 @@ Application de suivi running avec :
 - **Frontend** : Twig (pages) + JS vanilla (interactions via API + widgets dashboard)
 - **Déploiement** : Docker Compose (Debian + PHP 8.4-FPM + Nginx + PostgreSQL)
 
-## 🆕 Nouveautés récentes (mai 2026)
+## 🆕 Nouveautés récentes (juin 2026)
 
+### Mode pause / condition de santé
+- Déclaration d'une pause (blessure, maladie, fatigue) en moins de 30 secondes — aucun champ obligatoire
+- Suppression automatique de tout contenu "pression sportive" sur le dashboard pendant la pause
+- Carte de récupération sur 7 jours après la reprise
+- 3 endpoints dédiés : `POST /api/health-pause/activate`, `POST /api/health-pause/resume`, `GET /api/health-pause/status`
+- Badge pause intégré dans le payload phase 1 du dashboard (pas de requête supplémentaire)
+- Données stockées dans une nouvelle table `health_pauses` (UNIQUE par utilisateur)
+
+### Améliorations (mai 2026)
 - Dashboard modulaire avec widgets activables/désactivables par utilisateur
 - Carte **Temps projetés** (5/10/21/42 km) avec couleurs différenciées
 - Bloc **Charge d'entraînement** (7j/base/écart) avec indicateurs visuels
@@ -63,7 +72,8 @@ running-tracker/
 │   ├── routes.yaml
 │   └── services.yaml
 ├── migrations/
-│   └── Version20260325000001.php   # schéma initial
+│   ├── Version20260325000001.php   # schéma initial
+│   └── Version20260609100000.php   # table health_pauses
 ├── public/
 │   ├── index.php
 │   ├── css/
@@ -74,16 +84,23 @@ running-tracker/
 │   └── js/app.js          # logique UI + appels API Platform (JSON-LD)
 ├── src/
 │   ├── Controller/
-│   │   └── PageController.php      # routes Twig (/, /app)
+│   │   ├── PageController.php      # routes Twig (/, /app)
+│   │   └── HealthPauseController.php  # activate / resume / status
 │   ├── Entity/
-│   │   ├── User.php                # #[ApiResource] register + /me
+│   │   ├── User.php                # #[ApiResource] register + /me + OneToOne HealthPause
 │   │   ├── RunLog.php              # #[ApiResource] CRUD complet
 │   │   ├── Race.php                # #[ApiResource] CRUD complet
-│   │   └── PlanCheck.php          # #[ApiResource] upsert via State Processor
+│   │   ├── PlanCheck.php          # #[ApiResource] upsert via State Processor
+│   │   └── HealthPause.php         # entité pause santé (1 par user, UNIQUE)
+│   ├── Enum/
+│   │   └── PauseType.php           # enum PHP 8.1 (injury/illness/exhaustion/other)
 │   ├── EventListener/
 │   │   ├── SetOwnerListener.php    # auto-assign user sur POST
 │   │   └── HashPasswordListener.php # auto-hash mot de passe
-│   ├── Repository/                 # UserRepository, RunLogRepository, etc.
+│   ├── Repository/
+│   │   └── HealthPauseRepository.php
+│   ├── Service/
+│   │   └── HealthPauseService.php  # activate / resume / getStatus
 │   └── State/
 │       └── PlanCheckProcessor.php  # upsert plan_checks
 ├── templates/

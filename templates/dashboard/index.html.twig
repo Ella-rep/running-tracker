@@ -16,6 +16,13 @@
       Vue d'ensemble 🏃
     </div>
     <div class="section-sub" id="dash-date">Chargement…</div>
+    <button type="button" class="btn btn-ghost btn-sm pause-open-btn" id="pause-open-btn" title="Déclarer une pause santé">🌿 Mode pause</button>
+
+    <div id="pause-badge" class="pause-badge hidden">
+      <span class="pause-badge-icon">🌿</span>
+      <span id="pause-badge-text" class="pause-badge-text"></span>
+      <button type="button" id="pause-resume-btn" class="btn btn-ghost btn-sm">Je reprends</button>
+    </div>
 
     <div class="kpi-grid" id="kpi-grid"></div>
     <template id="dashboard-kpi-template">
@@ -153,6 +160,33 @@
 
   </section>
 </main>
+
+<div class="pause-modal-overlay hidden" id="pause-modal-overlay">
+  <div class="modal" id="pause-modal">
+    <div class="modal-title">Mode pause santé</div>
+    <div class="modal-body">
+      <p>Active le mode pause pour mettre ton suivi sportif en veille. Aucun champ obligatoire.</p>
+      <div class="form-group">
+        <label for="pause-type-select" class="form-label">Type (optionnel)</label>
+        <select id="pause-type-select" class="form-input">
+          <option value="">Je préfère ne pas préciser</option>
+          <option value="injury">Blessure</option>
+          <option value="illness">Maladie</option>
+          <option value="fatigue">Fatigue</option>
+          <option value="other">Autre</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="pause-days-input" class="form-label">Durée estimée en jours (optionnel)</label>
+        <input type="number" id="pause-days-input" class="form-input" min="1" max="365" placeholder="ex: 14">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn" id="pause-submit-btn">Activer le mode pause</button>
+      <button type="button" class="btn btn-ghost" id="pause-cancel-btn">Annuler</button>
+    </div>
+  </div>
+</div>
 
 <div class="notif" id="notif"></div>
 <div class="confirm-overlay" id="confirm-overlay">

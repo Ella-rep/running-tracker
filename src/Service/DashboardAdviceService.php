@@ -43,6 +43,32 @@ final class DashboardAdviceService
      */
     public function build(User $user, ?string $city = null): array
     {
+        if ($user->isOnHealthPause()) {
+            return [[
+                'title' => 'Prends soin de toi',
+                'text' => "Mode pause actif. Tes données t'attendent quand tu reprends.",
+                'tone' => 'rest',
+                'icon' => '🌿',
+                'color' => '#8b9cf4',
+                'badge' => 'Pause',
+                'tempMin' => null,
+                'tempMax' => null,
+            ]];
+        }
+
+        if ($user->isInRecoveryWindow()) {
+            return [[
+                'title' => 'Reprise en cours',
+                'text' => 'Commence doucement — la charge de référence se recalibrera dans quelques semaines.',
+                'tone' => 'recovery',
+                'icon' => '🌱',
+                'color' => '#4ade80',
+                'badge' => 'Reprise',
+                'tempMin' => null,
+                'tempMax' => null,
+            ]];
+        }
+
         $ctx = $this->buildContext($user);
         $weatherAdvice = $this->meteo->buildDailyAdvice(city: $city);
 
