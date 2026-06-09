@@ -13,12 +13,11 @@ use App\Repository\RunLogRepository;
  */
 final class DashboardMetricsFacadeService
 {
-    private const PROJECTION_FACTOR_LONGER_DISTANCE = 1.06;
-    private const PROJECTION_FACTOR_MARATHON = 1.12;
-    private const PROJECTION_FACTOR_SHORTER_DISTANCE = 0.85;
+    // Riegel fatigue exponent: T2 = T1 * (D2/D1)^EXPONENT.
+    private const RIEGEL_EXPONENT = 1.06;
     // Single tuning point: chart window long enough for trend, short enough to stay readable.
     private const PROJECTION_HISTORY_MONTHS = 8;
-    private const PROJECTION_RULES = "Règles de projection:\r\n- cible plus courte que la source (ou ≤ 2km de plus) : x0.85\r\n- jusqu'à +5km au-dessus de la source : x1.0\r\n- entre +5km et 40km : x1.06\r\n- marathon (≥40km) : x1.12";
+    private const PROJECTION_RULES = "Modèle de projection: formule de Riegel T2 = T1 × (D2/D1)^1.06 (T1 = temps sur la distance de référence).";
 
     public function __construct(
         private RunLogRepository $runLogs,
@@ -37,7 +36,7 @@ final class DashboardMetricsFacadeService
         $logs  = $this->runLogs->findBy(['user' => $user], ['date' => 'DESC'], 500);
         $races = $this->races->findBy(['user' => $user], ['date' => 'ASC']);
 
-        [$projections, $projectionsMeta, $projectionsHistory] = $this->buildProjections($logs);
+        [$projections, $projectionsMeta, $projectionsHistory, $projectionBase] = $this->buildProjections($logs);
         $planWidgets = $this->advancedMetrics->buildPlanWidgets($user);
 
         return [
@@ -52,7 +51,7 @@ final class DashboardMetricsFacadeService
             'projectionsMeta' => $projectionsMeta,
             'projectionsHistory' => $projectionsHistory,
             'projectionsNarrative' => $this->buildProjectionNarrative($projectionsHistory),
-            'raceProjection' => $this->buildRaceProjectionCard($projections, $races),
+            'raceProjection' => $this->buildRaceProjectionCard($projections, $races, $projectionBase),
             'trainingLoad' => $this->advancedMetrics->buildTrainingLoad($logs),
             'efKpis' => $this->efMetrics->buildEfKpis($logs),
             'ef' => $this->efMetrics->buildEfSection($logs),
@@ -167,7 +166,7 @@ final class DashboardMetricsFacadeService
      * @param array<int,Race> $races
      * @return array{raceName:string,raceDate:string,raceDist:string,daysTo:int,objective:string,projected:string,status:string,statusText:string}|null
      */
-    private function buildRaceProjectionCard(array $projections, array $races): ?array
+    private function buildRaceProjectionCard(array $projections, array $races, ?array $base = null): ?array
     {
         $today = (new \DateTimeImmutable('today'))->setTime(0, 0, 0);
 
@@ -197,29 +196,39 @@ final class DashboardMetricsFacadeService
             return null;
         }
 
-        // Find the closest projected distance.
-        $bestProj = null;
-        $bestDiff = PHP_FLOAT_MAX;
-        foreach ($projections as $proj) {
-            $projKm = $this->parseDistanceKm((string) ($proj['label'] ?? ''));
-            if ($projKm === null) {
-                continue;
+        // Project the time for the ACTUAL race distance (not snapped to a fixed bucket).
+        if ($base !== null && isset($base['avgSecPerKm'], $base['sourceDistanceKm'])) {
+            $projSec  = $this->projectedTimeSeconds(
+                (float) $base['avgSecPerKm'],
+                (float) $base['sourceDistanceKm'],
+                $raceDistKm
+            );
+            $projTime = $this->trimDuration($this->secondsToDuration($projSec));
+        } else {
+            // Fallback: closest fixed projection bucket (used only when no base pace is available).
+            $bestProj = null;
+            $bestDiff = PHP_FLOAT_MAX;
+            foreach ($projections as $proj) {
+                $projKm = $this->parseDistanceKm((string) ($proj['label'] ?? ''));
+                if ($projKm === null) {
+                    continue;
+                }
+                $diff = abs($projKm - $raceDistKm);
+                if ($diff < $bestDiff) {
+                    $bestDiff = $diff;
+                    $bestProj = $proj;
+                }
             }
-            $diff = abs($projKm - $raceDistKm);
-            if ($diff < $bestDiff) {
-                $bestDiff = $diff;
-                $bestProj = $proj;
-            }
-        }
 
-        // Refuse match if more than 5 km away from any projected distance.
-        if ($bestProj === null || $bestDiff > 5.0) {
-            return null;
+            if ($bestProj === null || $bestDiff > 5.0) {
+                return null;
+            }
+
+            $projTime = (string) ($bestProj['time'] ?? '');
+            $projSec  = $this->durationToSeconds($projTime);
         }
 
         $objective = trim((string) ($nextRace->getObjective() ?? ''));
-        $projTime  = (string) ($bestProj['time'] ?? '');
-        $projSec   = $this->durationToSeconds($projTime);
         $objSec    = $objective !== '' ? $this->durationToSeconds($objective) : null;
 
         if ($projSec === null) {
@@ -507,7 +516,7 @@ final class DashboardMetricsFacadeService
         $history = $this->buildProjectionHistory($valid, $distances, $colors);
 
         if ($recent === []) {
-            return [[], 'Pas encore assez de donnees.', $history];
+            return [[], 'Pas encore assez de donnees.', $history, null];
         }
 
         $projectionBase = $this->computeProjectionBasePace($recent);
@@ -516,7 +525,7 @@ final class DashboardMetricsFacadeService
         $sourceDistanceKm = $projectionBase['sourceDistanceKm'];
 
         if ($paceSecList === []) {
-            return [[], 'Pas encore assez de donnees.', $history];
+            return [[], 'Pas encore assez de donnees.', $history, null];
         }
 
         $avgSecPerKm = array_sum($paceSecList) / count($paceSecList);
@@ -547,7 +556,7 @@ final class DashboardMetricsFacadeService
             $gapNote
         );
 
-        return [$projections, $meta, $history];
+        return [$projections, $meta, $history, ['avgSecPerKm' => $avgSecPerKm, 'sourceDistanceKm' => $sourceDistanceKm]];
     }
 
     /**
@@ -688,26 +697,12 @@ final class DashboardMetricsFacadeService
     {
         $safeSourceDistance = max(1.0, $sourceDistanceKm);
         $safeTargetDistance = max(1.0, $targetDistanceKm);
-        $linearSeconds = $avgSecPerKm * $safeTargetDistance;
 
-        // Fixed projection rules:
-        // - shorter target or up to 2 km longer than source: x0.85 (race pace faster than training)
-        // - 2 to 5 km longer than source: x1.0 (similar effort, no adjustment)
-        // - more than 5 km longer: x1.06
-        // - marathon (≥40 km): x1.12
-        if ($safeTargetDistance < $safeSourceDistance || $safeTargetDistance === $safeSourceDistance || ($safeTargetDistance > $safeSourceDistance && $safeTargetDistance - $safeSourceDistance <= 2)) {
-            return (int) round($linearSeconds * self::PROJECTION_FACTOR_SHORTER_DISTANCE);
-        }
+        // Riegel: T2 = T1 * (D2/D1)^1.06, with T1 = reference time over the source distance.
+        $sourceSeconds = $avgSecPerKm * $safeSourceDistance;
+        $projected = $sourceSeconds * ($safeTargetDistance / $safeSourceDistance) ** self::RIEGEL_EXPONENT;
 
-        if ($safeTargetDistance > $safeSourceDistance && $safeTargetDistance - $safeSourceDistance > 2 && $safeTargetDistance - $safeSourceDistance <= 5) {
-            return (int) round($linearSeconds);
-        }
-
-        $factor = $safeTargetDistance >= 40.0
-            ? self::PROJECTION_FACTOR_MARATHON
-            : self::PROJECTION_FACTOR_LONGER_DISTANCE;
-
-        return (int) round($linearSeconds * $factor);
+        return (int) round($projected);
     }
 
     /** @param array<int,float> $distancesKm */

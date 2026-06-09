@@ -891,6 +891,12 @@
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--z3) 24%, transparent);
 }
 
+.plan-calendar-item.is-log {
+  border-left-color: var(--z2);
+  background: color-mix(in srgb, var(--z2) 12%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--z2) 22%, transparent);
+}
+
 .plan-calendar-item.is-race.is-done {
   border-left-color: var(--z2);
   background: color-mix(in srgb, var(--z2) 24%, var(--surface));
@@ -1681,6 +1687,7 @@
   .plan-calendar-item.is-optional { background: color-mix(in srgb, var(--z1) 70%, var(--z3)); }
   .plan-calendar-item.is-race { background: var(--z5); }
   .plan-calendar-item.is-personal { background: var(--z3); }
+  .plan-calendar-item.is-log { background: var(--z2); }
   .plan-calendar-item.is-past:not(.is-done) { background: color-mix(in srgb, var(--z1) 70%, var(--z3)); }
   .plan-calendar-item.is-future:not(.is-done) { background: var(--z1); }
 
