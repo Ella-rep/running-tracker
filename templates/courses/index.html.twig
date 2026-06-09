@@ -26,7 +26,7 @@
       <div class="form-grid">
         <div class="field"><label for="r-name">Nom</label><input type="text" id="r-name" name="name" placeholder="10km de Paris"></div>
         <div class="field"><label for="r-date">Date</label><input type="date" id="r-date" name="date" placeholder="jj/mm/yyyy"></div>
-        <div class="field"><label for="r-dist">Distance (km)</label><input type="text" id="r-dist" name="distance" placeholder="10"></div>
+        <div class="field"><label for="r-dist">Distance (km)</label><input type="text" id="r-dist" name="distance" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="10"></div>
         <div class="field"><label for="r-obj">Objectif (hh:mm:ss)</label><input type="text" id="r-obj" name="objective" placeholder="00:55:00"></div>
         <div class="field"><label for="r-real">Résultat</label><input type="text" id="r-real" name="result" placeholder="00:53:22"></div>
       </div>
@@ -54,7 +54,7 @@
                       <div class="form-grid">
                         <div class="field"><label>Nom</label><input type="text" name="name" value="{{ r.name }}" required></div>
                         <div class="field"><label>Date</label><input type="date" name="date" value="{{ r.date }}" required></div>
-                        <div class="field"><label>Distance</label><input type="text" name="distance" value="{{ r.distance ?: '' }}"></div>
+                        <div class="field"><label>Distance</label><input type="text" name="distance" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" value="{{ r.distance ?: '' }}"></div>
                         <div class="field"><label>Objectif</label><input type="text" name="objective" value="{{ r.objective ?: '' }}" placeholder="hh:mm:ss"></div>
                       </div>
                       <div style="display:flex; gap:6px; justify-content:flex-end;">
@@ -106,5 +106,14 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260608-racemodal2"></script>
+<script src="{{ asset('js/app.js') }}?v=20260609-distnum1"></script>
+<script>
+  // Distance: chiffres uniquement (un seul séparateur décimal). Délégation pour les formulaires d'édition créés dynamiquement.
+  document.addEventListener('input', function (e) {
+    var t = e.target;
+    if (!t || t.name !== 'distance') return;
+    var cleaned = String(t.value).replace(/[^0-9.,]/g, '').replace(/[.,]/, '\x00').replace(/[.,]/g, '').replace('\x00', '.');
+    if (cleaned !== t.value) t.value = cleaned;
+  }, true);
+</script>
 {% endblock %}

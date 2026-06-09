@@ -2733,6 +2733,34 @@ function setupHomePlanModuleAccordion() {
 
 function buildPlanCalendarDayNodes(days, racesByDate, personalByDate) {
   const todayKey = normalizeDateForStorage(new Date().toISOString().slice(0, 10));
+
+  // Logs saisis affichés sur le calendrier S'ILS ne sont pas déjà visibles via le plan.
+  const plannedDetailIds = new Set();
+  days.forEach((day) => {
+    (Array.isArray(day?.items) ? day.items : []).forEach((it) => {
+      const did = Number(it?.detailId);
+      if (Number.isFinite(did)) plannedDetailIds.add(did);
+    });
+  });
+  const logsByDate = new Map();
+  (Array.isArray(logData) ? logData : []).forEach((log) => {
+    const dateKey = normalizeDateForStorage(log?.date);
+    if (!dateKey) return;
+    const linkedId = Number(log?.plannedSessionId);
+    if (Number.isFinite(linkedId) && plannedDetailIds.has(linkedId)) return; // déjà visible via le plan
+    if (!logsByDate.has(dateKey)) logsByDate.set(dateKey, []);
+    const km = Number(log?.km);
+    const parts = [];
+    if (Number.isFinite(km) && km > 0) parts.push(`${km} km`);
+    if (log?.allure) parts.push(`${log.allure}/km`);
+    const typeLabel = normalizeSessionType(log?.run_type);
+    logsByDate.get(dateKey).push({
+      kind: 'log',
+      logId: log?.id,
+      label: log?.courseName || typeLabel || 'Sortie',
+      format: parts.join(' · ') || '—',
+    });
+  });
   return days.map((day) => {
     const dayKey = normalizeDateForStorage(day?.date);
     const sessionItems = (Array.isArray(day?.items) ? day.items : []).map((sessionItem) => {
@@ -2748,7 +2776,8 @@ function buildPlanCalendarDayNodes(days, racesByDate, personalByDate) {
     });
     const raceItems = racesByDate.get(dayKey) || [];
     const personalItems = personalByDate.get(dayKey) || [];
-    const items = [...sessionItems, ...raceItems, ...personalItems];
+    const logItems = logsByDate.get(dayKey) || [];
+    const items = [...sessionItems, ...raceItems, ...personalItems, ...logItems];
 
     const cell = document.createElement('article');
     cell.className = 'plan-calendar-day';
@@ -2781,12 +2810,13 @@ function buildPlanCalendarDayNodes(days, racesByDate, personalByDate) {
     list.className = 'plan-calendar-items';
 
     items.forEach((item) => {
-      const itemKind = item?.kind === 'race' ? 'race' : 'session';
+      const itemKind = item?.kind === 'race' ? 'race' : (item?.kind === 'log' ? 'log' : 'session');
       const normalizedKind = item?.kind === 'personal' ? 'personal' : itemKind;
       const entry = document.createElement('div');
       entry.className = 'plan-calendar-item';
       if (normalizedKind === 'race') entry.classList.add('is-race');
       if (normalizedKind === 'personal') entry.classList.add('is-personal');
+      if (normalizedKind === 'log') entry.classList.add('is-log');
       if (item?.isDone) entry.classList.add('is-done');
       if (item?.isOptional) entry.classList.add('is-optional');
       if (item?.isCancelled) entry.classList.add('is-cancelled');
@@ -2827,6 +2857,7 @@ function buildPlanCalendarDayNodes(days, racesByDate, personalByDate) {
       if (normalizedKind === 'session' && itemSessionType) {
         itemLabel = `${itemLabel} · ${itemSessionType}`;
       }
+      if (normalizedKind === 'log') itemLabel = item?.label || 'Sortie';
       if (normalizedKind === 'race') itemLabel = 'Course';
       if (normalizedKind === 'race' && item?.dnfStatus) itemLabel = 'Course — ' + item.dnfStatus.toUpperCase();
       if (normalizedKind === 'personal') itemLabel = 'Perso';
