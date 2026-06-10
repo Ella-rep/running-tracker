@@ -2837,7 +2837,8 @@ function buildPlanCalendarDayNodes(days, racesByDate, personalByDate) {
       if (item?.isOptional) entry.classList.add('is-optional');
       if (item?.isCancelled) entry.classList.add('is-cancelled');
       if (!item?.isDone && normalizedKind === 'session') {
-        if (dayKey && todayKey && dayKey < todayKey) entry.classList.add('is-past');
+        const planPauseActive = !!(dashboardMetrics?.pauseStatus?.active);
+        if (!planPauseActive && dayKey && todayKey && dayKey < todayKey) entry.classList.add('is-past');
         else if (dayKey && todayKey && dayKey > todayKey) entry.classList.add('is-future');
       }
       entry.title = [item?.label, item?.format, item?.pe].filter(Boolean).join(' · ');
