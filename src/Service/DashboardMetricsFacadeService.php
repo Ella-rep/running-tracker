@@ -46,7 +46,9 @@ final class DashboardMetricsFacadeService
         $planWidgets = $this->advancedMetrics->buildPlanWidgets($user, $pauseActive);
 
         $raceProjection = $this->buildRaceProjectionCard($projections, $races, $projectionBase);
-        if ($raceProjection !== null && ($pauseActive || $recoveryWindowActive)) {
+        if ($pauseActive) {
+            $raceProjection = null;
+        } elseif ($raceProjection !== null && $recoveryWindowActive) {
             $raceProjection['statusText'] = 'Tu as une course prévue — adapte selon comment tu te sens.';
             $raceProjection['status'] = 'paused';
         }
@@ -70,7 +72,7 @@ final class DashboardMetricsFacadeService
             'projections' => $projections,
             'projectionsMeta' => $projectionsMeta,
             'projectionsHistory' => $projectionsHistory,
-            'projectionsNarrative' => $this->buildProjectionNarrative($projectionsHistory),
+            'projectionsNarrative' => $pauseActive ? null : $this->buildProjectionNarrative($projectionsHistory),
             'raceProjection' => $raceProjection,
             'trainingLoad' => $trainingLoad,
             'efKpis' => $this->efMetrics->buildEfKpis($logs),
