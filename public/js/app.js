@@ -6700,6 +6700,7 @@ async function activatePause(type, estimatedDays) {
       body: JSON.stringify(body),
     });
     await loadAllData();
+    renderDashboard();
     notify('✓ Mode pause activé');
   } catch (err) {
     notify('⚠ Erreur lors de l\'activation du mode pause');
@@ -6710,6 +6711,7 @@ async function resumePause() {
   try {
     await apiFetch('/health-pause/resume', { method: 'POST', body: '{}' });
     await loadAllData();
+    renderDashboard();
     notify('✓ Reprise confirmée');
   } catch (err) {
     notify('⚠ Erreur lors de la reprise');
