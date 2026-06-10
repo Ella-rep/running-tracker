@@ -16,7 +16,8 @@ async function apiFetch(path, options = {}) {
     headers['Authorization'] = `Bearer ${authToken}`;
   }
 
-  const res = await fetch(API + path, { ...options, headers });
+  const redirect = method === 'GET' ? 'follow' : 'error';
+  const res = await fetch(API + path, { ...options, headers, redirect });
 
   if (res.status === 401) { logout(); return null; }
   if (res.status === 204) return null;
