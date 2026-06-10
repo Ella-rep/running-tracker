@@ -65,7 +65,7 @@ class HealthPause
         }
 
         $today = new \DateTimeImmutable('today');
-        $daysSinceResume = (int) $resumed->diff($today)->format('%a');
+        $daysSinceResume = (int) $resumed->setTime(0, 0, 0)->diff($today)->format('%a');
 
         return $daysSinceResume < $dayThreshold;
     }
@@ -82,7 +82,7 @@ class HealthPause
         }
 
         $today = new \DateTimeImmutable('today');
-        $daysSinceResume = (int) $resumed->diff($today)->format('%a');
+        $daysSinceResume = (int) $resumed->setTime(0, 0, 0)->diff($today)->format('%a');
         $remaining = $dayThreshold - $daysSinceResume;
 
         return max(0, $remaining);
