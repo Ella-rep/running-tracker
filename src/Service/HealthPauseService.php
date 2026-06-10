@@ -26,6 +26,7 @@ final class HealthPauseService
         }
         if ($existing) {
             $this->em->flush();
+            $this->em->refresh($user);
         }
 
         $resolvedType = null;

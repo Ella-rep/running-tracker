@@ -73,7 +73,7 @@ final class HealthPauseServiceTest extends TestCase
         $em = $this->makeEm();
         $em->expects(self::once())->method('remove')->with($existing);
         $em->expects(self::once())->method('persist');
-        $em->expects(self::once())->method('flush');
+        $em->expects(self::exactly(2))->method('flush');
 
         $service = $this->makeService($repo, $em);
         $pause = $service->activate($user, null, null);
