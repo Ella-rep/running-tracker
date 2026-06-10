@@ -6690,11 +6690,12 @@ function renderPauseBadge(pauseStatus) {
   }
 }
 
-async function activatePause(type, estimatedDays) {
+async function activatePause(type, estimatedDays, startedAt) {
   try {
     const body = {};
     if (type) body.type = type;
     if (estimatedDays && estimatedDays > 0) body.estimatedDays = estimatedDays;
+    if (startedAt) body.startedAt = startedAt;
 
     await apiFetch('/health-pause/activate', {
       method: 'POST',
@@ -6747,12 +6748,14 @@ function setupPauseModal() {
     submitBtn.addEventListener('click', async () => {
       const typeSelect = document.getElementById('pause-type-select');
       const daysInput = document.getElementById('pause-days-input');
+      const startDateInput = document.getElementById('pause-start-date');
       const type = typeSelect instanceof HTMLSelectElement && typeSelect.value ? typeSelect.value : null;
       const days = daysInput instanceof HTMLInputElement && daysInput.value ? Number(daysInput.value) : null;
+      const startedAt = startDateInput instanceof HTMLInputElement && startDateInput.value ? startDateInput.value : null;
 
       submitBtn.disabled = true;
       if (overlay) overlay.classList.add('hidden');
-      await activatePause(type, days);
+      await activatePause(type, days, startedAt);
       submitBtn.disabled = false;
     });
   }

@@ -34,8 +34,9 @@ final class HealthPauseController extends AbstractController
 
         $type = isset($body['type']) && is_string($body['type']) ? $body['type'] : null;
         $estimatedDays = isset($body['estimatedDays']) && is_int($body['estimatedDays']) ? $body['estimatedDays'] : null;
+        $startedAt = isset($body['startedAt']) && is_string($body['startedAt']) ? $body['startedAt'] : null;
 
-        $service->activate($user, $type, $estimatedDays);
+        $service->activate($user, $type, $estimatedDays, $startedAt);
 
         return $this->json($service->getStatus($user), 201);
     }

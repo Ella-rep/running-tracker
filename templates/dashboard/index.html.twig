@@ -4,7 +4,7 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
-  <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260610-pause2">
+  <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260610-pause3">
 {% endblock %}
 
 {% block body %}
@@ -179,6 +179,10 @@
         <label for="pause-days-input" class="form-label">Durée estimée en jours (optionnel)</label>
         <input type="number" id="pause-days-input" class="form-input" min="1" max="365" placeholder="ex: 14">
       </div>
+      <div class="form-group">
+        <label for="pause-start-date" class="form-label">Date de début (optionnel)</label>
+        <input type="date" id="pause-start-date" class="form-input" max="{{ "now"|date("Y-m-d") }}">
+      </div>
     </div>
     <div class="modal-actions">
       <button type="button" class="btn" id="pause-submit-btn">Activer le mode pause</button>
@@ -202,5 +206,5 @@
 {% endblock %}
 
 {% block javascripts %}
-  <script src="{{ asset('js/app.js') }}?v=20260610-pause2"></script>
+  <script src="{{ asset('js/app.js') }}?v=20260610-pause3"></script>
 {% endblock %}

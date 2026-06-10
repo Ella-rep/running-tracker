@@ -18,7 +18,7 @@ final class HealthPauseService
     ) {
     }
 
-    public function activate(User $user, ?string $type, ?int $estimatedDays): HealthPause
+    public function activate(User $user, ?string $type, ?int $estimatedDays, ?string $startedAt = null): HealthPause
     {
         $existing = $this->repository->findBy(['user' => $user]);
         foreach ($existing as $old) {
@@ -35,9 +35,18 @@ final class HealthPauseService
             $resolvedType = $enumCase !== null ? $enumCase->value : PauseType::Other->value;
         }
 
+        $today = new \DateTimeImmutable('today');
+        $resolvedStartedAt = $today->format('Y-m-d');
+        if ($startedAt !== null) {
+            $parsed = \DateTimeImmutable::createFromFormat('Y-m-d', $startedAt);
+            if ($parsed instanceof \DateTimeImmutable && $parsed->setTime(0, 0, 0) <= $today) {
+                $resolvedStartedAt = $parsed->format('Y-m-d');
+            }
+        }
+
         $pause = (new HealthPause())
             ->setUser($user)
-            ->setStartedAt((new \DateTimeImmutable('today'))->format('Y-m-d'))
+            ->setStartedAt($resolvedStartedAt)
             ->setType($resolvedType)
             ->setEstimatedDays($estimatedDays)
             ->setResumedAt(null);
