@@ -24,6 +24,9 @@ final class HealthPauseService
         foreach ($existing as $old) {
             $this->em->remove($old);
         }
+        if ($existing) {
+            $this->em->flush();
+        }
 
         $resolvedType = null;
         if ($type !== null) {
