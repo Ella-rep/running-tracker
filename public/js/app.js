@@ -6657,6 +6657,7 @@ initApp();
 function renderPauseBadge(pauseStatus) {
   const badge = document.getElementById('pause-badge');
   const badgeText = document.getElementById('pause-badge-text');
+  const openBtn = document.getElementById('pause-open-btn');
   const resumeBtn = document.getElementById('pause-resume-btn');
   if (!badge) return;
 
@@ -6670,16 +6671,20 @@ function renderPauseBadge(pauseStatus) {
       ? new Date(pauseStatus.startedAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long' })
       : '';
     if (badgeText) badgeText.textContent = `Mode pause actif depuis le ${since}`;
-    if (resumeBtn) resumeBtn.style.display = '';
+    if (badge.querySelector('.pause-badge-icon')) badge.querySelector('.pause-badge-icon').textContent = '🌿';
+    if (openBtn) openBtn.classList.add('hidden');
+    if (resumeBtn) resumeBtn.classList.remove('hidden');
   } else if (recoveryActive) {
     badge.classList.remove('hidden');
-    badge.querySelector('.pause-badge-icon').textContent = '🌱';
+    if (badge.querySelector('.pause-badge-icon')) badge.querySelector('.pause-badge-icon').textContent = '🌱';
     if (badgeText) badgeText.textContent = `Reprise en cours — encore ${daysRemaining} jour${daysRemaining > 1 ? 's' : ''} de recalibrage`;
-    if (resumeBtn) resumeBtn.style.display = 'none';
+    if (openBtn) openBtn.classList.remove('hidden');
+    if (resumeBtn) resumeBtn.classList.add('hidden');
   } else {
     badge.classList.add('hidden');
     if (badge.querySelector('.pause-badge-icon')) badge.querySelector('.pause-badge-icon').textContent = '🌿';
-    if (resumeBtn) resumeBtn.style.display = '';
+    if (openBtn) openBtn.classList.remove('hidden');
+    if (resumeBtn) resumeBtn.classList.add('hidden');
   }
 }
 
@@ -6694,8 +6699,9 @@ async function activatePause(type, estimatedDays) {
       body: JSON.stringify(body),
     });
     await loadAllData();
+    notify('✓ Mode pause activé');
   } catch (err) {
-    showNotif('Erreur lors de l\'activation du mode pause', 'error');
+    notify('⚠ Erreur lors de l\'activation du mode pause');
   }
 }
 
@@ -6703,8 +6709,9 @@ async function resumePause() {
   try {
     await apiFetch('/health-pause/resume', { method: 'POST', body: '{}' });
     await loadAllData();
+    notify('✓ Reprise confirmée');
   } catch (err) {
-    showNotif('Erreur lors de la reprise', 'error');
+    notify('⚠ Erreur lors de la reprise');
   }
 }
 
