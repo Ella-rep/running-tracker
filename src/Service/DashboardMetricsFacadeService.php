@@ -7,6 +7,7 @@ use App\Entity\RunLog;
 use App\Entity\User;
 use App\Repository\RaceRepository;
 use App\Repository\RunLogRepository;
+use App\Service\HealthPauseService;
 
 /**
  * Builds dashboard metric aggregates from training logs and races.
@@ -24,6 +25,7 @@ final class DashboardMetricsFacadeService
         private RaceRepository $races,
         private DashboardAdvancedMetricsService $advancedMetrics,
         private DashboardEfMetricsService $efMetrics,
+        private HealthPauseService $healthPauseService,
     ) {}
 
     /**
@@ -36,8 +38,28 @@ final class DashboardMetricsFacadeService
         $logs  = $this->runLogs->findBy(['user' => $user], ['date' => 'DESC'], 500);
         $races = $this->races->findBy(['user' => $user], ['date' => 'ASC']);
 
+        $pauseStatus = $this->healthPauseService->getStatus($user);
+        $pauseActive = $user->isOnHealthPause();
+        $recoveryWindowActive = $user->isInRecoveryWindow();
+
         [$projections, $projectionsMeta, $projectionsHistory, $projectionBase] = $this->buildProjections($logs);
-        $planWidgets = $this->advancedMetrics->buildPlanWidgets($user);
+        $planWidgets = $this->advancedMetrics->buildPlanWidgets($user, $pauseActive);
+
+        $raceProjection = $this->buildRaceProjectionCard($projections, $races, $projectionBase);
+        if ($pauseActive) {
+            $raceProjection = null;
+        } elseif ($raceProjection !== null && $recoveryWindowActive) {
+            $raceProjection['statusText'] = 'Tu as une course prévue — adapte selon comment tu te sens.';
+            $raceProjection['status'] = 'paused';
+        }
+
+        $trainingLoadArg = $pauseActive || $recoveryWindowActive;
+        $trainingLoad = $this->advancedMetrics->buildTrainingLoad($logs, $trainingLoadArg);
+        if ($recoveryWindowActive && !$pauseActive) {
+            $trainingLoad['statusKey'] = 'recovery';
+            $trainingLoad['statusLabel'] = 'Reprise en cours';
+            $trainingLoad['recommendation'] = 'Commence doucement — la charge de référence se recalibrera dans quelques semaines.';
+        }
 
         return [
             'kpis' => [
@@ -50,15 +72,16 @@ final class DashboardMetricsFacadeService
             'projections' => $projections,
             'projectionsMeta' => $projectionsMeta,
             'projectionsHistory' => $projectionsHistory,
-            'projectionsNarrative' => $this->buildProjectionNarrative($projectionsHistory),
-            'raceProjection' => $this->buildRaceProjectionCard($projections, $races, $projectionBase),
-            'trainingLoad' => $this->advancedMetrics->buildTrainingLoad($logs),
+            'projectionsNarrative' => $pauseActive ? null : $this->buildProjectionNarrative($projectionsHistory),
+            'raceProjection' => $raceProjection,
+            'trainingLoad' => $trainingLoad,
             'efKpis' => $this->efMetrics->buildEfKpis($logs),
             'ef' => $this->efMetrics->buildEfSection($logs),
-            'coherenceAlerts' => $this->advancedMetrics->buildCoherenceAlerts($logs),
+            'coherenceAlerts' => $this->advancedMetrics->buildCoherenceAlerts($logs, $pauseActive),
             'racesTable' => $this->buildDashboardRacesTable($user),
             'planProgress' => $planWidgets['progress'],
             'planCalendar' => $planWidgets['calendar'],
+            'pauseStatus' => $pauseStatus,
         ];
     }
 

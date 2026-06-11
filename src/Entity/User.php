@@ -6,6 +6,7 @@ use ApiPlatform\Metadata\ApiResource;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\Post;
 use App\Entity\DashboardWidgetKeys;
+use App\Entity\HealthPause;
 use App\Controller\AuthLoginController;
 use App\Controller\AuthMeController;
 use App\Repository\UserRepository;
@@ -124,6 +125,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?string $meteoCity = null;
 
 
+    #[ORM\OneToOne(targetEntity: HealthPause::class, mappedBy: 'user', cascade: ['remove'])]
+    private ?HealthPause $healthPause = null;
+
     #[ORM\OneToMany(targetEntity: RunLog::class, mappedBy: 'user', cascade: ['remove'])]
     private Collection $runLogs;
 
@@ -196,6 +200,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             DashboardWidgetKeys::COHERENCE => $this->dashboardCoherenceVisible,
             DashboardWidgetKeys::EF_BPM => $this->dashboardEfBpmVisible,
         ];
+    }
+
+    public function getHealthPause(): ?HealthPause { return $this->healthPause; }
+
+    public function isOnHealthPause(): bool
+    {
+        return $this->healthPause !== null && $this->healthPause->isActive();
+    }
+
+    public function isInRecoveryWindow(): bool
+    {
+        return $this->healthPause !== null && $this->healthPause->isInRecoveryWindow();
     }
 
     public function setDashboardWidgetVisible(string $widgetKey, bool $visible): static

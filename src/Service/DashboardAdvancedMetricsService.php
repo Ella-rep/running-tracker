@@ -78,7 +78,7 @@ final class DashboardAdvancedMetricsService
     /**
      * @return array{progress:array<string,mixed>,calendar:array<string,mixed>}
      */
-    public function buildPlanWidgets(User $user): array
+    public function buildPlanWidgets(User $user, bool $pauseActive = false): array
     {
         $today = (new \DateTimeImmutable('today'))->setTime(0, 0, 0);
         $plans = $this->plans->findBy(['user' => $user], ['id' => 'ASC']);
@@ -87,8 +87,11 @@ final class DashboardAdvancedMetricsService
         $loggedDetailIds = $this->runLogs->findLoggedDetailIds($user);
         $doneByProgressByPlan = $this->loadDoneSessionIndexesByPlan($user);
         $planSummaries = $this->buildPlanSummaries($plans, $rowsByPlanId, $loggedDetailIds, $doneByProgressByPlan);
-        $publicPlanSummaries = array_map(static function (array $summary): array {
+        $publicPlanSummaries = array_map(static function (array $summary) use ($pauseActive): array {
             unset($summary['plan']);
+            if ($pauseActive) {
+                $summary['paused'] = true;
+            }
             return $summary;
         }, $planSummaries);
         $selection = $this->selectTargetPlan($planSummaries);
@@ -148,8 +151,17 @@ final class DashboardAdvancedMetricsService
      * @param array<int, RunLog> $logs
      * @return array{hasData:bool,statusKey:string,statusLabel:string,statusColor:string,acute:float,chronic:float,ratio:float|null,deltaPct:int,recommendation:string,monthly:array<int,array{label:string,load:float}>}
      */
-    public function buildTrainingLoad(array $logs): array
+    public function buildTrainingLoad(array $logs, bool $pauseActive = false): array
     {
+        if ($pauseActive) {
+            return [
+                'hasData' => true, 'statusKey' => 'paused', 'statusLabel' => 'Mode pause actif',
+                'statusColor' => 'var(--accent2)', 'acute' => 0.0, 'chronic' => 0.0,
+                'ratio' => null, 'deltaPct' => 0,
+                'recommendation' => 'Repos normal ✅', 'monthly' => [],
+            ];
+        }
+
         $dailyLoads = $this->buildDailyLoads($logs);
 
         if (empty($dailyLoads)) {
@@ -178,6 +190,28 @@ final class DashboardAdvancedMetricsService
             'ratio' => $ratio, 'deltaPct' => $deltaPct,
             'recommendation' => $status['recommendation'], 'monthly' => $monthly,
         ];
+    }
+
+    /**
+     * @param array<int, RunLog> $logs
+     * @return array<int,array{ok:bool,title:string,msg:string,details?:array<int,string>}>
+     */
+    public function buildCoherenceAlerts(array $logs, bool $pauseActive = false): array
+    {
+        if ($pauseActive) {
+            return [];
+        }
+
+        $alerts = [];
+        $this->appendPaceProgressAlert($alerts, $logs);
+        $this->appendEfBpmAlert($alerts, $logs);
+        $this->appendTrainingGapAlert($alerts, $logs);
+
+        if (empty($alerts)) {
+            $alerts[] = ['ok' => true, 'title' => 'Analyse indisponible', 'msg' => 'Pas assez de donnees pour etablir des indicateurs de coherence.'];
+        }
+
+        return $alerts;
     }
 
     /**
@@ -227,24 +261,6 @@ final class DashboardAdvancedMetricsService
         }
 
         return null;
-    }
-
-    /**
-     * @param array<int, RunLog> $logs
-     * @return array<int,array{ok:bool,title:string,msg:string,details?:array<int,string>}>
-     */
-    public function buildCoherenceAlerts(array $logs): array
-    {
-        $alerts = [];
-        $this->appendPaceProgressAlert($alerts, $logs);
-        $this->appendEfBpmAlert($alerts, $logs);
-        $this->appendTrainingGapAlert($alerts, $logs);
-
-        if (empty($alerts)) {
-            $alerts[] = ['ok' => true, 'title' => 'Analyse indisponible', 'msg' => 'Pas assez de donnees pour etablir des indicateurs de coherence.'];
-        }
-
-        return $alerts;
     }
 
     /** @param array<int, array{id:int,title:string,done:int,total:int,pct:int,isExample:bool,tracked:bool,plan:Plan}> $summaries */

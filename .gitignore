@@ -27,4 +27,8 @@
 /.github/workflows/build_push.yaml.bckp
 /compose.override.yaml
 /docker/entrypoint.no-composer.sh
-
+/specs/
+/graphify-out/
+.specify/
+.claude/
+CLAUDE.md
