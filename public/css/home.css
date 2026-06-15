@@ -455,15 +455,17 @@
 
 /* Nav header (shared with day view styles via .hdv-nav-btn/.hdv-nav-today) */
 .hw-nav {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
 }
 
 .hw-nav-label {
   font-size: 15px;
   font-weight: 800;
   color: var(--text);
+  text-align: center;
 }
 
 .hw-nav-btns {

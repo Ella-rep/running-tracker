@@ -3031,8 +3031,8 @@ function renderHomeWeekView() {
       renderHomeWeekView();
     });
 
-    btns.append(prevBtn, thisWeekBtn, nextBtn);
-    nav.append(weekLabel, btns);
+    btns.append(thisWeekBtn, nextBtn);
+    nav.append(prevBtn, weekLabel, btns);
 
     const inner = document.createElement('div');
     inner.className = 'hw-strip-inner';
@@ -3101,6 +3101,16 @@ function renderHomeWeekView() {
     numSpan.className = 'hw-day-num';
     numSpan.textContent = String(d.getDate());
     head.append(labelSpan, numSpan);
+    const addBtnW = document.createElement('button');
+    addBtnW.type = 'button';
+    addBtnW.className = 'plan-calendar-day-add';
+    addBtnW.textContent = '+';
+    addBtnW.title = 'Ajouter un événement perso';
+    addBtnW.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openCalendarActionModal({ kind: 'personal', date: dateKey, title: '' });
+    });
+    head.appendChild(addBtnW);
     col.appendChild(head);
 
     const badges = document.createElement('div');
@@ -3113,6 +3123,17 @@ function renderHomeWeekView() {
         badge.className = 'hw-badge hw-badge--' + klass + (it?.isDone ? ' hw-badge--done' : '');
         badge.textContent = shortLabels[typeKey] || shortLabels[it?.kind] || (it?.label ? String(it.label).slice(0, 12) : '•');
         if (it?.format) badge.title = String(it.format);
+        const itKindW = it?.kind || 'session';
+        const hasSessionRefW = itKindW === 'session' && Number.isFinite(Number(it?.detailId));
+        const isActionableW = (itKindW === 'race' && Number.isFinite(Number(it?.raceId))) || itKindW === 'session' || itKindW === 'personal';
+        if (isActionableW) {
+          badge.style.cursor = 'pointer';
+          badge.setAttribute('role', 'button');
+          badge.tabIndex = 0;
+          const payloadW = { ...it, kind: itKindW, date: dateKey, hasSessionRef: hasSessionRefW };
+          badge.addEventListener('click', () => openCalendarActionModal(payloadW));
+          badge.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCalendarActionModal(payloadW); } });
+        }
         badges.appendChild(badge);
       });
       if (items.length > 4) {
@@ -3192,7 +3213,15 @@ function renderHomeDayView() {
       renderHomeDayView();
     });
 
-    nav.append(prevBtn, todayBtn, nextBtn);
+    const addBtnD = document.createElement('button');
+    addBtnD.type = 'button';
+    addBtnD.className = 'plan-calendar-day-add';
+    addBtnD.textContent = '+';
+    addBtnD.title = 'Ajouter un événement perso';
+    addBtnD.addEventListener('click', () => {
+      openCalendarActionModal({ kind: 'personal', date: container.dataset.hdvDate || normalizeDateForStorage(new Date()), title: '' });
+    });
+    nav.append(prevBtn, todayBtn, nextBtn, addBtnD);
     headerEl.append(dateLabel, nav);
     container.appendChild(headerEl);
 
@@ -3233,7 +3262,7 @@ function renderHomeDayView() {
 
   (Array.isArray(calendarEventsData) ? calendarEventsData : []).forEach((evt) => {
     if (evt?.date === activeDate) {
-      items.push({ kind: 'personal', label: evt.title || 'Perso', format: '' });
+      items.push({ kind: 'personal', label: evt.title || 'Perso', format: '', personalId: evt.id });
     }
   });
 
@@ -3293,6 +3322,17 @@ function renderHomeDayView() {
     badge.textContent = isDone ? '\u2713 Fait' : (isPastDay ? 'Manqué' : 'Prévu');
 
     row.append(iconEl, content, badge);
+    const itKindD = it.kind || 'session';
+    const hasSessionRefD = itKindD === 'session' && Number.isFinite(Number(it?.detailId));
+    const isActionableD = (itKindD === 'race' && Number.isFinite(Number(it?.raceId))) || itKindD === 'session' || itKindD === 'personal';
+    if (isActionableD) {
+      row.style.cursor = 'pointer';
+      row.setAttribute('role', 'button');
+      row.tabIndex = 0;
+      const payloadD = { ...it, kind: itKindD, date: activeDate, hasSessionRef: hasSessionRefD };
+      row.addEventListener('click', () => openCalendarActionModal(payloadD));
+      row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCalendarActionModal(payloadD); } });
+    }
     return row;
   });
 
