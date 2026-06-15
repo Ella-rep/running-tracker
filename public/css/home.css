@@ -761,17 +761,22 @@
     font-size: 12px;
   }
 
-  /* Week strip: vertical layout (no horizontal scroll) */
+  /* Week strip: 2-column grid, Sunday spans full width */
   .hw-strip-inner {
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     overflow-x: unset;
     gap: 6px;
   }
 
   .hw-day {
-    flex: 0 0 auto;
+    flex: unset;
     min-width: unset;
     width: 100%;
+  }
+
+  .hw-day--sunday {
+    grid-column: 1 / -1;
   }
 
   .hw-day-head {

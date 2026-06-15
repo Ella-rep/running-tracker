@@ -3089,7 +3089,7 @@ function renderHomeWeekView() {
     const items = allItemsByDate.get(dateKey) || [];
 
     const col = document.createElement('div');
-    col.className = 'hw-day' + (isToday ? ' hw-day--today' : '') + (isPast ? ' hw-day--past' : '');
+    col.className = 'hw-day' + (isToday ? ' hw-day--today' : '') + (isPast ? ' hw-day--past' : '') + (i === 6 ? ' hw-day--sunday' : '');
     col.dataset.date = dateKey;
 
     const head = document.createElement('div');
