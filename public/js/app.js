@@ -2965,6 +2965,14 @@ function buildPlanCalendarDaysForMonth(monthKey, apiDays, baseMonthKey, itemsByD
 // ============================================================
 // HOME WEEK STRIP
 // ============================================================
+function getMondayOf(date) {
+  const d = new Date(date);
+  const dow = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - dow);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 function renderHomeWeekView() {
   const container = document.getElementById('home-week-strip');
   if (!container) return;
@@ -2972,21 +2980,82 @@ function renderHomeWeekView() {
   const today = new Date();
   const todayKey = normalizeDateForStorage(today);
 
-  // Build 7-day window: Mon → Sun of current week
-  const dow = (today.getDay() + 6) % 7; // Mon=0
-  const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - dow);
+  // Init week start (Monday) from dataset or current week
+  if (!container.dataset.hwWeekStart) {
+    container.dataset.hwWeekStart = normalizeDateForStorage(getMondayOf(today));
+  }
+  const weekStart = new Date(container.dataset.hwWeekStart + 'T00:00:00');
+
+  // Build nav header once
+  if (!container.querySelector('.hw-nav')) {
+    const nav = document.createElement('div');
+    nav.className = 'hw-nav';
+
+    const weekLabel = document.createElement('div');
+    weekLabel.className = 'hw-nav-label';
+    weekLabel.id = 'hw-week-label';
+
+    const btns = document.createElement('div');
+    btns.className = 'hw-nav-btns';
+
+    const prevBtn = document.createElement('button');
+    prevBtn.type = 'button';
+    prevBtn.className = 'hdv-nav-btn';
+    prevBtn.textContent = '‹';
+    prevBtn.setAttribute('aria-label', 'Semaine précédente');
+    prevBtn.addEventListener('click', () => {
+      const cur = new Date(container.dataset.hwWeekStart + 'T00:00:00');
+      cur.setDate(cur.getDate() - 7);
+      container.dataset.hwWeekStart = normalizeDateForStorage(cur);
+      renderHomeWeekView();
+    });
+
+    const thisWeekBtn = document.createElement('button');
+    thisWeekBtn.type = 'button';
+    thisWeekBtn.className = 'hdv-nav-today';
+    thisWeekBtn.textContent = 'Cette sem.';
+    thisWeekBtn.addEventListener('click', () => {
+      container.dataset.hwWeekStart = normalizeDateForStorage(getMondayOf(new Date()));
+      renderHomeWeekView();
+    });
+
+    const nextBtn = document.createElement('button');
+    nextBtn.type = 'button';
+    nextBtn.className = 'hdv-nav-btn';
+    nextBtn.textContent = '›';
+    nextBtn.setAttribute('aria-label', 'Semaine suivante');
+    nextBtn.addEventListener('click', () => {
+      const cur = new Date(container.dataset.hwWeekStart + 'T00:00:00');
+      cur.setDate(cur.getDate() + 7);
+      container.dataset.hwWeekStart = normalizeDateForStorage(cur);
+      renderHomeWeekView();
+    });
+
+    btns.append(prevBtn, thisWeekBtn, nextBtn);
+    nav.append(weekLabel, btns);
+
+    const inner = document.createElement('div');
+    inner.className = 'hw-strip-inner';
+
+    container.replaceChildren(nav, inner);
+  }
+
+  // Update week label
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  const fmtDay = (d) => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  const labelEl = document.getElementById('hw-week-label');
+  if (labelEl) labelEl.textContent = fmtDay(weekStart) + ' – ' + fmtDay(weekEnd);
 
   const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
-  // Merge plan items + races + personal events into a date→items map
+  // Gather items
   const allItemsByDate = new Map();
   const addItem = (dateKey, item) => {
     if (!allItemsByDate.has(dateKey)) allItemsByDate.set(dateKey, []);
     allItemsByDate.get(dateKey).push(item);
   };
 
-  // Plan sessions
   const metrics = dashboardMetrics || {};
   const calendarData = metrics.planCalendar;
   const itemsByDate = calendarData?.itemsByDate && typeof calendarData.itemsByDate === 'object'
@@ -2995,7 +3064,6 @@ function renderHomeWeekView() {
     (Array.isArray(items) ? items : []).forEach((it) => addItem(dateKey, it));
   });
 
-  // Races
   (Array.isArray(racesData) ? racesData : []).forEach((race) => {
     const dateKey = normalizeDateForStorage(race?.date);
     if (!dateKey) return;
@@ -3004,13 +3072,14 @@ function renderHomeWeekView() {
     addItem(dateKey, { kind: 'race', label: race?.name || 'Course', format: race?.distance ? String(race.distance) : '', isDone });
   });
 
-  // Personal events
   (Array.isArray(calendarEventsData) ? calendarEventsData : []).forEach((evt) => {
     if (!evt?.date) return;
     addItem(evt.date, { kind: 'personal', label: evt.title || 'Perso', format: '' });
   });
 
-  // Build day nodes
+  const kindClass   = { EF: 'EF', SL: 'SL', FC: 'FC', FL: 'FL', T: 'T', RACE: 'race', race: 'race', personal: 'personal' };
+  const shortLabels = { EF: 'EF', SL: 'Sortie longue', FC: 'Fractionné', FL: 'Seuil', T: 'Tempo', RACE: '🏁 Course', race: '🏁 Course', personal: '📌 Perso' };
+
   const dayNodes = DAY_LABELS.map((dayLabel, i) => {
     const d = new Date(weekStart);
     d.setDate(weekStart.getDate() + i);
@@ -3025,38 +3094,31 @@ function renderHomeWeekView() {
 
     const head = document.createElement('div');
     head.className = 'hw-day-head';
-
-    const labelEl = document.createElement('span');
-    labelEl.className = 'hw-day-label';
-    labelEl.textContent = dayLabel;
-
-    const numEl = document.createElement('span');
-    numEl.className = 'hw-day-num';
-    numEl.textContent = String(d.getDate());
-
-    head.appendChild(labelEl);
-    head.appendChild(numEl);
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'hw-day-label';
+    labelSpan.textContent = dayLabel;
+    const numSpan = document.createElement('span');
+    numSpan.className = 'hw-day-num';
+    numSpan.textContent = String(d.getDate());
+    head.append(labelSpan, numSpan);
     col.appendChild(head);
 
     const badges = document.createElement('div');
     badges.className = 'hw-badges';
     if (items.length > 0) {
-      const kindClass = { EF: 'EF', SL: 'SL', FC: 'FC', FL: 'FL', T: 'T', RACE: 'race', race: 'race', personal: 'personal' };
-      const shortLabels = { EF: 'EF', SL: 'Sortie longue', FC: 'Fractionné', FL: 'Seuil', T: 'Tempo', RACE: '🏁 Course', race: '🏁 Course', personal: '📌 Perso' };
       items.slice(0, 4).forEach((it) => {
         const badge = document.createElement('div');
         const typeKey = (it?.sessionType || it?.kind || '').toUpperCase();
         const klass = kindClass[typeKey] || kindClass[it?.kind] || 'session';
         badge.className = 'hw-badge hw-badge--' + klass + (it?.isDone ? ' hw-badge--done' : '');
-        const label = shortLabels[typeKey] || shortLabels[it?.kind] || (it?.label ? String(it.label).slice(0, 12) : '•');
-        badge.textContent = label;
+        badge.textContent = shortLabels[typeKey] || shortLabels[it?.kind] || (it?.label ? String(it.label).slice(0, 12) : '•');
         if (it?.format) badge.title = String(it.format);
         badges.appendChild(badge);
       });
       if (items.length > 4) {
         const more = document.createElement('div');
         more.className = 'hw-badge hw-badge--more';
-        more.textContent = `+${items.length - 4} autre${items.length - 4 > 1 ? 's' : ''}`;
+        more.textContent = '+' + (items.length - 4);
         badges.appendChild(more);
       }
     } else {
@@ -3066,14 +3128,13 @@ function renderHomeWeekView() {
       badges.appendChild(empty);
     }
     col.appendChild(badges);
-
     return col;
   });
 
-  container.replaceChildren(...dayNodes);
+  const inner = container.querySelector('.hw-strip-inner');
+  if (inner) inner.replaceChildren(...dayNodes);
 }
 
-// ============================================================
 // HOME DAY VIEW
 // ============================================================
 

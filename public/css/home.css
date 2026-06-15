@@ -448,15 +448,41 @@
    ============================================================ */
 .home-week-strip {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 12px;
   margin-bottom: 28px;
+}
+
+/* Nav header (shared with day view styles via .hdv-nav-btn/.hdv-nav-today) */
+.hw-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hw-nav-label {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.hw-nav-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Inner scrollable strip */
+.hw-strip-inner {
+  display: flex;
+  gap: 8px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   padding-bottom: 4px;
 }
 
-.home-week-strip::-webkit-scrollbar {
+.hw-strip-inner::-webkit-scrollbar {
   display: none;
 }
 
