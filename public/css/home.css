@@ -759,9 +759,41 @@
     font-size: 12px;
   }
 
+  /* Week strip: vertical layout (no horizontal scroll) */
+  .hw-strip-inner {
+    flex-direction: column;
+    overflow-x: unset;
+    gap: 6px;
+  }
+
   .hw-day {
-    flex: 0 0 100px;
-    min-width: 100px;
+    flex: 0 0 auto;
+    min-width: unset;
+    width: 100%;
+  }
+
+  .hw-day-head {
+    padding: 10px 14px 8px;
+  }
+
+  .hw-day-label {
+    font-size: 10px;
+    letter-spacing: 0.8px;
+  }
+
+  .hw-day-num {
+    font-size: 16px;
+  }
+
+  .hw-badge {
+    white-space: normal;
+    font-size: 12px;
+    padding: 6px 14px;
+  }
+
+  .hw-day-empty {
+    text-align: left;
+    padding: 8px 14px;
   }
 
   .hdv-item {
