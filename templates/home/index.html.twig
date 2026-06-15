@@ -5,7 +5,7 @@
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
   <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260609-calendarlogs1">
-<link rel="stylesheet" href="{{ asset('css/home.css') }}?v=20260601-weathertemps4">
+<link rel="stylesheet" href="{{ asset('css/home.css') }}?v=20260615-calviews1">
 {% endblock %}
 
 {% block body %}
@@ -82,6 +82,17 @@
       </div>
     </section>
 
+    <div class="cal-view-header" id="cal-view-header">
+      <div class="cal-view-toggle" id="cal-view-toggle" role="group" aria-label="Vue calendrier">
+        <button class="cal-view-btn" data-view="month" type="button">Mois</button>
+        <button class="cal-view-btn" data-view="week" type="button">Semaine</button>
+        <button class="cal-view-btn" data-view="day" type="button">Jour</button>
+      </div>
+    </div>
+
+    <div id="home-week-strip" class="home-week-strip" hidden></div>
+    <div id="home-day-view" class="home-day-view" hidden></div>
+
     <div class="chart-wrap plan-calendar-wrap" id="plan-calendar-wrap">
       <div class="plan-calendar-head">
         <div class="plan-calendar-topline">
@@ -144,5 +155,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260609-calendarlogs1"></script>
+<script src="{{ asset('js/app.js') }}?v=20260615-calviews1"></script>
 {% endblock %}

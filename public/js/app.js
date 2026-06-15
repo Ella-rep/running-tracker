@@ -2656,6 +2656,7 @@ function renderDashboard() {
 
   if (isWidgetEnabled('plan_calendar')) renderPlanCalendar(metrics.planCalendar || null);
   renderHomeWeekView();
+  renderHomeDayView();
 
   const barsSource = Array.isArray(metrics.monthlyBars) ? metrics.monthlyBars : [];
   const monthlyChart = document.getElementById('monthly-chart');
@@ -3064,6 +3065,213 @@ function renderHomeWeekView() {
   });
 
   container.replaceChildren(...dayNodes);
+}
+
+// ============================================================
+// HOME DAY VIEW
+// ============================================================
+
+function renderHomeDayView() {
+  const container = document.getElementById('home-day-view');
+  if (!container || container.hidden) return;
+
+  const today = new Date();
+  const todayKey = normalizeDateForStorage(today);
+  if (!container.dataset.hdvDate) container.dataset.hdvDate = todayKey;
+  const activeDate = container.dataset.hdvDate;
+
+  // Header (build once)
+  if (!container.querySelector('.hdv-header')) {
+    const headerEl = document.createElement('div');
+    headerEl.className = 'hdv-header';
+
+    const dateLabel = document.createElement('div');
+    dateLabel.className = 'hdv-date';
+    dateLabel.id = 'hdv-date-label';
+
+    const nav = document.createElement('div');
+    nav.className = 'hdv-nav';
+
+    const prevBtn = document.createElement('button');
+    prevBtn.type = 'button';
+    prevBtn.className = 'hdv-nav-btn';
+    prevBtn.textContent = '\u2039';
+    prevBtn.setAttribute('aria-label', 'Jour précédent');
+    prevBtn.addEventListener('click', () => {
+      const cur = new Date((container.dataset.hdvDate || normalizeDateForStorage(new Date())) + 'T12:00:00');
+      cur.setDate(cur.getDate() - 1);
+      container.dataset.hdvDate = normalizeDateForStorage(cur);
+      renderHomeDayView();
+    });
+
+    const todayBtn = document.createElement('button');
+    todayBtn.type = 'button';
+    todayBtn.className = 'hdv-nav-today';
+    todayBtn.textContent = "Auj.";
+    todayBtn.addEventListener('click', () => {
+      container.dataset.hdvDate = normalizeDateForStorage(new Date());
+      renderHomeDayView();
+    });
+
+    const nextBtn = document.createElement('button');
+    nextBtn.type = 'button';
+    nextBtn.className = 'hdv-nav-btn';
+    nextBtn.textContent = '\u203a';
+    nextBtn.setAttribute('aria-label', 'Jour suivant');
+    nextBtn.addEventListener('click', () => {
+      const cur = new Date((container.dataset.hdvDate || normalizeDateForStorage(new Date())) + 'T12:00:00');
+      cur.setDate(cur.getDate() + 1);
+      container.dataset.hdvDate = normalizeDateForStorage(cur);
+      renderHomeDayView();
+    });
+
+    nav.append(prevBtn, todayBtn, nextBtn);
+    headerEl.append(dateLabel, nav);
+    container.appendChild(headerEl);
+
+    const listEl = document.createElement('div');
+    listEl.className = 'hdv-list';
+    container.appendChild(listEl);
+  }
+
+  const dateLabelEl = document.getElementById('hdv-date-label');
+  if (dateLabelEl) {
+    const d = new Date(activeDate + 'T12:00:00');
+    dateLabelEl.textContent = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+
+  // Gather items for this date
+  const items = [];
+  const metrics = dashboardMetrics || {};
+  const calendarData = metrics.planCalendar;
+  const itemsByDate = calendarData?.itemsByDate && typeof calendarData.itemsByDate === 'object'
+    ? calendarData.itemsByDate : {};
+
+  (Array.isArray(itemsByDate[activeDate]) ? itemsByDate[activeDate] : []).forEach((it) => {
+    items.push({ kind: it.kind || 'session', ...it });
+  });
+
+  (Array.isArray(racesData) ? racesData : []).forEach((race) => {
+    if (normalizeDateForStorage(race?.date) === activeDate) {
+      const raceResult = String(race?.result || '').trim();
+      items.push({
+        kind: 'race',
+        label: race?.name || 'Course',
+        format: race?.distance ? String(race.distance) : '',
+        isDone: raceResult.length > 0 || !!race?.dnfStatus,
+        result: raceResult,
+      });
+    }
+  });
+
+  (Array.isArray(calendarEventsData) ? calendarEventsData : []).forEach((evt) => {
+    if (evt?.date === activeDate) {
+      items.push({ kind: 'personal', label: evt.title || 'Perso', format: '' });
+    }
+  });
+
+  const isPastDay = activeDate < todayKey;
+  const listEl = container.querySelector('.hdv-list');
+  if (!listEl) return;
+
+  if (!items.length) {
+    const empty = document.createElement('div');
+    empty.className = 'hdv-empty';
+    empty.textContent = activeDate === todayKey
+      ? "Aucune séance prévue aujourd\'hui."
+      : 'Aucune séance prévue ce jour.';
+    listEl.replaceChildren(empty);
+    return;
+  }
+
+  const kindIcons  = { EF: '🏃', SL: '🏃', FC: '\u26a1', FL: '\u26a1', T: '\U0001f4a8', Race: '🏁', race: '🏁', personal: '\U0001f4cc' };
+  const kindLabels = { EF: 'Endurance fondamentale', SL: 'Sortie longue', FC: 'Fractionné court', FL: 'Fractionné long', T: 'Tempo', Race: 'Course', race: 'Course', personal: 'Perso' };
+
+  const nodes = items.map((it) => {
+    const kind = it.kind || 'session';
+    const typeKey = it.sessionType || kind;
+    const isDone = !!it.isDone;
+    const icon = kindIcons[typeKey] || kindIcons[kind] || '🏃';
+
+    const row = document.createElement('div');
+    const classes = ['hdv-item', `hdv-item--${kind}`];
+    if (isDone) classes.push('hdv-item--done');
+    if (isPastDay && !isDone) classes.push('hdv-item--past');
+    row.className = classes.join(' ');
+
+    const iconEl = document.createElement('div');
+    iconEl.className = 'hdv-item-icon';
+    iconEl.textContent = icon;
+
+    const content = document.createElement('div');
+    content.className = 'hdv-item-content';
+
+    const title = document.createElement('div');
+    title.className = 'hdv-item-title';
+    title.textContent = it.label || kindLabels[typeKey] || kindLabels[kind] || typeKey;
+
+    const sub = document.createElement('div');
+    sub.className = 'hdv-item-sub';
+    const parts = [];
+    if (it.format) parts.push(String(it.format));
+    if (it.pe) parts.push(String(it.pe));
+    if (it.result) parts.push(`\u2713 ${it.result}`);
+    sub.textContent = parts.join(' \u00b7 ');
+    if (!sub.textContent) sub.hidden = true;
+
+    content.append(title, sub);
+
+    const badge = document.createElement('div');
+    badge.className = 'hdv-item-badge' + (isDone ? ' hdv-item-badge--done' : '');
+    badge.textContent = isDone ? '\u2713 Fait' : (isPastDay ? 'Manqué' : 'Prévu');
+
+    row.append(iconEl, content, badge);
+    return row;
+  });
+
+  listEl.replaceChildren(...nodes);
+}
+
+// ============================================================
+// CALENDAR VIEW TOGGLE
+// ============================================================
+const CAL_VIEW_STORAGE_KEY = 'home_cal_view';
+
+function switchCalView(view) {
+  const monthWrap = document.getElementById('plan-calendar-wrap');
+  const weekWrap  = document.getElementById('home-week-strip');
+  const dayWrap   = document.getElementById('home-day-view');
+  if (!monthWrap && !weekWrap && !dayWrap) return;
+
+  const panels = { month: monthWrap, week: weekWrap, day: dayWrap };
+  Object.entries(panels).forEach(([key, el]) => {
+    if (el) el.hidden = key !== view;
+  });
+
+  document.querySelectorAll('#cal-view-toggle .cal-view-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.view === view);
+  });
+
+  try { localStorage.setItem(CAL_VIEW_STORAGE_KEY, view); } catch { /* ignore */ }
+
+  if (view === 'week') renderHomeWeekView();
+  if (view === 'day') renderHomeDayView();
+}
+
+function setupCalViewToggle() {
+  const toggle = document.getElementById('cal-view-toggle');
+  if (!toggle || toggle.dataset.bound === '1') return;
+  toggle.dataset.bound = '1';
+
+  toggle.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-view]');
+    if (btn) switchCalView(String(btn.dataset.view));
+  });
+
+  let saved = 'month';
+  try { saved = localStorage.getItem(CAL_VIEW_STORAGE_KEY) || 'month'; } catch { /* ignore */ }
+  const valid = ['month', 'week', 'day'];
+  switchCalView(valid.includes(saved) ? saved : 'month');
 }
 
 function renderPlanCalendar(calendar) {
@@ -6602,6 +6810,7 @@ async function initApp() {
   safeRender(consumeRaceEditIntentFromUrl, 'race-edit-url');
   safeRender(setupWeatherCityControls, 'weather-city-controls');
   safeRender(bindCourseFieldVisibility, 'course-field-visibility');
+  safeRender(setupCalViewToggle, 'cal-view-toggle');
 
   const today = new Date().toISOString().split('T')[0];
   const logDateEl = document.getElementById('log-date');
