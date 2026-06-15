@@ -3038,28 +3038,34 @@ function renderHomeWeekView() {
     head.appendChild(numEl);
     col.appendChild(head);
 
+    const badges = document.createElement('div');
+    badges.className = 'hw-badges';
     if (items.length > 0) {
-      const badges = document.createElement('div');
-      badges.className = 'hw-badges';
-      items.slice(0, 3).forEach((it) => {
-        const badge = document.createElement('span');
-        const kind = it?.kind || 'session';
-        badge.className = 'hw-badge hw-badge--' + kind + (it?.isDone ? ' hw-badge--done' : '');
-        const sessionTypeLabels = { EF: 'EF', RECUP: 'Récup', SL: 'SL', T: 'Tempo', FL: 'Seuil', FC: 'FC', VMA: 'VMA', RACE: '🏁', race: '🏁', personal: '📌' };
+      const kindClass = { EF: 'EF', SL: 'SL', FC: 'FC', FL: 'FL', T: 'T', RACE: 'race', race: 'race', personal: 'personal' };
+      const shortLabels = { EF: 'EF', SL: 'Sortie longue', FC: 'Fractionné', FL: 'Seuil', T: 'Tempo', RACE: '🏁 Course', race: '🏁 Course', personal: '📌 Perso' };
+      items.slice(0, 4).forEach((it) => {
+        const badge = document.createElement('div');
         const typeKey = (it?.sessionType || it?.kind || '').toUpperCase();
-        const shortLabel = sessionTypeLabels[typeKey] || (it?.label ? String(it.label).slice(0, 8) : '•');
-        badge.textContent = shortLabel;
+        const klass = kindClass[typeKey] || kindClass[it?.kind] || 'session';
+        badge.className = 'hw-badge hw-badge--' + klass + (it?.isDone ? ' hw-badge--done' : '');
+        const label = shortLabels[typeKey] || shortLabels[it?.kind] || (it?.label ? String(it.label).slice(0, 12) : '•');
+        badge.textContent = label;
         if (it?.format) badge.title = String(it.format);
         badges.appendChild(badge);
       });
-      if (items.length > 3) {
-        const more = document.createElement('span');
+      if (items.length > 4) {
+        const more = document.createElement('div');
         more.className = 'hw-badge hw-badge--more';
-        more.textContent = `+${items.length - 3}`;
+        more.textContent = `+${items.length - 4} autre${items.length - 4 > 1 ? 's' : ''}`;
         badges.appendChild(more);
       }
-      col.appendChild(badges);
+    } else {
+      const empty = document.createElement('div');
+      empty.className = 'hw-day-empty';
+      empty.textContent = '—';
+      badges.appendChild(empty);
     }
+    col.appendChild(badges);
 
     return col;
   });

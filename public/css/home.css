@@ -433,54 +433,81 @@
 }
 
 /* ============================================================
-   HOME WEEK STRIP  (.hw-*)
+   FIX: override display for hidden panels
+   ============================================================ */
+#home-week-strip[hidden],
+#home-day-view[hidden],
+#plan-calendar-wrap[hidden] {
+  display: none !important;
+}
+
+/* ============================================================
+   HOME WEEK STRIP — planner style
+   Mobile: horizontal scroll strip
+   Desktop: 7 fixed columns
    ============================================================ */
 .home-week-strip {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  display: flex;
   gap: 8px;
   margin-bottom: 28px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+}
+
+.home-week-strip::-webkit-scrollbar {
+  display: none;
 }
 
 .hw-day {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px 6px;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--border) 86%, #91a4bf);
-  background: color-mix(in srgb, var(--surface2) 88%, #1e2534);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 7%, transparent);
+  flex: 0 0 calc((100% - 6 * 8px) / 7);
+  min-width: 90px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background: color-mix(in srgb, var(--surface2) 92%, #1e2534);
+  overflow: hidden;
   transition: border-color 0.15s;
 }
 
 .hw-day--today {
-  border-color: color-mix(in srgb, var(--z5) 72%, var(--border));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--z5) 40%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 .hw-day--past {
-  opacity: 0.55;
+  opacity: 0.6;
 }
 
+/* Day header: colored bar */
 .hw-day-head {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 2px;
-  margin-bottom: 2px;
+  justify-content: space-between;
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.hw-day--today .hw-day-head {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .hw-day-label {
   font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
+  font-weight: 800;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
+.hw-day--today .hw-day-label {
+  color: var(--accent);
+}
+
 .hw-day-num {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 800;
   color: var(--text);
   line-height: 1;
@@ -490,42 +517,60 @@
   color: var(--accent);
 }
 
+/* Items list */
 .hw-badges {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  margin-top: 2px;
+  gap: 0;
+  padding: 6px 0;
 }
 
 .hw-badge {
-  display: block;
-  padding: 2px 4px;
-  border-radius: 5px;
-  font-size: 9px;
-  font-weight: 700;
-  background: color-mix(in srgb, var(--z1) 18%, var(--surface));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 600;
   color: var(--text);
-  text-align: center;
+  border-left: 3px solid var(--z1);
+  background: none;
+  text-align: left;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  border-radius: 0;
 }
 
-.hw-badge--EF   { background: color-mix(in srgb, var(--z2) 18%, var(--surface)); }
-.hw-badge--SL   { background: color-mix(in srgb, var(--z1) 22%, var(--surface)); }
+.hw-badge + .hw-badge {
+  border-top: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+}
+
+.hw-badge--EF   { border-left-color: var(--z2); }
+.hw-badge--SL   { border-left-color: var(--z1); }
 .hw-badge--FC,
 .hw-badge--FL,
-.hw-badge--T    { background: color-mix(in srgb, var(--z4) 18%, var(--surface)); }
-.hw-badge--race     { background: color-mix(in srgb, var(--z5) 22%, var(--surface)); }
-.hw-badge--personal { background: color-mix(in srgb, var(--z3) 18%, var(--surface)); }
-.hw-badge--done { opacity: 0.55; }
+.hw-badge--T    { border-left-color: var(--z4); }
+.hw-badge--race     { border-left-color: var(--z5); background: color-mix(in srgb, var(--z5) 6%, transparent); }
+.hw-badge--personal { border-left-color: var(--z3); }
+.hw-badge--done { opacity: 0.5; text-decoration: line-through; }
 .hw-badge--more {
-  background: color-mix(in srgb, var(--border) 55%, var(--surface));
+  border-left-color: transparent;
   color: var(--text-muted);
+  font-size: 10px;
+}
+
+/* Empty day */
+.hw-day-empty {
+  padding: 10px;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+  font-style: italic;
 }
 
 /* ============================================================
-   HOME DAY VIEW  (.hdv-*)
+   HOME DAY VIEW — planner style
    ============================================================ */
 .home-day-view {
   margin-bottom: 28px;
@@ -539,8 +584,8 @@
 }
 
 .hdv-date {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 800;
   color: var(--text);
   text-transform: capitalize;
 }
@@ -564,6 +609,7 @@
   align-items: center;
   justify-content: center;
   transition: border-color 0.15s;
+  font-family: inherit;
 }
 
 .hdv-nav-btn:hover {
@@ -590,8 +636,11 @@
 .hdv-empty {
   text-align: center;
   color: var(--text-muted);
-  padding: 32px 0;
+  padding: 40px 0;
   font-size: 14px;
+  background: color-mix(in srgb, var(--surface2) 60%, transparent);
+  border: 1px dashed var(--border);
+  border-radius: 16px;
 }
 
 .hdv-list {
@@ -601,33 +650,44 @@
 
 .hdv-item {
   display: grid;
-  grid-template-columns: 36px 1fr auto;
-  gap: 10px;
+  grid-template-columns: 42px 1fr auto;
+  gap: 12px;
   align-items: center;
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--border) 86%, #91a4bf);
-  background: color-mix(in srgb, var(--surface2) 88%, #1e2534);
-  border-left: 3px solid var(--z1);
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background: color-mix(in srgb, var(--surface2) 92%, #1e2534);
+  border-left: 4px solid var(--z1);
+  transition: transform 0.12s ease;
 }
 
-.hdv-item--race     { border-left-color: var(--z5); background: color-mix(in srgb, var(--z5) 10%, var(--surface)); }
-.hdv-item--personal { border-left-color: var(--z3); background: color-mix(in srgb, var(--z3) 10%, var(--surface)); }
-.hdv-item--done     { border-left-color: var(--z2); }
+.hdv-item--race     { border-left-color: var(--z5); background: color-mix(in srgb, var(--z5) 8%, var(--surface)); }
+.hdv-item--personal { border-left-color: var(--z3); background: color-mix(in srgb, var(--z3) 8%, var(--surface)); }
+.hdv-item--done     { border-left-color: var(--z2); opacity: 0.7; }
 .hdv-item--past:not(.hdv-item--done) {
-  border-left-color: color-mix(in srgb, var(--z1) 68%, var(--z3));
+  border-left-color: color-mix(in srgb, var(--z3) 60%, var(--border));
 }
 
 .hdv-item-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--z1) 14%, var(--surface));
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 20px;
-  text-align: center;
-  line-height: 1;
+  flex-shrink: 0;
 }
+
+.hdv-item--race     .hdv-item-icon { background: color-mix(in srgb, var(--z5) 18%, var(--surface)); }
+.hdv-item--personal .hdv-item-icon { background: color-mix(in srgb, var(--z3) 18%, var(--surface)); }
+.hdv-item--done     .hdv-item-icon { background: color-mix(in srgb, var(--z2) 18%, var(--surface)); }
 
 .hdv-item-content {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 
@@ -643,16 +703,20 @@
 .hdv-item-sub {
   font-size: 12px;
   color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hdv-item-badge {
   font-size: 10px;
   font-weight: 700;
-  padding: 3px 8px;
+  padding: 4px 9px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--z2) 18%, var(--surface2));
+  background: color-mix(in srgb, var(--border) 60%, var(--surface2));
   color: var(--text-muted);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .hdv-item-badge--done {
@@ -669,38 +733,22 @@
     font-size: 12px;
   }
 
-  .home-week-strip {
-    gap: 4px;
-  }
-
   .hw-day {
-    padding: 8px 4px;
-    border-radius: 10px;
-  }
-
-  .hw-day-label {
-    font-size: 8px;
-    letter-spacing: 0.3px;
-  }
-
-  .hw-day-num {
-    font-size: 13px;
-  }
-
-  .hw-badge {
-    font-size: 8px;
-    padding: 2px 3px;
-    border-radius: 4px;
+    flex: 0 0 100px;
+    min-width: 100px;
   }
 
   .hdv-item {
-    grid-template-columns: 28px 1fr auto;
-    gap: 8px;
-    padding: 10px 12px;
+    grid-template-columns: 38px 1fr auto;
+    padding: 12px 14px;
+    gap: 10px;
   }
 
   .hdv-item-icon {
-    font-size: 16px;
+    width: 38px;
+    height: 38px;
+    font-size: 18px;
+    border-radius: 10px;
   }
 
   .hdv-item-title {
@@ -714,11 +762,17 @@
     font-size: 11px;
   }
 
-  .hw-day-label {
-    display: none;
+  .hw-day {
+    flex: 0 0 88px;
+    min-width: 88px;
   }
 
-  .hw-day-num {
-    font-size: 12px;
+  .hw-day-label {
+    font-size: 8px;
+    letter-spacing: 0.5px;
+  }
+
+  .hw-badge {
+    font-size: 10px;
   }
 }
