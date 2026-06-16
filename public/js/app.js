@@ -769,6 +769,30 @@ function syncPlanTotalFromFormat() {
   renderDurationDualHint('pm-total');
 }
 
+function syncPlanTypeFromFormat() {
+  const formatInput = document.getElementById('pm-format');
+  const typeSelect = document.getElementById('pm-type');
+  if (!(formatInput instanceof HTMLInputElement) || !(typeSelect instanceof HTMLSelectElement)) return;
+  // Only auto-set if field is empty or was previously auto-set
+  if (typeSelect.value && typeSelect.dataset.autoSet !== '1') return;
+
+  const fmt = formatInput.value;
+  const minutes = computePlannedTotalMinutesFromFormat(fmt);
+  if (minutes === null) return;
+
+  let suggested = '';
+  if (/@Z2/i.test(fmt)) {
+    suggested = minutes >= 60 ? 'SL' : 'EF';
+  } else if (minutes >= 60) {
+    suggested = 'SL';
+  }
+
+  if (suggested) {
+    typeSelect.value = suggested;
+    typeSelect.dataset.autoSet = '1';
+  }
+}
+
 function setupPlanTotalAutoCompute() {
   const formatInput = document.getElementById('pm-format');
   if (!(formatInput instanceof HTMLInputElement)) return;
@@ -788,8 +812,16 @@ function setupPlanTotalAutoCompute() {
       formatInput.setSelectionRange(pos, pos);
     }
     syncPlanTotalFromFormat();
+    syncPlanTypeFromFormat();
   });
-  formatInput.addEventListener('change', syncPlanTotalFromFormat);
+  formatInput.addEventListener('change', () => { syncPlanTotalFromFormat(); syncPlanTypeFromFormat(); });
+
+  // Mark type as manually set when user changes it
+  const typeSelectEl = document.getElementById('pm-type');
+  if (typeSelectEl && !typeSelectEl.dataset.manualBound) {
+    typeSelectEl.addEventListener('change', () => { typeSelectEl.dataset.autoSet = '0'; });
+    typeSelectEl.dataset.manualBound = '1';
+  }
   formatInput.dataset.autoTotalBound = '1';
   syncPlanTotalFromFormat();
 }
@@ -4871,7 +4903,8 @@ function addPlanSession(planId) {
   document.getElementById('pm-statekey').value = stateKey;
   document.getElementById('pm-idx').value = '-1';
   document.getElementById('pm-format').value = '';
-  document.getElementById('pm-type').value = '';
+  const typeEl0 = document.getElementById('pm-type');
+  if (typeEl0) { typeEl0.value = ''; typeEl0.dataset.autoSet = '1'; }
   document.getElementById('pm-date').value = '';
   document.getElementById('pm-pe').value = '';
   document.getElementById('pm-total').value = '';
