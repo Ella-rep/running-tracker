@@ -3152,6 +3152,7 @@ function renderHomeWeekView() {
   const kindClass   = { EF: 'EF', SL: 'SL', FC: 'FC', FL: 'FL', T: 'T', RACE: 'race', race: 'race', personal: 'personal', log: 'log' };
   const shortLabels = { EF: 'EF', SL: 'Sortie longue', FC: 'Fractionné', FL: 'Seuil', T: 'Tempo', RACE: '🏁 Course', race: '🏁 Course', personal: '📌 Perso', log: '🏃 Sortie' };
 
+
   const dayNodes = DAY_LABELS.map((dayLabel, i) => {
     const d = new Date(weekStart);
     d.setDate(weekStart.getDate() + i);
@@ -3192,7 +3193,7 @@ function renderHomeWeekView() {
         const badge = document.createElement('div');
         const typeKey = (it?.sessionType || it?.kind || '').toUpperCase();
         const klass = kindClass[typeKey] || kindClass[it?.kind] || 'session';
-        badge.className = 'hw-badge hw-badge--' + klass + (it?.isDone ? ' hw-badge--done' : '');
+        badge.className = 'hw-badge hw-badge--' + klass + (it?.isCancelled ? ' hw-badge--cancelled' : (it?.isDone ? ' hw-badge--done' : ''));
         badge.textContent = shortLabels[typeKey] || shortLabels[it?.kind] || (it?.label ? String(it.label).slice(0, 12) : '•');
         if (it?.format) badge.title = String(it.format);
         const itKindW = it?.kind || 'session';
