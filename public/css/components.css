@@ -248,6 +248,10 @@ tr:hover .action-btns,
 .collapsible-form.is-collapsed .collapsible-head { margin-bottom: 0; }
 .collapsible-form.is-collapsed .collapsible-head h3 { margin-bottom: 0; }
 .collapsible-form.is-collapsed .collapsible-body { display: none; }
+/* Pre-JS: hide form body until enhanced -> kills flash visible->collapse (default collapsed) */
+.form-card[data-collapsible-form]:not(.collapsible-form) > *:not(.form-card-head):not(h3):not(input[type="hidden"]) {
+  display: none;
+}
 
 /* ===== Courses: sortable column headers ===== */
 #courses th.sortable {

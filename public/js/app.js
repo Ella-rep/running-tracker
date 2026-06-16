@@ -2600,7 +2600,7 @@ function renderDashboard() {
             titleEl.appendChild(pausedBadge);
           }
         }
-        if (pctEl) pctEl.textContent = `${Number(plan.pct || 0)}%`;
+        if (pctEl) pctEl.textContent = Number(plan.pct || 0) >= 100 ? 'Terminé' : `${Number(plan.pct || 0)}%`;
         if (fillEl) fillEl.style.width = `${Number(plan.pct || 0)}%`;
         if (metaEl) {
           metaEl.textContent = `${Number(plan.done || 0)} / ${Number(plan.total || 0)} séances complétées`;
@@ -4712,6 +4712,12 @@ function openPlan(planId, options = {}) {
   if (detailSub) detailSub.textContent = meta.sub;
   const crumbCurrent = document.getElementById('plans-crumb-current');
   if (crumbCurrent) crumbCurrent.textContent = meta.title;
+
+  const comp = planCompletion(extra.sessions, extra.done);
+  const markBtn = document.getElementById('plans-mark-complete-btn');
+  const doneBadge = document.getElementById('plans-detail-complete-badge');
+  if (markBtn) markBtn.style.display = comp.complete ? 'none' : '';
+  if (doneBadge) doneBadge.style.display = comp.complete ? '' : 'none';
 
   renderPlan('plans-detail-weeks', extra.sessions, `extra:${planId}`);
   updatePlansPath(planId, { pushHistory });
