@@ -173,6 +173,7 @@ function setupAnnouncementDismiss() {
 // ============================================================
 let logData   = [];
 let racesData = [];
+let racesSort = { key: 'date', dir: 'asc' };
 let plansData = [];
 let dashboardAdvice = [];
 let dashboardMetrics = null;
@@ -858,8 +859,16 @@ function renderDurationDualHint(inputId) {
   hint.textContent = dual ? `Apercu: ${dual}` : '';
 }
 
+function normalizeObjectiveDuration(raw) {
+  const txt = String(raw || '').trim();
+  if (!txt) return null;
+  const secs = parseDurationToSeconds(txt);
+  if (!Number.isFinite(secs)) return txt; // keep unparseable input as-is
+  return formatHmsFromSeconds(secs) || txt;
+}
+
 function setupDurationDualHints() {
-  ['pm-total', 'log-dur', 'lm-dur'].forEach((inputId) => {
+  ['pm-total', 'log-dur', 'lm-dur', 'r-obj', 'rm-obj'].forEach((inputId) => {
     const input = document.getElementById(inputId);
     if (!(input instanceof HTMLInputElement)) return;
 
@@ -2591,7 +2600,7 @@ function renderDashboard() {
             titleEl.appendChild(pausedBadge);
           }
         }
-        if (pctEl) pctEl.textContent = `${Number(plan.pct || 0)}%`;
+        if (pctEl) pctEl.textContent = Number(plan.pct || 0) >= 100 ? 'Terminé' : `${Number(plan.pct || 0)}%`;
         if (fillEl) fillEl.style.width = `${Number(plan.pct || 0)}%`;
         if (metaEl) {
           metaEl.textContent = `${Number(plan.done || 0)} / ${Number(plan.total || 0)} séances complétées`;
@@ -3089,7 +3098,7 @@ function renderHomeWeekView() {
     const items = allItemsByDate.get(dateKey) || [];
 
     const col = document.createElement('div');
-    col.className = 'hw-day' + (isToday ? ' hw-day--today' : '') + (isPast ? ' hw-day--past' : '');
+    col.className = 'hw-day' + (isToday ? ' hw-day--today' : '') + (isPast ? ' hw-day--past' : '') + (i === 6 ? ' hw-day--sunday' : '');
     col.dataset.date = dateKey;
 
     const head = document.createElement('div');
@@ -4126,18 +4135,21 @@ function renderProjections() {
   if (raceProjectionEl) {
     if (raceProj && raceProj.projected) {
       const statusIcon = { ahead: '✅', on_track: '✅', behind: '⚠️' }[raceProj.status] || '';
-      const objLine = raceProj.objective
-        ? `<span class="race-proj-obj">Objectif : <strong>${raceProj.objective}</strong></span>`
+      const objPart = raceProj.objective
+        ? ` · <span class="race-proj-obj">Objectif : <strong>${raceProj.objective}</strong></span>`
         : '';
       const daysLine = raceProj.daysTo != null
         ? `<span class="race-proj-days">dans ${raceProj.daysTo} jour${raceProj.daysTo > 1 ? 's' : ''}</span>`
         : '';
+      const statusPart = raceProj.statusText
+        ? ` <span class="race-proj-status">${statusIcon} ${raceProj.statusText}</span>`
+        : '';
       raceProjectionEl.innerHTML =
         `<span class="race-proj-icon">🏁</span>` +
         `<span class="race-proj-name">${raceProj.raceName}</span> ${daysLine}` +
-        ` · ${objLine}` +
+        objPart +
         ` <span class="race-proj-projected">Projeté : <strong>${raceProj.projected}</strong></span>` +
-        ` <span class="race-proj-status">${statusIcon} ${raceProj.statusText}</span>`;
+        statusPart;
       raceProjectionEl.dataset.status = raceProj.status;
       raceProjectionEl.removeAttribute('hidden');
     } else {
@@ -4621,7 +4633,21 @@ function getExtraPlan(planId) {
   return (state.extraPlans || []).find(p => String(p.id) === String(planId)) || null;
 }
 
-function planCard(id, title, sub, totalSessions, doneCount, isExtra) {
+// Active = non-cancelled sessions. Cancelled sessions must not block completion.
+function planCompletion(sessions, doneMap) {
+  const list = Array.isArray(sessions) ? sessions : [];
+  let total = 0;
+  let done = 0;
+  list.forEach((s, i) => {
+    if (s && s.isCancelled) return;
+    total += 1;
+    if (doneMap && doneMap[i]) done += 1;
+  });
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  return { total, done, pct, complete: total > 0 && done >= total };
+}
+
+function planCard(id, title, sub, totalSessions, doneCount, isExtra, complete = false) {
   const pct = totalSessions > 0 ? Math.round((doneCount / totalSessions) * 100) : 0;
   const card = cloneTemplate('plan-card-template') || document.createElement('article');
   const titleEl = card.querySelector('.plan-card-title');
@@ -4632,7 +4658,7 @@ function planCard(id, title, sub, totalSessions, doneCount, isExtra) {
   const deleteBtn = card.querySelector('.plan-card-delete');
   if (titleEl) titleEl.textContent = title;
   if (subEl) subEl.textContent = sub || '';
-  if (pctEl) pctEl.textContent = `${pct}%`;
+  if (pctEl) pctEl.textContent = complete ? 'Terminé' : `${pct}%`;
   if (countEl) countEl.textContent = `${doneCount}/${totalSessions} séances`;
   if (barEl) barEl.style.width = `${pct}%`;
   const open = () => openPlan(id);
@@ -4651,10 +4677,8 @@ function renderPlansList() {
   if (!list) return;
 
   const nodes = (state.extraPlans || []).map(ep => {
-    const sessions = Array.isArray(ep.sessions) ? ep.sessions : [];
-    const validIndexes = new Set(sessions.map((_, i) => i));
-    const done = Object.entries(ep.done || {}).filter(([idx, v]) => v && validIndexes.has(Number(idx))).length;
-    return planCard(ep.id, ep.title, ep.sub, sessions.length, done, true);
+    const c = planCompletion(ep.sessions, ep.done);
+    return planCard(ep.id, ep.title, ep.sub, c.total, c.done, true, c.complete);
   });
   list.replaceChildren(...nodes);
 }
@@ -4688,6 +4712,12 @@ function openPlan(planId, options = {}) {
   if (detailSub) detailSub.textContent = meta.sub;
   const crumbCurrent = document.getElementById('plans-crumb-current');
   if (crumbCurrent) crumbCurrent.textContent = meta.title;
+
+  const comp = planCompletion(extra.sessions, extra.done);
+  const markBtn = document.getElementById('plans-mark-complete-btn');
+  const doneBadge = document.getElementById('plans-detail-complete-badge');
+  if (markBtn) markBtn.style.display = comp.complete ? 'none' : '';
+  if (doneBadge) doneBadge.style.display = comp.complete ? '' : 'none';
 
   renderPlan('plans-detail-weeks', extra.sessions, `extra:${planId}`);
   updatePlansPath(planId, { pushHistory });
@@ -5154,6 +5184,42 @@ function renderPlan(containerId, data, stateKey) {
     weekNodes.push(week);
   });
   container.replaceChildren(...weekNodes);
+}
+
+async function markPlanComplete(planId) {
+  if (!getExtraPlan(planId)) { notify('⚠ Plan introuvable.'); return; }
+  // Each done-PATCH replaces the plan server-side and reassigns detailIds, so we
+  // mark one active session at a time and reload between calls to stay in sync.
+  try {
+    let changed = 0;
+    let guard = 0;
+    for (;;) {
+      const ep = getExtraPlan(planId);
+      const sessions = Array.isArray(ep && ep.sessions) ? ep.sessions : [];
+      const doneMap = (ep && ep.done) || {};
+      const next = sessions.findIndex((sess, i) => !(sess && sess.isCancelled) && !doneMap[i]);
+      if (next === -1) break;
+      const detailId = sessions[next] && sessions[next].detailId;
+      if (!Number.isFinite(Number(detailId))) break; // unsaved session, cannot persist
+      await setPlanSessionDoneInDb(ep.id, detailId, true);
+      await loadPlansFromDb();
+      changed += 1;
+      guard += 1;
+      if (guard > 400) break;
+    }
+    const cur = getExtraPlan(planId);
+    if (String(currentPlanId) === String(planId)) {
+      openPlan(cur ? cur.id : planId, { pushHistory: false });
+    } else {
+      renderPlansList();
+    }
+    requestDashboardRefresh();
+    notify(changed > 0 ? '✓ Plan marqué comme terminé' : 'Plan déjà terminé.');
+  } catch (e) {
+    await loadPlansFromDb();
+    renderPlansList();
+    notify('⚠ Erreur: ' + e.message);
+  }
 }
 
 async function toggleSession(stateKey, idx, row) {
@@ -6493,6 +6559,8 @@ function buildRaceRow(r) {
   const resultBtn = row.querySelector('.races-result');
   const editBtn = row.querySelector('.races-edit');
   const delBtn = row.querySelector('.races-delete');
+  const resetBtn = row.querySelector('.races-reset');
+  const isDnx = r?.dnfStatus === 'dns' || r?.dnfStatus === 'dnf';
 
   if (statusEl) {
     const badge = cloneTemplate('races-status-badge-template') || document.createElement('span');
@@ -6507,7 +6575,10 @@ function buildRaceRow(r) {
   if (objEl) objEl.textContent = r.objective || '—';
   if (realEl) realEl.textContent = r.result || '—';
   if (diffEl) {
-    if (diff === '—') {
+    diffEl.classList.toggle('races-diff-comment', isDnx);
+    if (isDnx) {
+      diffEl.textContent = String(r?.dnfComment || r?.comment || '—');
+    } else if (diff === '—') {
       diffEl.textContent = diff;
     } else {
       const span = document.createElement('span');
@@ -6525,6 +6596,11 @@ function buildRaceRow(r) {
   }
   if (editBtn) editBtn.addEventListener('click', () => openRaceEdit(r.id));
   if (delBtn) delBtn.addEventListener('click', () => deleteRace(r.id, r.name));
+  if (resetBtn) {
+    const hasStatusOrResult = isDnx || Boolean(String(r.result || '').trim());
+    resetBtn.hidden = !hasStatusOrResult;
+    resetBtn.addEventListener('click', () => resetRaceStatus(r.id, r.name));
+  }
 
   return row;
 }
@@ -6532,10 +6608,225 @@ function buildRaceRow(r) {
 function renderRaces() {
   const tbody = document.getElementById('races-tbody');
   if (!tbody) return;
-  const rows = racesData.map(buildRaceRow);
+  const rows = getSortedRaces().map(buildRaceRow);
   tbody.replaceChildren(...rows);
+  updateRaceSortIndicators();
   fillLogCourseOptions();
   addHoverListeners('races-tbody');
+}
+
+// ---- Courses sorting (front-side, on the loaded dataset) ----
+function raceDurationToSeconds(v) {
+  const t = String(v || '').trim();
+  if (!t) return null;
+  const parts = t.split(':').map((n) => parseInt(n, 10));
+  if (parts.some((n) => Number.isNaN(n))) return null;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return null;
+}
+
+function raceStatusRank(r) {
+  const map = { 'badge-next': 0, 'badge-future': 1, 'badge-done': 2, 'badge-dns': 3, 'badge-dnf': 4 };
+  return map[String(r?.statusClass || '')] ?? 9;
+}
+
+function raceSortValue(r, key) {
+  switch (key) {
+    case 'name': return String(r.name || '').trim().toLowerCase() || null;
+    case 'date': return String(r.date || '').trim() || null;
+    case 'distance': {
+      const m = String(r.distance || '').replace(',', '.').match(/-?\d+(\.\d+)?/);
+      return m ? parseFloat(m[0]) : null;
+    }
+    case 'objective': return raceDurationToSeconds(r.objective);
+    case 'result': return raceDurationToSeconds(r.result);
+    case 'delta': {
+      const res = raceDurationToSeconds(r.result);
+      const obj = raceDurationToSeconds(r.objective);
+      return (res === null || obj === null) ? null : (res - obj);
+    }
+    case 'status': return raceStatusRank(r);
+    default: return String(r.date || '');
+  }
+}
+
+function getSortedRaces() {
+  const arr = Array.isArray(racesData) ? racesData.slice() : [];
+  const { key, dir } = racesSort;
+  const mul = dir === 'desc' ? -1 : 1;
+  return arr.sort((a, b) => {
+    const va = raceSortValue(a, key);
+    const vb = raceSortValue(b, key);
+    const na = va === null || va === undefined || va === '';
+    const nb = vb === null || vb === undefined || vb === '';
+    if (na && nb) return 0;
+    if (na) return 1;   // missing values always last
+    if (nb) return -1;
+    let cmp;
+    if (typeof va === 'number' && typeof vb === 'number') cmp = va - vb;
+    else cmp = String(va).localeCompare(String(vb));
+    return cmp * mul;
+  });
+}
+
+function toggleRaceSort(key) {
+  if (!key) return;
+  if (racesSort.key === key) {
+    racesSort.dir = racesSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    racesSort.key = key;
+    racesSort.dir = 'asc';
+  }
+  renderRaces();
+}
+
+function updateRaceSortIndicators() {
+  const arrow = racesSort.dir === 'asc' ? ' ▲' : ' ▼';
+  document.querySelectorAll('#courses th.sortable').forEach((th) => {
+    const active = th.getAttribute('data-sort-key') === racesSort.key;
+    th.classList.toggle('sort-active', active);
+    const ind = th.querySelector('.sort-ind');
+    if (ind) ind.textContent = active ? arrow : '';
+  });
+  const bar = document.getElementById('races-sortbar');
+  if (bar) {
+    bar.querySelectorAll('[data-sort-key]').forEach((btn) => {
+      const active = btn.getAttribute('data-sort-key') === racesSort.key;
+      btn.classList.toggle('active', active);
+      const ind = btn.querySelector('.sort-ind');
+      if (ind) ind.textContent = active ? arrow : '';
+    });
+  }
+}
+
+function buildRaceSortBar() {
+  const tableWrap = document.querySelector('#courses .table-wrap');
+  if (!tableWrap || document.getElementById('races-sortbar')) return;
+  const opts = [['date', 'Date'], ['distance', 'Distance'], ['result', 'Résultat'], ['status', 'Statut'], ['name', 'Nom']];
+  const bar = document.createElement('div');
+  bar.id = 'races-sortbar';
+  bar.className = 'races-sortbar';
+  bar.setAttribute('aria-label', 'Trier les courses');
+  opts.forEach(([key, label]) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'races-sortbar-btn';
+    btn.setAttribute('data-sort-key', key);
+    btn.innerHTML = label + '<span class="sort-ind"></span>';
+    btn.addEventListener('click', () => toggleRaceSort(key));
+    bar.appendChild(btn);
+  });
+  tableWrap.parentNode.insertBefore(bar, tableWrap);
+}
+
+function setupCoursesSorting() {
+  const headers = document.querySelectorAll('#courses th.sortable[data-sort-key]');
+  if (!headers.length) return;
+  headers.forEach((th) => {
+    th.setAttribute('role', 'button');
+    th.setAttribute('tabindex', '0');
+    th.addEventListener('click', () => toggleRaceSort(th.getAttribute('data-sort-key')));
+    th.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRaceSort(th.getAttribute('data-sort-key')); }
+    });
+  });
+  buildRaceSortBar();
+  updateRaceSortIndicators();
+}
+
+// ---- Reset a race status back to "registered" (clears DNS/DNF + time) ----
+async function resetRaceStatus(id, name) {
+  askConfirm('Réinitialiser le statut ?', name || '', async () => {
+    const current = racesData.find((r) => r.id === id);
+    if (!current) { notify('⚠ Course introuvable'); return; }
+    try {
+      const updated = await apiFetch(`/races/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: current.name || '',
+          date: current.date || '',
+          distance: current.distance || null,
+          objective: current.objective || null,
+          result: null,
+          dnfStatus: null,
+          dnfComment: null,
+        }),
+      });
+      const idx = racesData.findIndex((r) => r.id === id);
+      if (idx >= 0) racesData[idx] = normalizeRace(updated);
+      renderRaces(); requestDashboardRefresh();
+      notify('↺ Statut réinitialisé');
+    } catch (e) { notify('⚠ ' + e.message); }
+  });
+}
+
+// ---- Collapsible add forms (chevron, default collapsed, per-form localStorage) ----
+function applyFormCollapse(form, head, collapsed) {
+  form.classList.toggle('is-collapsed', collapsed);
+  head.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+}
+
+function setupCollapsibleForms() {
+  document.querySelectorAll('[data-collapsible-form]').forEach((form) => {
+    if (form.dataset.collapsibleReady === '1') return;
+    form.dataset.collapsibleReady = '1';
+    const key = form.getAttribute('data-collapsible-form');
+
+    let head = form.querySelector(':scope > .form-card-head') || form.querySelector(':scope > h3');
+    if (!head) {
+      head = document.createElement('div');
+      head.className = 'form-card-head';
+      const h3 = document.createElement('h3');
+      h3.textContent = form.getAttribute('data-collapsible-title') || 'Ajouter';
+      head.appendChild(h3);
+      form.insertBefore(head, form.firstChild);
+    }
+    head.classList.add('collapsible-head');
+
+    const body = document.createElement('div');
+    body.className = 'collapsible-body';
+    let node = head.nextSibling;
+    while (node) {
+      const next = node.nextSibling;
+      body.appendChild(node);
+      node = next;
+    }
+    form.appendChild(body);
+
+    const chevron = document.createElement('span');
+    chevron.className = 'collapsible-chevron';
+    chevron.setAttribute('aria-hidden', 'true');
+    head.appendChild(chevron);
+
+    form.classList.add('collapsible-form');
+    head.setAttribute('role', 'button');
+    head.setAttribute('tabindex', '0');
+
+    let stored = null;
+    try { stored = localStorage.getItem('rt:collapse:' + key); } catch { stored = null; }
+    let collapsed = stored === null ? true : stored === '1'; // default collapsed (mobile-first)
+    // Auto-expand the log form when arriving via a prefill link (planned session/date).
+    if (key === 'log-add') {
+      const p = new URLSearchParams(globalThis.location.search);
+      if (p.get('plannedSessionId') || p.get('date') || p.get('sessionType')) collapsed = false;
+    }
+    applyFormCollapse(form, head, collapsed);
+
+    const toggle = () => {
+      const now = !form.classList.contains('is-collapsed');
+      applyFormCollapse(form, head, now);
+      try { localStorage.setItem('rt:collapse:' + key, now ? '1' : '0'); } catch {}
+    };
+    head.addEventListener('click', (e) => {
+      if (e.target.closest('input, select, button, a, label, .log-entry-mode-switch')) return;
+      toggle();
+    });
+    head.addEventListener('keydown', (e) => {
+      if (e.target !== head) return;
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+    });
+  });
 }
 
 async function addRace() {
@@ -6546,7 +6837,7 @@ async function addRace() {
     const created=await apiFetch('/races',{method:'POST',body:JSON.stringify({
       name,date,
       distance:document.getElementById('r-dist').value||null,
-      objective:document.getElementById('r-obj').value||null,
+      objective:normalizeObjectiveDuration(document.getElementById('r-obj').value),
       result:document.getElementById('r-real').value||null,
     })});
     racesData.push(normalizeRace(created));
@@ -6576,6 +6867,7 @@ function openRaceEdit(id) {
   dateEl.value = r.date || '';
   distEl.value = r.distance || '';
   objEl.value = r.objective || '';
+  renderDurationDualHint('rm-obj');
   openModal('race-modal');
 }
 
@@ -6587,7 +6879,7 @@ async function saveRaceEdit() {
       name:document.getElementById('rm-name').value,
       date:document.getElementById('rm-date').value,
       distance:document.getElementById('rm-dist').value||null,
-      objective:document.getElementById('rm-obj').value||null,
+      objective:normalizeObjectiveDuration(document.getElementById('rm-obj').value),
       result:current?.result||null,
     })});
     const idx=racesData.findIndex(r=>r.id===id);
@@ -6738,7 +7030,7 @@ function ensureRaceModals() {
           <div class="field"><label for="rm-name">Nom</label><input id="rm-name" type="text"></div>
           <div class="field"><label for="rm-date">Date</label><input id="rm-date" type="date"></div>
           <div class="field"><label for="rm-dist">Distance (km)</label><input id="rm-dist" type="text"></div>
-          <div class="field"><label for="rm-obj">Objectif (hh:mm:ss)</label><input id="rm-obj" type="text"></div>
+          <div class="field"><label for="rm-obj">Objectif (min ou hh:mm:ss)</label><input id="rm-obj" type="text"></div>
         </div>
         <div class="modal-actions">
           <button class="btn" onclick="saveRaceEdit()">Enregistrer</button>
@@ -6747,6 +7039,7 @@ function ensureRaceModals() {
       </div>
     `;
     document.body.appendChild(raceModal);
+    setupDurationDualHints();
   }
 
   let raceResultModal = document.getElementById('race-result-modal');
@@ -6912,6 +7205,8 @@ async function initApp() {
   safeRender(renderLog, 'log');
   safeRender(bindLogFormSubmit, 'log-submit-binding');
   safeRender(renderRaces, 'races');
+  safeRender(setupCoursesSorting, 'courses-sorting');
+  safeRender(setupCollapsibleForms, 'collapsible-forms');
   safeRender(consumeAdviceFocusFromUrl, 'advice-focus-url');
   safeRender(consumePlanEditIntentFromUrl, 'plan-edit-url');
   safeRender(consumeRaceEditIntentFromUrl, 'race-edit-url');

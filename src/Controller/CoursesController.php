@@ -178,6 +178,35 @@ class CoursesController extends AbstractController
         return $this->redirectToRoute('app_courses');
     }
 
+    #[Route('/courses/{id<\d+>}/reset', name: 'app_courses_reset', methods: ['POST'])]
+    public function resetStatus(int $id, Request $request, RaceRepository $raceRepository, EntityManagerInterface $entityManager): RedirectResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->redirectToRoute('app_login');
+        }
+
+        $race = $raceRepository->find($id);
+        if (!$race instanceof Race || $race->getUser()->getId() !== $user->getId()) {
+            $this->addFlash(self::FLASH_ERROR, 'Course introuvable.');
+            return $this->redirectToRoute('app_courses');
+        }
+
+        if (!$this->isCsrfTokenValid('courses.reset.' . $id, (string) $request->request->get('_token', ''))) {
+            $this->addFlash(self::FLASH_ERROR, 'Jeton CSRF invalide.');
+            return $this->redirectToRoute('app_courses');
+        }
+
+        // Reset status back to "registered": clears DNS/DNF and the recorded time.
+        $race->setDnfStatus(null);
+        $race->setDnfComment(null);
+        $race->setResult(null);
+        $entityManager->flush();
+
+        $this->addFlash(self::FLASH_SUCCESS, 'Statut réinitialisé.');
+        return $this->redirectToRoute('app_courses');
+    }
+
     #[Route('/courses/{id<\d+>}/update', name: 'app_courses_update', methods: ['POST'])]
     public function update(int $id, Request $request, RaceRepository $raceRepository, EntityManagerInterface $entityManager): RedirectResponse
     {

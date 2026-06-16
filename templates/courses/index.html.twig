@@ -3,7 +3,7 @@
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
-<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
+<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260616-p2p4">
 <link rel="stylesheet" href="{{ asset('css/courses.css') }}?v=20260607-dnf-mobile3">
 {% endblock %}
 
@@ -20,21 +20,21 @@
 
     <div class="section-title">Calendrier des courses</div>
     <div class="section-sub">Saison 2026</div>
-    <form class="form-card" method="post" action="{{ path('app_courses_create') }}">
+    <form class="form-card" method="post" action="{{ path('app_courses_create') }}" data-collapsible-form="courses-add">
       <input type="hidden" name="_token" value="{{ csrf_token('courses.create') }}">
       <h3>➕ Ajouter une course</h3>
       <div class="form-grid">
         <div class="field"><label for="r-name">Nom</label><input type="text" id="r-name" name="name" placeholder="10km de Paris"></div>
         <div class="field"><label for="r-date">Date</label><input type="date" id="r-date" name="date" placeholder="jj/mm/yyyy"></div>
         <div class="field"><label for="r-dist">Distance (km)</label><input type="text" id="r-dist" name="distance" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="10"></div>
-        <div class="field"><label for="r-obj">Objectif (hh:mm:ss)</label><input type="text" id="r-obj" name="objective" placeholder="00:55:00"></div>
+        <div class="field"><label for="r-obj">Objectif (min ou hh:mm:ss)</label><input type="text" id="r-obj" name="objective" placeholder="00:55:00"></div>
         <div class="field"><label for="r-real">Résultat</label><input type="text" id="r-real" name="result" placeholder="00:53:22"></div>
       </div>
       <button class="btn" type="submit">Ajouter</button>
     </form>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Échéance</th><th>Course</th><th>Date</th><th>Distance</th><th>Objectif</th><th>Résultat</th><th>Écart</th><th></th></tr></thead>
+        <thead><tr><th class="sortable" data-sort-key="status">Échéance<span class="sort-ind"></span></th><th class="sortable" data-sort-key="name">Course<span class="sort-ind"></span></th><th class="sortable" data-sort-key="date">Date<span class="sort-ind"></span></th><th class="sortable" data-sort-key="distance">Distance<span class="sort-ind"></span></th><th class="sortable" data-sort-key="objective">Objectif<span class="sort-ind"></span></th><th class="sortable" data-sort-key="result">Résultat<span class="sort-ind"></span></th><th class="sortable" data-sort-key="delta">Écart<span class="sort-ind"></span></th><th></th></tr></thead>
         <tbody id="races-tbody">
           {% for r in racesView|default([]) %}
             <tr>
@@ -44,7 +44,7 @@
               <td class="races-dist" data-label="Distance">{{ r.distance ?: '—' }}</td>
               <td class="mono races-obj" data-label="Objectif">{{ r.objective ?: '—' }}</td>
               <td class="mono races-real" data-label="Résultat">{{ r.result ?: '—' }}</td>
-              <td class="mono races-diff" data-label="Écart">{{ r.resultDelta }}</td>
+              <td class="mono races-diff" data-label="Écart">{% if r.dnfStatus in ['dns', 'dnf'] %}{{ r.dnfComment ?: '—' }}{% else %}{{ r.resultDelta }}{% endif %}</td>
               <td class="races-actions" data-label="">
                 <div class="action-btns" style="opacity:1; display:flex; gap:6px; justify-content:flex-end;">
                   <details>
@@ -71,6 +71,12 @@
                     <input type="hidden" name="_token" value="{{ csrf_token('courses.delete.' ~ r.id) }}">
                     <button class="action-btn del races-delete" type="submit">🗑</button>
                   </form>
+                  {% if r.dnfStatus in ['dns', 'dnf'] or r.result %}
+                  <form method="post" action="{{ path('app_courses_reset', { id: r.id }) }}" onsubmit="return confirm('Réinitialiser le statut de cette course ?');" style="display:inline-flex;">
+                    <input type="hidden" name="_token" value="{{ csrf_token('courses.reset.' ~ r.id) }}">
+                    <button class="action-btn action-btn-text races-reset" type="submit" title="Réinitialiser le statut">↺ Reset</button>
+                  </form>
+                  {% endif %}
                 </div>
               </td>
             </tr>
@@ -90,6 +96,7 @@
             <div class="action-btns">
               <button class="action-btn action-btn-text races-result" title="Saisir résultat">Résultat</button>
               <button class="action-btn action-btn-text races-edit" title="Modifier la course">Modifier</button>
+              <button class="action-btn action-btn-text races-reset" title="Réinitialiser le statut" hidden>↺ Reset</button>
               <button class="action-btn del races-delete">🗑</button>
             </div>
           </td>
@@ -106,7 +113,7 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260609-distnum1"></script>
+<script src="{{ asset('js/app.js') }}?v=20260616-p2p4"></script>
 <script>
   // Distance: chiffres uniquement (un seul séparateur décimal). Délégation pour les formulaires d'édition créés dynamiquement.
   document.addEventListener('input', function (e) {

@@ -226,3 +226,65 @@ tr:hover .action-btns,
   font-weight: inherit;
 }
 
+
+/* ===== Collapsible add forms (chevron) ===== */
+.collapsible-form .collapsible-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.collapsible-form .collapsible-chevron {
+  margin-left: auto;
+  font-size: 0.9em;
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+  flex: 0 0 auto;
+}
+.collapsible-form.is-collapsed .collapsible-chevron::before { content: '▸'; }
+.collapsible-form:not(.is-collapsed) .collapsible-chevron::before { content: '▾'; }
+.collapsible-form.is-collapsed .collapsible-head { margin-bottom: 0; }
+.collapsible-form.is-collapsed .collapsible-head h3 { margin-bottom: 0; }
+.collapsible-form.is-collapsed .collapsible-body { display: none; }
+/* Pre-JS: hide form body until enhanced -> kills flash visible->collapse (default collapsed) */
+.form-card[data-collapsible-form]:not(.collapsible-form) > *:not(.form-card-head):not(h3):not(input[type="hidden"]) {
+  display: none;
+}
+
+/* ===== Courses: sortable column headers ===== */
+#courses th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+#courses th.sortable:hover { color: var(--z1); }
+#courses th.sort-active { color: var(--z1); }
+#courses th .sort-ind { font-size: 0.8em; }
+.races-diff-comment { font-style: italic; opacity: 0.85; white-space: normal; }
+
+/* ===== Courses: mobile sort bar (thead is hidden on mobile) ===== */
+.races-sortbar { display: none; }
+.races-sortbar-btn {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: inherit;
+  cursor: pointer;
+}
+.races-sortbar-btn.active {
+  border-color: var(--z1);
+  color: var(--z1);
+  font-weight: 600;
+}
+@media (max-width: 768px) {
+  .races-sortbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+}

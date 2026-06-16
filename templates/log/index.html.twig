@@ -3,7 +3,7 @@
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
-<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
+<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260616-p2p4">
 <link rel="stylesheet" href="{{ asset('css/log.css') }}?v=20260527-logsortie1">
 {% endblock %}
 
@@ -20,7 +20,7 @@
 
     <div class="section-title">Journal de course</div>
     <div class="section-sub" id="log-sub">Chargement…</div>
-    <form class="form-card" method="post" action="{{ path('app_log_create') }}" id="log-create-form">
+    <form class="form-card" method="post" action="{{ path('app_log_create') }}" id="log-create-form" data-collapsible-form="log-add">
       <input type="hidden" name="_token" value="{{ csrf_token('log.create') }}">
       <div class="form-card-head">
         <h3>➕ Ajouter une sortie</h3>
@@ -269,5 +269,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260528-sessionlabel2"></script>
+<script src="{{ asset('js/app.js') }}?v=20260616-p2p4"></script>
 {% endblock %}

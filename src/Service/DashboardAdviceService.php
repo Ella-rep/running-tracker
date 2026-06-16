@@ -19,6 +19,9 @@ final class DashboardAdviceService
     private const COLOR_RACE = '#e05580';
     private const DIST_DEFAULT = 'ta course';
     private const PACE_DEFAULT = '--:--';
+    /** Minimum EF pace improvement (recent 4 vs previous 4) to celebrate. */
+    private const SPEED_PROGRESS_MIN_RATIO = 0.05;
+    private const SPEED_PROGRESS_WINDOW = 4;
 
     /**
      * @param RunLogRepository $runLogs Repository for run logs.
@@ -81,6 +84,7 @@ final class DashboardAdviceService
         $advice = ($raceIsClose ? $this->matchRaceAdvice($ctx) : null)
             ?? $this->matchPlannedAdvice($ctx)
             ?? $this->matchRaceAdvice($ctx)
+            ?? $this->matchSpeedProgressAdvice($ctx)
             ?? $this->matchRecentRunAdvice($ctx)
             ?? $this->matchVolumeAdvice($ctx)
             ?? $this->buildDefaultAdvice($ctx['weekKm'], $ctx['weekCount']);
@@ -496,6 +500,73 @@ final class DashboardAdviceService
             'color' => self::COLOR_INFO,
             'badge' => '',
         ];
+    }
+
+    /**
+     * Celebrates a clear EF speed improvement: compares the average EF pace of
+     * the last SPEED_PROGRESS_WINDOW runs against the previous window. When the
+     * recent block is faster by at least SPEED_PROGRESS_MIN_RATIO, a success
+     * card is returned ("Filé comme le vent !").
+     *
+     * @param array<string,mixed> $ctx
+     * @return array{title:string,text:string,tone:string,icon:string,color:string,badge:string}|null
+     */
+    private function matchSpeedProgressAdvice(array $ctx): ?array
+    {
+        /** @var array<int,RunLog> $logs */
+        $logs = $ctx['logs'];
+
+        // Keep only EF runs with a parseable pace, newest first (logs are DESC).
+        $efPaces = [];
+        foreach ($logs as $log) {
+            if (strtoupper((string) ($log->getRunType() ?? '')) !== 'EF') {
+                continue;
+            }
+            $pace = $this->paceToSeconds($log->getAllure());
+            if ($pace !== null && $pace > 0) {
+                $efPaces[] = $pace;
+            }
+        }
+
+        $window = self::SPEED_PROGRESS_WINDOW;
+        if (count($efPaces) < $window * 2) {
+            return null;
+        }
+
+        $recent = array_slice($efPaces, 0, $window);
+        $previous = array_slice($efPaces, $window, $window);
+        $recentAvg = array_sum($recent) / $window;
+        $previousAvg = array_sum($previous) / $window;
+
+        if ($previousAvg <= 0 || $recentAvg >= $previousAvg) {
+            return null;
+        }
+
+        $ratio = ($previousAvg - $recentAvg) / $previousAvg;
+        if ($ratio < self::SPEED_PROGRESS_MIN_RATIO) {
+            return null;
+        }
+
+        return [
+            'title' => 'Belle progression de vitesse',
+            'text' => sprintf(
+                'Ton allure EF moyenne est passée de %s à %s sur tes %d dernières sorties (-%d%%). Continue comme ça !',
+                $this->secondsToPace((int) round($previousAvg)),
+                $this->secondsToPace((int) round($recentAvg)),
+                $window,
+                (int) round($ratio * 100)
+            ),
+            'tone' => 'success',
+            'icon' => '💨',
+            'color' => self::COLOR_SUCCESS,
+            'badge' => 'Filé comme le vent !',
+        ];
+    }
+
+    private function secondsToPace(int $seconds): string
+    {
+        $seconds = max(0, $seconds);
+        return sprintf('%d:%02d/km', intdiv($seconds, 60), $seconds % 60);
     }
 
     private function isIntenseRun(?RunLog $log): bool
