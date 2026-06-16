@@ -62,6 +62,11 @@
       {% endfor %}
     </div>
 
+    <div id="plans-done-section"{% if hasSelectedPlan %} style="display:none"{% endif %}>
+      <div class="plans-done-header">Terminés</div>
+      <div id="plans-done-list" class="plans-list"></div>
+    </div>
+
     <form id="plans-create-form" method="post" action="{{ path('app_plans_create') }}" class="form-card" data-collapsible-form="plans-add"{% if hasSelectedPlan %} style="display:none"{% endif %}>
       <input type="hidden" name="_token" value="{{ csrf_token('plans.create') }}">
       <div class="form-card-head"><h3>➕ Créer un plan</h3></div>

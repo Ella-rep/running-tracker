@@ -4716,13 +4716,22 @@ function planCard(id, title, sub, totalSessions, doneCount, isExtra, complete = 
 
 function renderPlansList() {
   const list = document.getElementById('plans-list');
+  const doneList = document.getElementById('plans-done-list');
+  const doneSection = document.getElementById('plans-done-section');
   if (!list) return;
 
-  const nodes = (state.extraPlans || []).map(ep => {
+  const active = [];
+  const done = [];
+  (state.extraPlans || []).forEach(ep => {
     const c = planCompletion(ep.sessions, ep.done);
-    return planCard(ep.id, ep.title, ep.sub, c.total, c.done, true, c.complete);
+    const card = planCard(ep.id, ep.title, ep.sub, c.total, c.done, true, c.complete);
+    if (c.complete) done.push(card);
+    else active.push(card);
   });
-  list.replaceChildren(...nodes);
+
+  list.replaceChildren(...active);
+  if (doneList) doneList.replaceChildren(...done);
+  if (doneSection) doneSection.style.display = done.length ? '' : 'none';
 }
 
 function openPlan(planId, options = {}) {
@@ -4733,6 +4742,8 @@ function openPlan(planId, options = {}) {
 
   const plansList = document.getElementById('plans-list');
   if (plansList) plansList.style.display = 'none';
+  const plansDoneSection = document.getElementById('plans-done-section');
+  if (plansDoneSection) plansDoneSection.style.display = 'none';
   const plansListHeader = document.getElementById('plans-list-header');
   if (plansListHeader) plansListHeader.style.display = 'none';
   const plansCreateForm = document.getElementById('plans-create-form');
@@ -4771,6 +4782,8 @@ function backToPlansList(options = {}) {
   currentPlanId = null;
   const plansList = document.getElementById('plans-list');
   if (plansList) plansList.style.display = 'flex';
+  const plansDoneSectionClose = document.getElementById('plans-done-section');
+  if (plansDoneSectionClose) plansDoneSectionClose.style.display = '';
   const plansListHeader = document.getElementById('plans-list-header');
   if (plansListHeader) plansListHeader.style.display = '';
   const plansCreateForm = document.getElementById('plans-create-form');

@@ -680,3 +680,15 @@
 .week-add-session-btn:hover { opacity: 1; }
 
 .plans-mark-complete-btn { margin-left: auto; }
+
+/* Completed plans section */
+.plans-done-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 24px 0 8px;
+}
+#plans-done-list .plan-card { opacity: 0.7; }
+#plans-done-list .plan-card:hover { opacity: 1; }
