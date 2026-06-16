@@ -31,6 +31,19 @@ final class PlanSessionReplaceService
      */
     public function replaceForPlan(Plan $plan, User $user, array $sessions, array $doneMap = []): void
     {
+        $this->em->wrapInTransaction(function () use ($plan, $user, $sessions, $doneMap): void {
+            $this->doReplace($plan, $user, $sessions, $doneMap);
+        });
+    }
+
+    /**
+     * Inner replace logic executed inside the transaction.
+     *
+     * @param array<int, array<string, mixed>> $sessions
+     * @param array<int|string, bool> $doneMap
+     */
+    private function doReplace(Plan $plan, User $user, array $sessions, array $doneMap): void
+    {
         // Full replacement keeps ordering/index consistency when plan templates change.
         $qb = $this->planDetailsRepository->createQueryBuilder('d');
         $qb->delete()

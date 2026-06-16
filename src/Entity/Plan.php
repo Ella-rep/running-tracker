@@ -70,6 +70,14 @@ class Plan
     private bool $dashboardTracked = true;
 
     /**
+     * Planning mode: 'dated' (sessions have dates) or 'ordered' (sessions ordered by position only).
+     */
+    #[ORM\Column(length: 10, options: ['default' => 'dated'])]
+    #[Assert\Choice(choices: ['dated', 'ordered'])]
+    #[Groups(['plan:read', 'plan:write'])]
+    private string $mode = 'dated';
+
+    /**
      * Returns the plan identifier.
      */
     public function getId(): ?int { return $this->id; }
@@ -103,4 +111,14 @@ class Plan
      * Sets whether the plan is tracked on dashboard widgets.
      */
     public function setDashboardTracked(bool $dashboardTracked): static { $this->dashboardTracked = $dashboardTracked; return $this; }
+
+    /**
+     * Returns the planning mode ('dated' or 'ordered').
+     */
+    public function getMode(): string { return $this->mode; }
+
+    /**
+     * Sets the planning mode ('dated' or 'ordered').
+     */
+    public function setMode(string $mode): static { $this->mode = $mode; return $this; }
 }

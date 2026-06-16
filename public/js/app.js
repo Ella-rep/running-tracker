@@ -819,7 +819,11 @@ function setupPlanTotalAutoCompute() {
   // Mark type as manually set when user changes it
   const typeSelectEl = document.getElementById('pm-type');
   if (typeSelectEl && !typeSelectEl.dataset.manualBound) {
-    typeSelectEl.addEventListener('change', () => { typeSelectEl.dataset.autoSet = '0'; });
+    typeSelectEl.addEventListener('change', () => {
+      typeSelectEl.dataset.autoSet = '0';
+      const peEl = document.getElementById('pm-pe');
+      if (peEl && !peEl.value && typeSelectEl.value === 'EF') peEl.value = '3/10';
+    });
     typeSelectEl.dataset.manualBound = '1';
   }
   formatInput.dataset.autoTotalBound = '1';
@@ -5433,6 +5437,8 @@ function openPlanEdit(stateKey, idx) {
 
   document.getElementById('pm-statekey').value = stateKey;
   document.getElementById('pm-idx').value = idx;
+  document.getElementById('pm-week-min').value = '';
+  document.getElementById('pm-week-max').value = '';
   document.getElementById('pm-format').value = s.format || '';
   document.getElementById('pm-type').value = normalizeSessionType(s.sessionType ?? s.session_type ?? s.type) || '';
   document.getElementById('pm-date').value = normalizeDateForStorage(sessionDateValue(s));

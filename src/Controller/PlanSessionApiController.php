@@ -284,6 +284,7 @@ final class PlanSessionApiController extends AbstractController
 
         $this->applyFormatField($session, $payload, $partial);
         $this->applyDateField($session, $payload, $partial);
+        $this->applySemField($session, $payload, $partial);
         $this->applySessionTypeField($session, $payload, $partial);
         $this->applyPeField($session, $payload, $partial);
         $this->applyTotalMinField($session, $payload, $partial);
@@ -332,6 +333,29 @@ final class PlanSessionApiController extends AbstractController
         } catch (\Throwable) {
             throw new BadRequestHttpException('Invalid date format. Expected yyyy-mm-dd.');
         }
+    }
+
+    /**
+     * @param array<string, mixed> $session
+     * @param array<string, mixed> $payload
+     */
+    private function applySemField(array &$session, array $payload, bool $partial): void
+    {
+        if ($partial && !array_key_exists('sem', $payload)) {
+            return;
+        }
+
+        $semRaw = $payload['sem'] ?? null;
+        if ($semRaw === null || $semRaw === '') {
+            $session['sem'] = null;
+            return;
+        }
+
+        if (!is_numeric($semRaw) || (int) $semRaw < 1) {
+            throw new BadRequestHttpException('Invalid sem value. Expected positive integer.');
+        }
+
+        $session['sem'] = (int) $semRaw;
     }
 
     /**
