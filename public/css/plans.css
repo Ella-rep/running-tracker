@@ -678,3 +678,5 @@
   flex-shrink: 0;
 }
 .week-add-session-btn:hover { opacity: 1; }
+
+.plans-mark-complete-btn { margin-left: auto; }
