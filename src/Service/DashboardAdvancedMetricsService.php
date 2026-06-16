@@ -283,8 +283,9 @@ final class DashboardAdvancedMetricsService
             $name = trim((string) $plan->getName());
             if ($name === 'starter') continue;
             $rows = $rowsByPlanId[$planId] ?? [];
-            $aggregates = $this->aggregatePlanRows($rows, $loggedDetailIds, $doneByProgressByPlan[(string) $planId] ?? []);
-            $total = count($rows);
+            $activeRows = array_values(array_filter($rows, static fn ($r) => !$r->isCancelled()));
+            $aggregates = $this->aggregatePlanRows($activeRows, $loggedDetailIds, $doneByProgressByPlan[(string) $planId] ?? []);
+            $total = count($activeRows);
             $done = $aggregates['done'];
             $summaries[] = [
                 'id' => $planId, 'title' => $name, 'done' => $done, 'total' => $total,
