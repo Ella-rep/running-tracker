@@ -858,8 +858,16 @@ function renderDurationDualHint(inputId) {
   hint.textContent = dual ? `Apercu: ${dual}` : '';
 }
 
+function normalizeObjectiveDuration(raw) {
+  const txt = String(raw || '').trim();
+  if (!txt) return null;
+  const secs = parseDurationToSeconds(txt);
+  if (!Number.isFinite(secs)) return txt; // keep unparseable input as-is
+  return formatHmsFromSeconds(secs) || txt;
+}
+
 function setupDurationDualHints() {
-  ['pm-total', 'log-dur', 'lm-dur'].forEach((inputId) => {
+  ['pm-total', 'log-dur', 'lm-dur', 'r-obj', 'rm-obj'].forEach((inputId) => {
     const input = document.getElementById(inputId);
     if (!(input instanceof HTMLInputElement)) return;
 
@@ -4126,18 +4134,21 @@ function renderProjections() {
   if (raceProjectionEl) {
     if (raceProj && raceProj.projected) {
       const statusIcon = { ahead: '✅', on_track: '✅', behind: '⚠️' }[raceProj.status] || '';
-      const objLine = raceProj.objective
-        ? `<span class="race-proj-obj">Objectif : <strong>${raceProj.objective}</strong></span>`
+      const objPart = raceProj.objective
+        ? ` · <span class="race-proj-obj">Objectif : <strong>${raceProj.objective}</strong></span>`
         : '';
       const daysLine = raceProj.daysTo != null
         ? `<span class="race-proj-days">dans ${raceProj.daysTo} jour${raceProj.daysTo > 1 ? 's' : ''}</span>`
         : '';
+      const statusPart = raceProj.statusText
+        ? ` <span class="race-proj-status">${statusIcon} ${raceProj.statusText}</span>`
+        : '';
       raceProjectionEl.innerHTML =
         `<span class="race-proj-icon">🏁</span>` +
         `<span class="race-proj-name">${raceProj.raceName}</span> ${daysLine}` +
-        ` · ${objLine}` +
+        objPart +
         ` <span class="race-proj-projected">Projeté : <strong>${raceProj.projected}</strong></span>` +
-        ` <span class="race-proj-status">${statusIcon} ${raceProj.statusText}</span>`;
+        statusPart;
       raceProjectionEl.dataset.status = raceProj.status;
       raceProjectionEl.removeAttribute('hidden');
     } else {
@@ -4621,7 +4632,21 @@ function getExtraPlan(planId) {
   return (state.extraPlans || []).find(p => String(p.id) === String(planId)) || null;
 }
 
-function planCard(id, title, sub, totalSessions, doneCount, isExtra) {
+// Active = non-cancelled sessions. Cancelled sessions must not block completion.
+function planCompletion(sessions, doneMap) {
+  const list = Array.isArray(sessions) ? sessions : [];
+  let total = 0;
+  let done = 0;
+  list.forEach((s, i) => {
+    if (s && s.isCancelled) return;
+    total += 1;
+    if (doneMap && doneMap[i]) done += 1;
+  });
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  return { total, done, pct, complete: total > 0 && done >= total };
+}
+
+function planCard(id, title, sub, totalSessions, doneCount, isExtra, complete = false) {
   const pct = totalSessions > 0 ? Math.round((doneCount / totalSessions) * 100) : 0;
   const card = cloneTemplate('plan-card-template') || document.createElement('article');
   const titleEl = card.querySelector('.plan-card-title');
@@ -4632,7 +4657,7 @@ function planCard(id, title, sub, totalSessions, doneCount, isExtra) {
   const deleteBtn = card.querySelector('.plan-card-delete');
   if (titleEl) titleEl.textContent = title;
   if (subEl) subEl.textContent = sub || '';
-  if (pctEl) pctEl.textContent = `${pct}%`;
+  if (pctEl) pctEl.textContent = complete ? 'Terminé' : `${pct}%`;
   if (countEl) countEl.textContent = `${doneCount}/${totalSessions} séances`;
   if (barEl) barEl.style.width = `${pct}%`;
   const open = () => openPlan(id);
@@ -4651,10 +4676,8 @@ function renderPlansList() {
   if (!list) return;
 
   const nodes = (state.extraPlans || []).map(ep => {
-    const sessions = Array.isArray(ep.sessions) ? ep.sessions : [];
-    const validIndexes = new Set(sessions.map((_, i) => i));
-    const done = Object.entries(ep.done || {}).filter(([idx, v]) => v && validIndexes.has(Number(idx))).length;
-    return planCard(ep.id, ep.title, ep.sub, sessions.length, done, true);
+    const c = planCompletion(ep.sessions, ep.done);
+    return planCard(ep.id, ep.title, ep.sub, c.total, c.done, true, c.complete);
   });
   list.replaceChildren(...nodes);
 }
@@ -5154,6 +5177,42 @@ function renderPlan(containerId, data, stateKey) {
     weekNodes.push(week);
   });
   container.replaceChildren(...weekNodes);
+}
+
+async function markPlanComplete(planId) {
+  const ep = getExtraPlan(planId);
+  if (!ep) { notify('⚠ Plan introuvable.'); return; }
+  const sessions = Array.isArray(ep.sessions) ? ep.sessions : [];
+  ep.done = ep.done || {};
+  const todo = [];
+  let needsReplace = false;
+  sessions.forEach((sess, i) => {
+    if (sess && sess.isCancelled) return;
+    if (ep.done[i]) return;
+    todo.push({ i, detailId: sess && sess.detailId });
+    if (!Number.isFinite(Number(sess && sess.detailId))) needsReplace = true;
+  });
+  if (todo.length === 0) { notify('Plan déjà terminé.'); return; }
+  todo.forEach((t) => { ep.done[t.i] = true; });
+  try {
+    if (needsReplace) {
+      await replacePlanSessionsInDb(ep.id, ep.sessions, ep.done);
+    } else {
+      await Promise.all(todo.map((t) => setPlanSessionDoneInDb(ep.id, t.detailId, true)));
+    }
+    await loadPlansFromDb();
+    if (String(currentPlanId) === String(ep.id)) {
+      openPlan(ep.id, { pushHistory: false });
+    } else {
+      renderPlansList();
+    }
+    requestDashboardRefresh();
+    notify('✓ Plan marqué comme terminé');
+  } catch (e) {
+    todo.forEach((t) => { ep.done[t.i] = false; });
+    renderPlansList();
+    notify('⚠ Erreur: ' + e.message);
+  }
 }
 
 async function toggleSession(stateKey, idx, row) {
@@ -6546,7 +6605,7 @@ async function addRace() {
     const created=await apiFetch('/races',{method:'POST',body:JSON.stringify({
       name,date,
       distance:document.getElementById('r-dist').value||null,
-      objective:document.getElementById('r-obj').value||null,
+      objective:normalizeObjectiveDuration(document.getElementById('r-obj').value),
       result:document.getElementById('r-real').value||null,
     })});
     racesData.push(normalizeRace(created));
@@ -6576,6 +6635,7 @@ function openRaceEdit(id) {
   dateEl.value = r.date || '';
   distEl.value = r.distance || '';
   objEl.value = r.objective || '';
+  renderDurationDualHint('rm-obj');
   openModal('race-modal');
 }
 
@@ -6587,7 +6647,7 @@ async function saveRaceEdit() {
       name:document.getElementById('rm-name').value,
       date:document.getElementById('rm-date').value,
       distance:document.getElementById('rm-dist').value||null,
-      objective:document.getElementById('rm-obj').value||null,
+      objective:normalizeObjectiveDuration(document.getElementById('rm-obj').value),
       result:current?.result||null,
     })});
     const idx=racesData.findIndex(r=>r.id===id);
@@ -6738,7 +6798,7 @@ function ensureRaceModals() {
           <div class="field"><label for="rm-name">Nom</label><input id="rm-name" type="text"></div>
           <div class="field"><label for="rm-date">Date</label><input id="rm-date" type="date"></div>
           <div class="field"><label for="rm-dist">Distance (km)</label><input id="rm-dist" type="text"></div>
-          <div class="field"><label for="rm-obj">Objectif (hh:mm:ss)</label><input id="rm-obj" type="text"></div>
+          <div class="field"><label for="rm-obj">Objectif (min ou hh:mm:ss)</label><input id="rm-obj" type="text"></div>
         </div>
         <div class="modal-actions">
           <button class="btn" onclick="saveRaceEdit()">Enregistrer</button>
@@ -6747,6 +6807,7 @@ function ensureRaceModals() {
       </div>
     `;
     document.body.appendChild(raceModal);
+    setupDurationDualHints();
   }
 
   let raceResultModal = document.getElementById('race-result-modal');

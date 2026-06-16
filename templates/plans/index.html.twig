@@ -44,7 +44,7 @@
               <div class="plan-card-sub">{{ plan.sub }}</div>
             </div>
             <div class="plan-card-stats">
-              <div class="plan-card-pct">{{ plan.pct }}%</div>
+              <div class="plan-card-pct">{% if plan.pct >= 100 %}Terminé{% else %}{{ plan.pct }}%{% endif %}</div>
               <div class="plan-card-count">{{ plan.done }}/{{ plan.total }} séances</div>
             </div>
             <form method="post" action="{{ path('app_plans_delete', { planId: plan.id }) }}" onsubmit="return confirm('Supprimer ce plan ?');" style="display:inline-flex">
@@ -121,8 +121,10 @@
       <div class="plans-detail-actions">
         {% if hasSelectedPlan %}
           <button class="btn btn-small plans-add-session-btn" id="plans-add-session-btn" type="button" onclick="addPlanSession({{ selectedPlanView.id }})">+ Ajouter séance</button>
+          <button class="btn btn-small btn-ghost plans-mark-complete-btn" id="plans-mark-complete-btn" type="button" onclick="markPlanComplete({{ selectedPlanView.id }})">✓ Marquer comme terminé</button>
         {% else %}
           <button class="btn btn-small plans-add-session-btn" id="plans-add-session-btn" onclick="addPlanSession(currentPlanId)">+ Ajouter séance</button>
+          <button class="btn btn-small btn-ghost plans-mark-complete-btn" id="plans-mark-complete-btn" onclick="markPlanComplete(currentPlanId)">✓ Marquer comme terminé</button>
         {% endif %}
       </div>
     

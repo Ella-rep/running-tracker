@@ -432,8 +432,11 @@ class PlansController extends AbstractController
             }
 
             $details = $detailsByPlanId[$planId] ?? [];
-            $total = count($details);
-            $done = count(array_filter($details, static fn (PlanDetails $d): bool => $d->isDone()));
+            // Cancelled sessions are deliberately skipped: exclude them so a plan
+            // with cancelled sessions can still reach 100%.
+            $active = array_filter($details, static fn (PlanDetails $d): bool => !$d->isCancelled());
+            $total = count($active);
+            $done = count(array_filter($active, static fn (PlanDetails $d): bool => $d->isDone()));
             $pct = $total > 0 ? (int) round(($done / $total) * 100) : 0;
             $name = $plan->getName();
 

@@ -221,7 +221,8 @@ final class DashboardMetricsFacadeService
 
         // Project the time for the ACTUAL race distance (not snapped to a fixed bucket).
         if ($base !== null && isset($base['avgSecPerKm'], $base['sourceDistanceKm'])) {
-            $projSec  = $this->projectedTimeSeconds(
+            $projSec  = $this->projectFromSamples(
+                $base['samples'] ?? [],
                 (float) $base['avgSecPerKm'],
                 (float) $base['sourceDistanceKm'],
                 $raceDistKm
@@ -258,8 +259,9 @@ final class DashboardMetricsFacadeService
             return null;
         }
 
+        // No objective set => no objective-based status message at all.
         $status     = 'on_track';
-        $statusText = 'Dans les clous par rapport à ton objectif ✅';
+        $statusText = '';
 
         if ($objSec !== null) {
             $diff    = $projSec - $objSec;
@@ -276,6 +278,8 @@ final class DashboardMetricsFacadeService
             } elseif ($diff > 60) {
                 $status     = 'behind';
                 $statusText = sprintf('Tu es %s derrière ton objectif → augmente progressivement le rythme', $diffStr);
+            } else {
+                $statusText = 'Dans les clous par rapport à ton objectif ✅';
             }
         }
 
@@ -552,10 +556,11 @@ final class DashboardMetricsFacadeService
         }
 
         $avgSecPerKm = array_sum($paceSecList) / count($paceSecList);
+        $samples = $projectionBase['samples'];
 
         $projections = [];
         foreach ($distances as $idx => $d) {
-            $timeSec = $this->projectedTimeSeconds($avgSecPerKm, $sourceDistanceKm, (float) $d['dist']);
+            $timeSec = $this->projectFromSamples($samples, $avgSecPerKm, $sourceDistanceKm, (float) $d['dist']);
             $paceSec = (int) round($timeSec / $d['dist']);
             $projections[] = [
                 'label' => $d['label'],
@@ -579,18 +584,19 @@ final class DashboardMetricsFacadeService
             $gapNote
         );
 
-        return [$projections, $meta, $history, ['avgSecPerKm' => $avgSecPerKm, 'sourceDistanceKm' => $sourceDistanceKm]];
+        return [$projections, $meta, $history, ['avgSecPerKm' => $avgSecPerKm, 'sourceDistanceKm' => $sourceDistanceKm, 'samples' => $samples]];
     }
 
     /**
      * @param array<int,RunLog> $runs
-     * @return array{paceSecList:array<int,int>,runsWithGap:int,sourceDistanceKm:float}
+     * @return array{paceSecList:array<int,int>,runsWithGap:int,sourceDistanceKm:float,samples:array<int,array{paceSec:int,km:float|null}>}
      */
     private function computeProjectionBasePace(array $runs): array
     {
         $paceSecList = [];
         $runsWithGap = 0;
         $distanceKmList = [];
+        $samples = [];
 
         foreach ($runs as $log) {
             $gapSec = $this->paceToSeconds($log->getGap());
@@ -604,6 +610,7 @@ final class DashboardMetricsFacadeService
                 if ($km > 0.0) {
                     $distanceKmList[] = $km;
                 }
+                $samples[] = ['paceSec' => $gapSec, 'km' => $km > 0.0 ? $km : null];
                 continue;
             }
             if ($allureSec !== null) {
@@ -611,12 +618,13 @@ final class DashboardMetricsFacadeService
                 if ($km > 0.0) {
                     $distanceKmList[] = $km;
                 }
+                $samples[] = ['paceSec' => $allureSec, 'km' => $km > 0.0 ? $km : null];
             }
         }
 
         $sourceDistanceKm = $this->computeMedianDistance($distanceKmList);
 
-        return ['paceSecList' => $paceSecList, 'runsWithGap' => $runsWithGap, 'sourceDistanceKm' => $sourceDistanceKm];
+        return ['paceSecList' => $paceSecList, 'runsWithGap' => $runsWithGap, 'sourceDistanceKm' => $sourceDistanceKm, 'samples' => $samples];
     }
 
     /**
@@ -705,7 +713,7 @@ final class DashboardMetricsFacadeService
                 }
                 $avgSecPerKm = array_sum($paceSecList) / count($paceSecList);
                 $sourceDistanceKm = (float) ($base['sourceDistanceKm'] ?? 10.0);
-                $values[] = $this->projectedTimeSeconds($avgSecPerKm, $sourceDistanceKm, (float) $distance['dist']);
+                $values[] = $this->projectFromSamples($base['samples'] ?? [], $avgSecPerKm, $sourceDistanceKm, (float) $distance['dist']);
             }
             $series[] = [
                 'label' => $distance['label'],
@@ -726,6 +734,35 @@ final class DashboardMetricsFacadeService
         $projected = $sourceSeconds * ($safeTargetDistance / $safeSourceDistance) ** self::RIEGEL_EXPONENT;
 
         return (int) round($projected);
+    }
+
+    /**
+     * Distance-consistent Riegel projection.
+     * Projects each sample from its OWN run distance, then averages, so a short
+     * fast run is not re-labelled as the median distance and sped up twice.
+     * Falls back to the aggregate pace/median-distance model when no per-run
+     * distances are available.
+     *
+     * @param array<int,array{paceSec:int,km:float|null}> $samples
+     */
+    private function projectFromSamples(array $samples, float $avgSecPerKm, float $sourceDistanceKm, float $targetDistanceKm): int
+    {
+        $projected = [];
+        foreach ($samples as $sample) {
+            $km      = $sample['km'] ?? null;
+            $paceSec = $sample['paceSec'] ?? null;
+            if ($km === null || $km <= 0.0 || $paceSec === null) {
+                continue;
+            }
+            $projected[] = $this->projectedTimeSeconds((float) $paceSec, (float) $km, $targetDistanceKm);
+        }
+
+        if ($projected !== []) {
+            return (int) round(array_sum($projected) / count($projected));
+        }
+
+        // No per-run distances => fall back to aggregate model.
+        return $this->projectedTimeSeconds($avgSecPerKm, $sourceDistanceKm, $targetDistanceKm);
     }
 
     /** @param array<int,float> $distancesKm */
