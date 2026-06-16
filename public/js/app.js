@@ -819,11 +819,7 @@ function setupPlanTotalAutoCompute() {
   // Mark type as manually set when user changes it
   const typeSelectEl = document.getElementById('pm-type');
   if (typeSelectEl && !typeSelectEl.dataset.manualBound) {
-    typeSelectEl.addEventListener('change', () => {
-      typeSelectEl.dataset.autoSet = '0';
-      const peEl = document.getElementById('pm-pe');
-      if (peEl && !peEl.value && typeSelectEl.value === 'EF') peEl.value = '3/10';
-    });
+    typeSelectEl.addEventListener('change', () => { typeSelectEl.dataset.autoSet = '0'; });
     typeSelectEl.dataset.manualBound = '1';
   }
   formatInput.dataset.autoTotalBound = '1';
@@ -3132,8 +3128,30 @@ function renderHomeWeekView() {
     addItem(evt.date, { kind: 'personal', label: evt.title || 'Perso', format: '' });
   });
 
-  const kindClass   = { EF: 'EF', SL: 'SL', FC: 'FC', FL: 'FL', T: 'T', RACE: 'race', race: 'race', personal: 'personal' };
-  const shortLabels = { EF: 'EF', SL: 'Sortie longue', FC: 'Fractionné', FL: 'Seuil', T: 'Tempo', RACE: '🏁 Course', race: '🏁 Course', personal: '📌 Perso' };
+  // Logs hors plan (sans plannedSessionId) — affichés comme dans la vue mois
+  (Array.isArray(logData) ? logData : []).forEach((log) => {
+    const dateKey = normalizeDateForStorage(log?.date);
+    if (!dateKey) return;
+    const linkedId = Number(log?.plannedSessionId);
+    if (Number.isFinite(linkedId) && linkedId > 0) return; // déjà couvert via planCalendar
+    const km = Number(log?.km);
+    const parts = [];
+    if (Number.isFinite(km) && km > 0) parts.push(`${km.toFixed(2)} km`);
+    if (log?.allure) parts.push(`${log.allure}/km`);
+    const typeLabel = normalizeSessionType(log?.run_type);
+    addItem(dateKey, {
+      kind: 'log',
+      logId: log?.id,
+      label: log?.courseName || typeLabel || 'Sortie',
+      format: parts.join(' · '),
+      isDone: true,
+      sessionType: typeLabel,
+    });
+  });
+
+  const kindClass   = { EF: 'EF', SL: 'SL', FC: 'FC', FL: 'FL', T: 'T', RACE: 'race', race: 'race', personal: 'personal', log: 'log' };
+  const shortLabels = { EF: 'EF', SL: 'Sortie longue', FC: 'Fractionné', FL: 'Seuil', T: 'Tempo', RACE: '🏁 Course', race: '🏁 Course', personal: '📌 Perso', log: '🏃 Sortie' };
+
 
   const dayNodes = DAY_LABELS.map((dayLabel, i) => {
     const d = new Date(weekStart);
@@ -3175,12 +3193,12 @@ function renderHomeWeekView() {
         const badge = document.createElement('div');
         const typeKey = (it?.sessionType || it?.kind || '').toUpperCase();
         const klass = kindClass[typeKey] || kindClass[it?.kind] || 'session';
-        badge.className = 'hw-badge hw-badge--' + klass + (it?.isDone ? ' hw-badge--done' : '');
+        badge.className = 'hw-badge hw-badge--' + klass + (it?.isCancelled ? ' hw-badge--cancelled' : (it?.isDone ? ' hw-badge--done' : ''));
         badge.textContent = shortLabels[typeKey] || shortLabels[it?.kind] || (it?.label ? String(it.label).slice(0, 12) : '•');
         if (it?.format) badge.title = String(it.format);
         const itKindW = it?.kind || 'session';
         const hasSessionRefW = itKindW === 'session' && Number.isFinite(Number(it?.detailId));
-        const isActionableW = (itKindW === 'race' && Number.isFinite(Number(it?.raceId))) || itKindW === 'session' || itKindW === 'personal';
+        const isActionableW = (itKindW === 'race' && Number.isFinite(Number(it?.raceId))) || itKindW === 'session' || itKindW === 'personal' || itKindW === 'log';
         if (isActionableW) {
           badge.style.cursor = 'pointer';
           badge.setAttribute('role', 'button');
@@ -3319,6 +3337,26 @@ function renderHomeDayView() {
     if (evt?.date === activeDate) {
       items.push({ kind: 'personal', label: evt.title || 'Perso', format: '', personalId: evt.id });
     }
+  });
+
+  // Logs hors plan (sans plannedSessionId)
+  (Array.isArray(logData) ? logData : []).forEach((log) => {
+    if (normalizeDateForStorage(log?.date) !== activeDate) return;
+    const linkedId = Number(log?.plannedSessionId);
+    if (Number.isFinite(linkedId) && linkedId > 0) return;
+    const km = Number(log?.km);
+    const parts = [];
+    if (Number.isFinite(km) && km > 0) parts.push(`${km.toFixed(2)} km`);
+    if (log?.allure) parts.push(`${log.allure}/km`);
+    const typeLabel = normalizeSessionType(log?.run_type);
+    items.push({
+      kind: 'log',
+      logId: log?.id,
+      label: log?.courseName || typeLabel || 'Sortie',
+      format: parts.join(' · '),
+      isDone: true,
+      sessionType: typeLabel,
+    });
   });
 
   const isPastDay = activeDate < todayKey;
@@ -7400,6 +7438,15 @@ async function initApp() {
 
   setupDurationDualHints();
   setupPlanTotalAutoCompute();
+
+  // Auto-fill PE à 3/10 quand type EF sélectionné
+  const pmTypeEl = document.getElementById('pm-type');
+  if (pmTypeEl) {
+    pmTypeEl.addEventListener('change', () => {
+      const peEl = document.getElementById('pm-pe');
+      if (peEl && !peEl.value && pmTypeEl.value === 'EF') peEl.value = '3/10';
+    });
+  }
 
   // Phase 2: deferred loads (non-critical for first paint)
   setDashboardLoadingState(true);
