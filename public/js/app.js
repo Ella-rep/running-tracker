@@ -173,6 +173,7 @@ function setupAnnouncementDismiss() {
 // ============================================================
 let logData   = [];
 let racesData = [];
+let racesSort = { key: 'date', dir: 'asc' };
 let plansData = [];
 let dashboardAdvice = [];
 let dashboardMetrics = null;
@@ -6552,6 +6553,8 @@ function buildRaceRow(r) {
   const resultBtn = row.querySelector('.races-result');
   const editBtn = row.querySelector('.races-edit');
   const delBtn = row.querySelector('.races-delete');
+  const resetBtn = row.querySelector('.races-reset');
+  const isDnx = r?.dnfStatus === 'dns' || r?.dnfStatus === 'dnf';
 
   if (statusEl) {
     const badge = cloneTemplate('races-status-badge-template') || document.createElement('span');
@@ -6566,7 +6569,10 @@ function buildRaceRow(r) {
   if (objEl) objEl.textContent = r.objective || '—';
   if (realEl) realEl.textContent = r.result || '—';
   if (diffEl) {
-    if (diff === '—') {
+    diffEl.classList.toggle('races-diff-comment', isDnx);
+    if (isDnx) {
+      diffEl.textContent = String(r?.dnfComment || r?.comment || '—');
+    } else if (diff === '—') {
       diffEl.textContent = diff;
     } else {
       const span = document.createElement('span');
@@ -6584,6 +6590,11 @@ function buildRaceRow(r) {
   }
   if (editBtn) editBtn.addEventListener('click', () => openRaceEdit(r.id));
   if (delBtn) delBtn.addEventListener('click', () => deleteRace(r.id, r.name));
+  if (resetBtn) {
+    const hasStatusOrResult = isDnx || Boolean(String(r.result || '').trim());
+    resetBtn.hidden = !hasStatusOrResult;
+    resetBtn.addEventListener('click', () => resetRaceStatus(r.id, r.name));
+  }
 
   return row;
 }
@@ -6591,10 +6602,225 @@ function buildRaceRow(r) {
 function renderRaces() {
   const tbody = document.getElementById('races-tbody');
   if (!tbody) return;
-  const rows = racesData.map(buildRaceRow);
+  const rows = getSortedRaces().map(buildRaceRow);
   tbody.replaceChildren(...rows);
+  updateRaceSortIndicators();
   fillLogCourseOptions();
   addHoverListeners('races-tbody');
+}
+
+// ---- Courses sorting (front-side, on the loaded dataset) ----
+function raceDurationToSeconds(v) {
+  const t = String(v || '').trim();
+  if (!t) return null;
+  const parts = t.split(':').map((n) => parseInt(n, 10));
+  if (parts.some((n) => Number.isNaN(n))) return null;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return null;
+}
+
+function raceStatusRank(r) {
+  const map = { 'badge-next': 0, 'badge-future': 1, 'badge-done': 2, 'badge-dns': 3, 'badge-dnf': 4 };
+  return map[String(r?.statusClass || '')] ?? 9;
+}
+
+function raceSortValue(r, key) {
+  switch (key) {
+    case 'name': return String(r.name || '').trim().toLowerCase() || null;
+    case 'date': return String(r.date || '').trim() || null;
+    case 'distance': {
+      const m = String(r.distance || '').replace(',', '.').match(/-?\d+(\.\d+)?/);
+      return m ? parseFloat(m[0]) : null;
+    }
+    case 'objective': return raceDurationToSeconds(r.objective);
+    case 'result': return raceDurationToSeconds(r.result);
+    case 'delta': {
+      const res = raceDurationToSeconds(r.result);
+      const obj = raceDurationToSeconds(r.objective);
+      return (res === null || obj === null) ? null : (res - obj);
+    }
+    case 'status': return raceStatusRank(r);
+    default: return String(r.date || '');
+  }
+}
+
+function getSortedRaces() {
+  const arr = Array.isArray(racesData) ? racesData.slice() : [];
+  const { key, dir } = racesSort;
+  const mul = dir === 'desc' ? -1 : 1;
+  return arr.sort((a, b) => {
+    const va = raceSortValue(a, key);
+    const vb = raceSortValue(b, key);
+    const na = va === null || va === undefined || va === '';
+    const nb = vb === null || vb === undefined || vb === '';
+    if (na && nb) return 0;
+    if (na) return 1;   // missing values always last
+    if (nb) return -1;
+    let cmp;
+    if (typeof va === 'number' && typeof vb === 'number') cmp = va - vb;
+    else cmp = String(va).localeCompare(String(vb));
+    return cmp * mul;
+  });
+}
+
+function toggleRaceSort(key) {
+  if (!key) return;
+  if (racesSort.key === key) {
+    racesSort.dir = racesSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    racesSort.key = key;
+    racesSort.dir = 'asc';
+  }
+  renderRaces();
+}
+
+function updateRaceSortIndicators() {
+  const arrow = racesSort.dir === 'asc' ? ' ▲' : ' ▼';
+  document.querySelectorAll('#courses th.sortable').forEach((th) => {
+    const active = th.getAttribute('data-sort-key') === racesSort.key;
+    th.classList.toggle('sort-active', active);
+    const ind = th.querySelector('.sort-ind');
+    if (ind) ind.textContent = active ? arrow : '';
+  });
+  const bar = document.getElementById('races-sortbar');
+  if (bar) {
+    bar.querySelectorAll('[data-sort-key]').forEach((btn) => {
+      const active = btn.getAttribute('data-sort-key') === racesSort.key;
+      btn.classList.toggle('active', active);
+      const ind = btn.querySelector('.sort-ind');
+      if (ind) ind.textContent = active ? arrow : '';
+    });
+  }
+}
+
+function buildRaceSortBar() {
+  const tableWrap = document.querySelector('#courses .table-wrap');
+  if (!tableWrap || document.getElementById('races-sortbar')) return;
+  const opts = [['date', 'Date'], ['distance', 'Distance'], ['result', 'Résultat'], ['status', 'Statut'], ['name', 'Nom']];
+  const bar = document.createElement('div');
+  bar.id = 'races-sortbar';
+  bar.className = 'races-sortbar';
+  bar.setAttribute('aria-label', 'Trier les courses');
+  opts.forEach(([key, label]) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'races-sortbar-btn';
+    btn.setAttribute('data-sort-key', key);
+    btn.innerHTML = label + '<span class="sort-ind"></span>';
+    btn.addEventListener('click', () => toggleRaceSort(key));
+    bar.appendChild(btn);
+  });
+  tableWrap.parentNode.insertBefore(bar, tableWrap);
+}
+
+function setupCoursesSorting() {
+  const headers = document.querySelectorAll('#courses th.sortable[data-sort-key]');
+  if (!headers.length) return;
+  headers.forEach((th) => {
+    th.setAttribute('role', 'button');
+    th.setAttribute('tabindex', '0');
+    th.addEventListener('click', () => toggleRaceSort(th.getAttribute('data-sort-key')));
+    th.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRaceSort(th.getAttribute('data-sort-key')); }
+    });
+  });
+  buildRaceSortBar();
+  updateRaceSortIndicators();
+}
+
+// ---- Reset a race status back to "registered" (clears DNS/DNF + time) ----
+async function resetRaceStatus(id, name) {
+  askConfirm('Réinitialiser le statut ?', name || '', async () => {
+    const current = racesData.find((r) => r.id === id);
+    if (!current) { notify('⚠ Course introuvable'); return; }
+    try {
+      const updated = await apiFetch(`/races/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: current.name || '',
+          date: current.date || '',
+          distance: current.distance || null,
+          objective: current.objective || null,
+          result: null,
+          dnfStatus: null,
+          dnfComment: null,
+        }),
+      });
+      const idx = racesData.findIndex((r) => r.id === id);
+      if (idx >= 0) racesData[idx] = normalizeRace(updated);
+      renderRaces(); requestDashboardRefresh();
+      notify('↺ Statut réinitialisé');
+    } catch (e) { notify('⚠ ' + e.message); }
+  });
+}
+
+// ---- Collapsible add forms (chevron, default collapsed, per-form localStorage) ----
+function applyFormCollapse(form, head, collapsed) {
+  form.classList.toggle('is-collapsed', collapsed);
+  head.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+}
+
+function setupCollapsibleForms() {
+  document.querySelectorAll('[data-collapsible-form]').forEach((form) => {
+    if (form.dataset.collapsibleReady === '1') return;
+    form.dataset.collapsibleReady = '1';
+    const key = form.getAttribute('data-collapsible-form');
+
+    let head = form.querySelector(':scope > .form-card-head') || form.querySelector(':scope > h3');
+    if (!head) {
+      head = document.createElement('div');
+      head.className = 'form-card-head';
+      const h3 = document.createElement('h3');
+      h3.textContent = form.getAttribute('data-collapsible-title') || 'Ajouter';
+      head.appendChild(h3);
+      form.insertBefore(head, form.firstChild);
+    }
+    head.classList.add('collapsible-head');
+
+    const body = document.createElement('div');
+    body.className = 'collapsible-body';
+    let node = head.nextSibling;
+    while (node) {
+      const next = node.nextSibling;
+      body.appendChild(node);
+      node = next;
+    }
+    form.appendChild(body);
+
+    const chevron = document.createElement('span');
+    chevron.className = 'collapsible-chevron';
+    chevron.setAttribute('aria-hidden', 'true');
+    head.appendChild(chevron);
+
+    form.classList.add('collapsible-form');
+    head.setAttribute('role', 'button');
+    head.setAttribute('tabindex', '0');
+
+    let stored = null;
+    try { stored = localStorage.getItem('rt:collapse:' + key); } catch { stored = null; }
+    let collapsed = stored === null ? true : stored === '1'; // default collapsed (mobile-first)
+    // Auto-expand the log form when arriving via a prefill link (planned session/date).
+    if (key === 'log-add') {
+      const p = new URLSearchParams(globalThis.location.search);
+      if (p.get('plannedSessionId') || p.get('date') || p.get('sessionType')) collapsed = false;
+    }
+    applyFormCollapse(form, head, collapsed);
+
+    const toggle = () => {
+      const now = !form.classList.contains('is-collapsed');
+      applyFormCollapse(form, head, now);
+      try { localStorage.setItem('rt:collapse:' + key, now ? '1' : '0'); } catch {}
+    };
+    head.addEventListener('click', (e) => {
+      if (e.target.closest('input, select, button, a, label, .log-entry-mode-switch')) return;
+      toggle();
+    });
+    head.addEventListener('keydown', (e) => {
+      if (e.target !== head) return;
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+    });
+  });
 }
 
 async function addRace() {
@@ -6973,6 +7199,8 @@ async function initApp() {
   safeRender(renderLog, 'log');
   safeRender(bindLogFormSubmit, 'log-submit-binding');
   safeRender(renderRaces, 'races');
+  safeRender(setupCoursesSorting, 'courses-sorting');
+  safeRender(setupCollapsibleForms, 'collapsible-forms');
   safeRender(consumeAdviceFocusFromUrl, 'advice-focus-url');
   safeRender(consumePlanEditIntentFromUrl, 'plan-edit-url');
   safeRender(consumeRaceEditIntentFromUrl, 'race-edit-url');

@@ -3,7 +3,7 @@
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
-<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
+<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260616-p2p4">
 <link rel="stylesheet" href="{{ asset('css/plans.css') }}?v=20260608-placeholder1">
 {% endblock %}
 
@@ -62,8 +62,9 @@
       {% endfor %}
     </div>
 
-    <form id="plans-create-form" method="post" action="{{ path('app_plans_create') }}" class="form-card"{% if hasSelectedPlan %} style="display:none"{% endif %}>
+    <form id="plans-create-form" method="post" action="{{ path('app_plans_create') }}" class="form-card" data-collapsible-form="plans-add"{% if hasSelectedPlan %} style="display:none"{% endif %}>
       <input type="hidden" name="_token" value="{{ csrf_token('plans.create') }}">
+      <div class="form-card-head"><h3>➕ Créer un plan</h3></div>
       <div class="form-grid form-grid-single">
         <div class="field">
           <label for="plans-create-name">Nom du plan</label>
@@ -309,5 +310,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260616-fixes1"></script>
+<script src="{{ asset('js/app.js') }}?v=20260616-p2p4"></script>
 {% endblock %}
