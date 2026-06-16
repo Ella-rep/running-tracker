@@ -5180,36 +5180,36 @@ function renderPlan(containerId, data, stateKey) {
 }
 
 async function markPlanComplete(planId) {
-  const ep = getExtraPlan(planId);
-  if (!ep) { notify('⚠ Plan introuvable.'); return; }
-  const sessions = Array.isArray(ep.sessions) ? ep.sessions : [];
-  ep.done = ep.done || {};
-  const todo = [];
-  let needsReplace = false;
-  sessions.forEach((sess, i) => {
-    if (sess && sess.isCancelled) return;
-    if (ep.done[i]) return;
-    todo.push({ i, detailId: sess && sess.detailId });
-    if (!Number.isFinite(Number(sess && sess.detailId))) needsReplace = true;
-  });
-  if (todo.length === 0) { notify('Plan déjà terminé.'); return; }
-  todo.forEach((t) => { ep.done[t.i] = true; });
+  if (!getExtraPlan(planId)) { notify('⚠ Plan introuvable.'); return; }
+  // Each done-PATCH replaces the plan server-side and reassigns detailIds, so we
+  // mark one active session at a time and reload between calls to stay in sync.
   try {
-    if (needsReplace) {
-      await replacePlanSessionsInDb(ep.id, ep.sessions, ep.done);
-    } else {
-      await Promise.all(todo.map((t) => setPlanSessionDoneInDb(ep.id, t.detailId, true)));
+    let changed = 0;
+    let guard = 0;
+    for (;;) {
+      const ep = getExtraPlan(planId);
+      const sessions = Array.isArray(ep && ep.sessions) ? ep.sessions : [];
+      const doneMap = (ep && ep.done) || {};
+      const next = sessions.findIndex((sess, i) => !(sess && sess.isCancelled) && !doneMap[i]);
+      if (next === -1) break;
+      const detailId = sessions[next] && sessions[next].detailId;
+      if (!Number.isFinite(Number(detailId))) break; // unsaved session, cannot persist
+      await setPlanSessionDoneInDb(ep.id, detailId, true);
+      await loadPlansFromDb();
+      changed += 1;
+      guard += 1;
+      if (guard > 400) break;
     }
-    await loadPlansFromDb();
-    if (String(currentPlanId) === String(ep.id)) {
-      openPlan(ep.id, { pushHistory: false });
+    const cur = getExtraPlan(planId);
+    if (String(currentPlanId) === String(planId)) {
+      openPlan(cur ? cur.id : planId, { pushHistory: false });
     } else {
       renderPlansList();
     }
     requestDashboardRefresh();
-    notify('✓ Plan marqué comme terminé');
+    notify(changed > 0 ? '✓ Plan marqué comme terminé' : 'Plan déjà terminé.');
   } catch (e) {
-    todo.forEach((t) => { ep.done[t.i] = false; });
+    await loadPlansFromDb();
     renderPlansList();
     notify('⚠ Erreur: ' + e.message);
   }

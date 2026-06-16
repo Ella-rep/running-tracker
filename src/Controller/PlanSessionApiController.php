@@ -229,6 +229,7 @@ final class PlanSessionApiController extends AbstractController
                 'pe' => $row->getPe(),
                 'totalMin' => $row->getTotalMin(),
                 'isOptional' => $row->isOptional(),
+                'isCancelled' => $row->isCancelled(),
             ];
         }
 

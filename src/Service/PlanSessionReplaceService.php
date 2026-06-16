@@ -61,6 +61,7 @@ final class PlanSessionReplaceService
             $detail->setPe($this->nullableString($session['pe'] ?? null));
             $detail->setTotalMin($this->nullableInt($session['totalMin'] ?? ($session['total'] ?? null)));
             $detail->setIsOptional((bool) ($session['isOptional'] ?? ($session['optional'] ?? ($session['opt'] ?? false))));
+            $detail->setIsCancelled((bool) ($session['isCancelled'] ?? ($session['cancelled'] ?? false)));
             $detail->setIsDone($this->resolveDone($doneMap, $idx));
             $this->em->persist($detail);
         }
