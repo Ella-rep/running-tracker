@@ -5134,7 +5134,12 @@ function renderPlan(containerId, data, stateKey) {
         peEl.textContent = s.pe ? `PE ${s.pe}` : '';
       }
       if (durEl) {
-        const totalMinutes = sessionTotalMinutesValue(s);
+        const formatStr = String(s.format || '').trim();
+        const computedFromFormat = formatStr ? computePlannedTotalMinutesFromFormat(formatStr) : null;
+        // If format exists but doesn't produce a duration (e.g. "20km"), don't show stored totalMin
+        const totalMinutes = formatStr
+          ? computedFromFormat
+          : sessionTotalMinutesValue(s);
         durEl.hidden = false;
         durEl.classList.toggle('session-meta-slot--empty', !totalMinutes);
         durEl.setAttribute('aria-hidden', totalMinutes ? 'false' : 'true');
@@ -7222,7 +7227,7 @@ async function initApp() {
   if (raceDateEl) raceDateEl.value = today;
 
   // Setup date input handlers for FR format (jj/mm/yyyy) conversion
-  ['log-date', 'r-date', 'lm-date', 'rm-date', 'pm-date'].forEach(id => {
+  ['log-date', 'r-date', 'lm-date', 'rm-date'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       const tryOpenPicker = () => {
@@ -7239,6 +7244,19 @@ async function initApp() {
       });
     }
   });
+
+  // pm-date: text input + hidden date picker
+  const pmDateText = document.getElementById('pm-date');
+  const pmDatePicker = document.getElementById('pm-date-picker');
+  if (pmDateText && pmDatePicker) {
+    pmDateText.addEventListener('blur', () => {
+      const normalized = normalizeDateForStorage(pmDateText.value);
+      if (pmDateText.value && normalized) pmDateText.value = normalized;
+    });
+    pmDatePicker.addEventListener('change', () => {
+      if (pmDatePicker.value) pmDateText.value = pmDatePicker.value;
+    });
+  }
 
   setupDurationDualHints();
   setupPlanTotalAutoCompute();

@@ -3,8 +3,8 @@
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
-<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260616-p2p4">
-<link rel="stylesheet" href="{{ asset('css/plans.css') }}?v=20260608-placeholder1">
+<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260616-p2p5">
+<link rel="stylesheet" href="{{ asset('css/plans.css') }}?v=20260616-p2p5">
 {% endblock %}
 
 {% block body %}
@@ -264,7 +264,13 @@
           <option value="Race">🏁 Course</option>
         </select>
       </div>
-      <div class="field"><label for="pm-date">Date</label><input type="date" id="pm-date" placeholder="jj/mm/yyyy" onclick="if(this.showPicker){this.showPicker();}"></div>
+      <div class="field"><label for="pm-date">Date</label>
+        <div class="date-text-wrapper">
+          <input type="text" id="pm-date" placeholder="jj/mm/yyyy ou yyyy-mm-dd" autocomplete="off">
+          <input type="date" id="pm-date-picker" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none;" tabindex="-1" aria-hidden="true">
+          <button type="button" id="pm-date-calendar-btn" class="date-picker-icon-btn" title="Ouvrir le calendrier" onclick="document.getElementById('pm-date-picker').showPicker && document.getElementById('pm-date-picker').showPicker()">📅</button>
+        </div>
+      </div>
       <div class="field"><label for="pm-pe">PE</label><input type="text" id="pm-pe" placeholder="ex: 6/10"></div>
       <div class="field"><label for="pm-total">Temps total (min ou hh:mm:ss)</label><input type="text" id="pm-total" placeholder="45 ou 01:15:00"></div>
       <div class="field field-inline">
@@ -311,5 +317,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260616-p2p4"></script>
+<script src="{{ asset('js/app.js') }}?v=20260616-p2p5"></script>
 {% endblock %}

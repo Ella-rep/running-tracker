@@ -645,3 +645,26 @@
 .session-row--placeholder .session-check {
   color: var(--text-muted);
 }
+
+/* Date text+picker combo */
+.date-text-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.date-text-wrapper #pm-date {
+  flex: 1;
+}
+.date-picker-icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 4px;
+  opacity: 0.7;
+  line-height: 1;
+}
+.date-picker-icon-btn:hover {
+  opacity: 1;
+}
