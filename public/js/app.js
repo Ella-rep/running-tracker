@@ -5433,6 +5433,8 @@ function openPlanEdit(stateKey, idx) {
 
   document.getElementById('pm-statekey').value = stateKey;
   document.getElementById('pm-idx').value = idx;
+  document.getElementById('pm-week-min').value = '';
+  document.getElementById('pm-week-max').value = '';
   document.getElementById('pm-format').value = s.format || '';
   document.getElementById('pm-type').value = normalizeSessionType(s.sessionType ?? s.session_type ?? s.type) || '';
   document.getElementById('pm-date').value = normalizeDateForStorage(sessionDateValue(s));
