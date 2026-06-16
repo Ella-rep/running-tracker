@@ -645,3 +645,50 @@
 .session-row--placeholder .session-check {
   color: var(--text-muted);
 }
+
+/* Date text+picker combo */
+.date-text-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.date-text-wrapper #pm-date {
+  flex: 1;
+}
+.date-picker-icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 4px;
+  opacity: 0.7;
+  line-height: 1;
+}
+.date-picker-icon-btn:hover {
+  opacity: 1;
+}
+
+/* Per-week add session button */
+.week-add-session-btn {
+  margin-left: auto;
+  font-size: 11px;
+  padding: 3px 9px;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+.week-add-session-btn:hover { opacity: 1; }
+
+.plans-mark-complete-btn { margin-left: auto; }
+
+/* Completed plans section */
+.plans-done-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 24px 0 8px;
+}
+#plans-done-list .plan-card { opacity: 0.7; }
+#plans-done-list .plan-card:hover { opacity: 1; }

@@ -769,6 +769,30 @@ function syncPlanTotalFromFormat() {
   renderDurationDualHint('pm-total');
 }
 
+function syncPlanTypeFromFormat() {
+  const formatInput = document.getElementById('pm-format');
+  const typeSelect = document.getElementById('pm-type');
+  if (!(formatInput instanceof HTMLInputElement) || !(typeSelect instanceof HTMLSelectElement)) return;
+  // Only auto-set if field is empty or was previously auto-set
+  if (typeSelect.value && typeSelect.dataset.autoSet !== '1') return;
+
+  const fmt = formatInput.value;
+  const minutes = computePlannedTotalMinutesFromFormat(fmt);
+  if (minutes === null) return;
+
+  let suggested = '';
+  if (/@Z2/i.test(fmt)) {
+    suggested = minutes >= 60 ? 'SL' : 'EF';
+  } else if (minutes >= 60) {
+    suggested = 'SL';
+  }
+
+  if (suggested) {
+    typeSelect.value = suggested;
+    typeSelect.dataset.autoSet = '1';
+  }
+}
+
 function setupPlanTotalAutoCompute() {
   const formatInput = document.getElementById('pm-format');
   if (!(formatInput instanceof HTMLInputElement)) return;
@@ -778,8 +802,26 @@ function setupPlanTotalAutoCompute() {
     return;
   }
 
-  formatInput.addEventListener('input', syncPlanTotalFromFormat);
-  formatInput.addEventListener('change', syncPlanTotalFromFormat);
+  // Auto-uppercase z → Z when preceded by @
+  formatInput.addEventListener('input', () => {
+    const val = formatInput.value;
+    const fixed = val.replace(/@z(\d)/g, (_, d) => `@Z${d}`);
+    if (fixed !== val) {
+      const pos = formatInput.selectionStart;
+      formatInput.value = fixed;
+      formatInput.setSelectionRange(pos, pos);
+    }
+    syncPlanTotalFromFormat();
+    syncPlanTypeFromFormat();
+  });
+  formatInput.addEventListener('change', () => { syncPlanTotalFromFormat(); syncPlanTypeFromFormat(); });
+
+  // Mark type as manually set when user changes it
+  const typeSelectEl = document.getElementById('pm-type');
+  if (typeSelectEl && !typeSelectEl.dataset.manualBound) {
+    typeSelectEl.addEventListener('change', () => { typeSelectEl.dataset.autoSet = '0'; });
+    typeSelectEl.dataset.manualBound = '1';
+  }
   formatInput.dataset.autoTotalBound = '1';
   syncPlanTotalFromFormat();
 }
@@ -4674,13 +4716,22 @@ function planCard(id, title, sub, totalSessions, doneCount, isExtra, complete = 
 
 function renderPlansList() {
   const list = document.getElementById('plans-list');
+  const doneList = document.getElementById('plans-done-list');
+  const doneSection = document.getElementById('plans-done-section');
   if (!list) return;
 
-  const nodes = (state.extraPlans || []).map(ep => {
+  const active = [];
+  const done = [];
+  (state.extraPlans || []).forEach(ep => {
     const c = planCompletion(ep.sessions, ep.done);
-    return planCard(ep.id, ep.title, ep.sub, c.total, c.done, true, c.complete);
+    const card = planCard(ep.id, ep.title, ep.sub, c.total, c.done, true, c.complete);
+    if (c.complete) done.push(card);
+    else active.push(card);
   });
-  list.replaceChildren(...nodes);
+
+  list.replaceChildren(...active);
+  if (doneList) doneList.replaceChildren(...done);
+  if (doneSection) doneSection.style.display = done.length ? '' : 'none';
 }
 
 function openPlan(planId, options = {}) {
@@ -4691,6 +4742,8 @@ function openPlan(planId, options = {}) {
 
   const plansList = document.getElementById('plans-list');
   if (plansList) plansList.style.display = 'none';
+  const plansDoneSection = document.getElementById('plans-done-section');
+  if (plansDoneSection) plansDoneSection.style.display = 'none';
   const plansListHeader = document.getElementById('plans-list-header');
   if (plansListHeader) plansListHeader.style.display = 'none';
   const plansCreateForm = document.getElementById('plans-create-form');
@@ -4729,6 +4782,8 @@ function backToPlansList(options = {}) {
   currentPlanId = null;
   const plansList = document.getElementById('plans-list');
   if (plansList) plansList.style.display = 'flex';
+  const plansDoneSectionClose = document.getElementById('plans-done-section');
+  if (plansDoneSectionClose) plansDoneSectionClose.style.display = '';
   const plansListHeader = document.getElementById('plans-list-header');
   if (plansListHeader) plansListHeader.style.display = '';
   const plansCreateForm = document.getElementById('plans-create-form');
@@ -4861,18 +4916,62 @@ function addPlanSession(planId) {
   document.getElementById('pm-statekey').value = stateKey;
   document.getElementById('pm-idx').value = '-1';
   document.getElementById('pm-format').value = '';
-  document.getElementById('pm-type').value = '';
+  const typeEl0 = document.getElementById('pm-type');
+  if (typeEl0) { typeEl0.value = ''; typeEl0.dataset.autoSet = '1'; }
   document.getElementById('pm-date').value = '';
   document.getElementById('pm-pe').value = '';
   document.getElementById('pm-total').value = '';
   document.getElementById('pm-total').readOnly = false;
   document.getElementById('pm-total').title = '';
+  document.getElementById('pm-week-min').value = '';
+  document.getElementById('pm-week-max').value = '';
+  const picker0 = document.getElementById('pm-date-picker');
+  if (picker0) { picker0.min = ''; picker0.max = ''; }
   renderDurationDualHint('pm-total');
   document.getElementById('pm-opt').checked = false;
   syncPlanTotalFromFormat();
 
   const titleEl = document.getElementById('plan-modal-title');
   if (titleEl) titleEl.textContent = 'Nouvelle séance';
+  const saveBtn = document.getElementById('plan-modal-save-btn');
+  if (saveBtn) saveBtn.textContent = 'Créer';
+
+  openModal('plan-modal');
+}
+
+function addPlanSessionInWeek(stateKey, weekMin, weekMax) {
+  const planId = stateKey.startsWith('extra:') ? stateKey.slice(6) : stateKey;
+  const ep = getExtraPlan(planId);
+  if (!ep) { notify('⚠ Plan non trouvé'); return; }
+
+  document.getElementById('pm-statekey').value = stateKey;
+  document.getElementById('pm-idx').value = '-1';
+  document.getElementById('pm-format').value = '';
+  document.getElementById('pm-type').value = '';
+  document.getElementById('pm-date').value = weekMin || '';
+  document.getElementById('pm-pe').value = '';
+  document.getElementById('pm-total').value = '';
+  document.getElementById('pm-total').readOnly = false;
+  document.getElementById('pm-total').title = '';
+  document.getElementById('pm-week-min').value = weekMin || '';
+  document.getElementById('pm-week-max').value = weekMax || '';
+  renderDurationDualHint('pm-total');
+  document.getElementById('pm-opt').checked = false;
+  syncPlanTotalFromFormat();
+
+  // Constrain the hidden date picker to the week range
+  const picker = document.getElementById('pm-date-picker');
+  if (picker) {
+    picker.min = weekMin || '';
+    picker.max = weekMax || '';
+  }
+
+  const titleEl = document.getElementById('plan-modal-title');
+  if (titleEl) {
+    titleEl.textContent = weekMin && weekMax
+      ? `Nouvelle séance (${formatDate(weekMin)} – ${formatDate(weekMax)})`
+      : 'Nouvelle séance';
+  }
   const saveBtn = document.getElementById('plan-modal-save-btn');
   if (saveBtn) saveBtn.textContent = 'Créer';
 
@@ -5068,8 +5167,37 @@ function renderPlan(containerId, data, stateKey) {
     const weekNumEl = week.querySelector('.week-num');
     const weekDateEl = week.querySelector('.week-date');
     const weekSessionsEl = week.querySelector('.week-sessions');
-    if (weekNumEl) weekNumEl.textContent = `SEMAINE ${block.sem ?? (blockIndex + 1)}`;
-    if (weekDateEl) weekDateEl.textContent = wd ? formatDate(wd) : '—';
+    const weekDateShort = wd ? new Date(wd).toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric'}) : null;
+    if (weekNumEl) weekNumEl.textContent = `SEMAINE ${block.sem ?? (blockIndex + 1)}` + (weekDateShort ? ` (${weekDateShort})` : '');
+    if (weekDateEl) weekDateEl.hidden = true;
+
+    // Wire "+ Séance" button for this week
+    const weekAddBtn = week.querySelector('.week-add-session-btn');
+    if (weekAddBtn) {
+      const weekDates = sortedSessions
+        .map((s) => normalizeDateForStorage(sessionDateValue(s)))
+        .filter(Boolean);
+      // Compute Mon-Sun range from available dates
+      let weekMin = null;
+      let weekMax = null;
+      if (weekDates.length > 0) {
+        const refDate = new Date(weekDates[0] + 'T00:00:00');
+        const dow = refDate.getDay(); // 0=Sun,1=Mon…
+        const daysToMon = (dow === 0 ? -6 : 1 - dow);
+        const mon = new Date(refDate);
+        mon.setDate(refDate.getDate() + daysToMon);
+        const sun = new Date(mon);
+        sun.setDate(mon.getDate() + 6);
+        const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        weekMin = fmt(mon);
+        weekMax = fmt(sun);
+      }
+      weekAddBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        addPlanSessionInWeek(stateKey, weekMin, weekMax);
+      });
+    }
+
     const sessionNodes = [];
     sortedSessions.forEach((s) => {
       const idx = s.__idx;
@@ -5134,7 +5262,12 @@ function renderPlan(containerId, data, stateKey) {
         peEl.textContent = s.pe ? `PE ${s.pe}` : '';
       }
       if (durEl) {
-        const totalMinutes = sessionTotalMinutesValue(s);
+        const formatStr = String(s.format || '').trim();
+        const computedFromFormat = formatStr ? computePlannedTotalMinutesFromFormat(formatStr) : null;
+        // If format exists but doesn't produce a duration (e.g. "20km"), don't show stored totalMin
+        const totalMinutes = formatStr
+          ? computedFromFormat
+          : sessionTotalMinutesValue(s);
         durEl.hidden = false;
         durEl.classList.toggle('session-meta-slot--empty', !totalMinutes);
         durEl.setAttribute('aria-hidden', totalMinutes ? 'false' : 'true');
@@ -5330,6 +5463,12 @@ function readPlanEditPayload() {
   const isoDate = normalizeDateForStorage(dateInput);
   if (dateInput && !isoDate) {
     notify('⚠ Date invalide (format attendu: yyyy-mm-dd)');
+    return null;
+  }
+  const weekMin = document.getElementById('pm-week-min')?.value || '';
+  const weekMax = document.getElementById('pm-week-max')?.value || '';
+  if (isoDate && weekMin && weekMax && (isoDate < weekMin || isoDate > weekMax)) {
+    notify(`⚠ Date hors de la semaine (${formatDate(weekMin)} – ${formatDate(weekMax)})`);
     return null;
   }
 
@@ -7222,7 +7361,7 @@ async function initApp() {
   if (raceDateEl) raceDateEl.value = today;
 
   // Setup date input handlers for FR format (jj/mm/yyyy) conversion
-  ['log-date', 'r-date', 'lm-date', 'rm-date', 'pm-date'].forEach(id => {
+  ['log-date', 'r-date', 'lm-date', 'rm-date'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       const tryOpenPicker = () => {
@@ -7239,6 +7378,19 @@ async function initApp() {
       });
     }
   });
+
+  // pm-date: text input + hidden date picker
+  const pmDateText = document.getElementById('pm-date');
+  const pmDatePicker = document.getElementById('pm-date-picker');
+  if (pmDateText && pmDatePicker) {
+    pmDateText.addEventListener('blur', () => {
+      const normalized = normalizeDateForStorage(pmDateText.value);
+      if (pmDateText.value && normalized) pmDateText.value = normalized;
+    });
+    pmDatePicker.addEventListener('change', () => {
+      if (pmDatePicker.value) pmDateText.value = pmDatePicker.value;
+    });
+  }
 
   setupDurationDualHints();
   setupPlanTotalAutoCompute();
