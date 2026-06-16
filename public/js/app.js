@@ -778,7 +778,17 @@ function setupPlanTotalAutoCompute() {
     return;
   }
 
-  formatInput.addEventListener('input', syncPlanTotalFromFormat);
+  // Auto-uppercase z → Z when preceded by @
+  formatInput.addEventListener('input', () => {
+    const val = formatInput.value;
+    const fixed = val.replace(/@z(\d)/g, (_, d) => `@Z${d}`);
+    if (fixed !== val) {
+      const pos = formatInput.selectionStart;
+      formatInput.value = fixed;
+      formatInput.setSelectionRange(pos, pos);
+    }
+    syncPlanTotalFromFormat();
+  });
   formatInput.addEventListener('change', syncPlanTotalFromFormat);
   formatInput.dataset.autoTotalBound = '1';
   syncPlanTotalFromFormat();
@@ -4867,12 +4877,55 @@ function addPlanSession(planId) {
   document.getElementById('pm-total').value = '';
   document.getElementById('pm-total').readOnly = false;
   document.getElementById('pm-total').title = '';
+  document.getElementById('pm-week-min').value = '';
+  document.getElementById('pm-week-max').value = '';
+  const picker0 = document.getElementById('pm-date-picker');
+  if (picker0) { picker0.min = ''; picker0.max = ''; }
   renderDurationDualHint('pm-total');
   document.getElementById('pm-opt').checked = false;
   syncPlanTotalFromFormat();
 
   const titleEl = document.getElementById('plan-modal-title');
   if (titleEl) titleEl.textContent = 'Nouvelle séance';
+  const saveBtn = document.getElementById('plan-modal-save-btn');
+  if (saveBtn) saveBtn.textContent = 'Créer';
+
+  openModal('plan-modal');
+}
+
+function addPlanSessionInWeek(stateKey, weekMin, weekMax) {
+  const planId = stateKey.startsWith('extra:') ? stateKey.slice(6) : stateKey;
+  const ep = getExtraPlan(planId);
+  if (!ep) { notify('⚠ Plan non trouvé'); return; }
+
+  document.getElementById('pm-statekey').value = stateKey;
+  document.getElementById('pm-idx').value = '-1';
+  document.getElementById('pm-format').value = '';
+  document.getElementById('pm-type').value = '';
+  document.getElementById('pm-date').value = weekMin || '';
+  document.getElementById('pm-pe').value = '';
+  document.getElementById('pm-total').value = '';
+  document.getElementById('pm-total').readOnly = false;
+  document.getElementById('pm-total').title = '';
+  document.getElementById('pm-week-min').value = weekMin || '';
+  document.getElementById('pm-week-max').value = weekMax || '';
+  renderDurationDualHint('pm-total');
+  document.getElementById('pm-opt').checked = false;
+  syncPlanTotalFromFormat();
+
+  // Constrain the hidden date picker to the week range
+  const picker = document.getElementById('pm-date-picker');
+  if (picker) {
+    picker.min = weekMin || '';
+    picker.max = weekMax || '';
+  }
+
+  const titleEl = document.getElementById('plan-modal-title');
+  if (titleEl) {
+    titleEl.textContent = weekMin && weekMax
+      ? `Nouvelle séance (${formatDate(weekMin)} – ${formatDate(weekMax)})`
+      : 'Nouvelle séance';
+  }
   const saveBtn = document.getElementById('plan-modal-save-btn');
   if (saveBtn) saveBtn.textContent = 'Créer';
 
@@ -5070,6 +5123,34 @@ function renderPlan(containerId, data, stateKey) {
     const weekSessionsEl = week.querySelector('.week-sessions');
     if (weekNumEl) weekNumEl.textContent = `SEMAINE ${block.sem ?? (blockIndex + 1)}`;
     if (weekDateEl) weekDateEl.textContent = wd ? formatDate(wd) : '—';
+
+    // Wire "+ Séance" button for this week
+    const weekAddBtn = week.querySelector('.week-add-session-btn');
+    if (weekAddBtn) {
+      const weekDates = sortedSessions
+        .map((s) => normalizeDateForStorage(sessionDateValue(s)))
+        .filter(Boolean);
+      // Compute Mon-Sun range from available dates
+      let weekMin = null;
+      let weekMax = null;
+      if (weekDates.length > 0) {
+        const refDate = new Date(weekDates[0] + 'T00:00:00');
+        const dow = refDate.getDay(); // 0=Sun,1=Mon…
+        const daysToMon = (dow === 0 ? -6 : 1 - dow);
+        const mon = new Date(refDate);
+        mon.setDate(refDate.getDate() + daysToMon);
+        const sun = new Date(mon);
+        sun.setDate(mon.getDate() + 6);
+        const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        weekMin = fmt(mon);
+        weekMax = fmt(sun);
+      }
+      weekAddBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        addPlanSessionInWeek(stateKey, weekMin, weekMax);
+      });
+    }
+
     const sessionNodes = [];
     sortedSessions.forEach((s) => {
       const idx = s.__idx;
@@ -5335,6 +5416,12 @@ function readPlanEditPayload() {
   const isoDate = normalizeDateForStorage(dateInput);
   if (dateInput && !isoDate) {
     notify('⚠ Date invalide (format attendu: yyyy-mm-dd)');
+    return null;
+  }
+  const weekMin = document.getElementById('pm-week-min')?.value || '';
+  const weekMax = document.getElementById('pm-week-max')?.value || '';
+  if (isoDate && weekMin && weekMax && (isoDate < weekMin || isoDate > weekMax)) {
+    notify(`⚠ Date hors de la semaine (${formatDate(weekMin)} – ${formatDate(weekMax)})`);
     return null;
   }
 

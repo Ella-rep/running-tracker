@@ -208,6 +208,7 @@
           <div class="week-header">
             <span class="week-num"></span>
             <span class="week-date"></span>
+            <button type="button" class="week-add-session-btn btn-inline" title="Ajouter une séance dans cette semaine">+ Séance</button>
           </div>
           <div class="week-sessions"></div>
         </div>
@@ -250,7 +251,7 @@
   <div class="modal">
     <button class="modal-close" onclick="closeModal('plan-modal')">✕</button>
     <div class="modal-title" id="plan-modal-title">Modifier la séance</div>
-    <input type="hidden" id="pm-statekey"><input type="hidden" id="pm-idx">
+    <input type="hidden" id="pm-statekey"><input type="hidden" id="pm-idx"><input type="hidden" id="pm-week-min"><input type="hidden" id="pm-week-max">
     <div class="form-grid form-grid-single">
       <div class="field"><label for="pm-format">Format</label><input type="text" id="pm-format"></div>
       <div class="field"><label for="pm-type">Type de séance</label>
