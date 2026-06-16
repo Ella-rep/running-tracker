@@ -5154,8 +5154,9 @@ function renderPlan(containerId, data, stateKey) {
     const weekNumEl = week.querySelector('.week-num');
     const weekDateEl = week.querySelector('.week-date');
     const weekSessionsEl = week.querySelector('.week-sessions');
-    if (weekNumEl) weekNumEl.textContent = `SEMAINE ${block.sem ?? (blockIndex + 1)}`;
-    if (weekDateEl) weekDateEl.textContent = wd ? formatDate(wd) : '—';
+    const weekDateShort = wd ? new Date(wd).toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric'}) : null;
+    if (weekNumEl) weekNumEl.textContent = `SEMAINE ${block.sem ?? (blockIndex + 1)}` + (weekDateShort ? ` (${weekDateShort})` : '');
+    if (weekDateEl) weekDateEl.hidden = true;
 
     // Wire "+ Séance" button for this week
     const weekAddBtn = week.querySelector('.week-add-session-btn');
