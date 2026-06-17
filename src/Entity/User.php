@@ -121,6 +121,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(options: ['default' => false])]
     private bool $dashboardRaceAvgVisible = false;
 
+    #[ORM\Column(options: ['default' => true])]
+    #[Groups(['user:read', 'user:write'])]
+    private bool $emailHebdo = true;
+
     #[ORM\Column(length: 128, nullable: true, unique: true)]
     private ?string $googleId = null;
 
@@ -188,6 +192,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function isDashboardRaceAvgVisible(): bool { return $this->dashboardRaceAvgVisible; }
     public function setDashboardRaceAvgVisible(bool $visible): static { $this->dashboardRaceAvgVisible = $visible; return $this; }
+
+    public function isEmailHebdo(): bool { return $this->emailHebdo; }
+    public function setEmailHebdo(bool $emailHebdo): static { $this->emailHebdo = $emailHebdo; return $this; }
 
     public function getGoogleId(): ?string { return $this->googleId; }
     public function setGoogleId(?string $googleId): static { $this->googleId = $googleId; return $this; }

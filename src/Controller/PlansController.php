@@ -9,6 +9,7 @@ use App\Entity\User;
 use App\Repository\PlanDetailsRepository;
 use App\Repository\PlanProgressRepository;
 use App\Repository\PlanRepository;
+use App\Service\PlanEvolutionService;
 use App\Service\PlanSessionService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -35,6 +36,7 @@ class PlansController extends AbstractController
         PlanRepository $planRepository,
         PlanDetailsRepository $planDetailsRepository,
         PlanSessionService $planSessionService,
+        PlanEvolutionService $planEvolutionService,
         ?int $planId = null,
     ): Response
     {
@@ -84,6 +86,7 @@ class PlansController extends AbstractController
             $planId,
             $plansById,
             $detailsByPlanId,
+            $planEvolutionService,
         );
 
         $hasExamplePlan = false;
@@ -596,7 +599,7 @@ class PlansController extends AbstractController
     }
 
     /** @param array<int, Plan> $plansById @param array<int, array<int, PlanDetails>> $detailsByPlanId @return array{0:?array<string,mixed>,1:bool} */
-    private function buildSelectedPlanView(?int $planId, array $plansById, array $detailsByPlanId): array
+    private function buildSelectedPlanView(?int $planId, array $plansById, array $detailsByPlanId, PlanEvolutionService $planEvolutionService): array
     {
         if ($planId === null) {
             return [null, false];
@@ -669,6 +672,7 @@ class PlansController extends AbstractController
             'title' => $this->isExamplePlanName($name) ? 'Plan de depart (exemple)' : $name,
             'sub' => $this->isExamplePlanName($name) ? 'Plan fourni avec l\'application · blocs hebdomadaires' : '',
             'weeks' => $weekBlocks,
+            'evolution' => $planEvolutionService->buildQuarterlyRecap($plan),
         ], false];
     }
 

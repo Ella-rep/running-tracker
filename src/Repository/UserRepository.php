@@ -38,4 +38,17 @@ class UserRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
     }
+
+    /**
+     * Users opted in to the weekly email digest and having a usable address.
+     * @return array<int, User>
+     */
+    public function findWeeklyEmailSubscribers(): array
+    {
+        return $this->createQueryBuilder('u')
+            ->andWhere('u.emailHebdo = true')
+            ->andWhere('u.email IS NOT NULL')
+            ->getQuery()
+            ->getResult();
+    }
 }

@@ -1,5 +1,6 @@
 <?php
 namespace App\Repository;
+use App\Entity\Plan;
 use App\Entity\RunLog;
 use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -30,6 +31,39 @@ class RunLogRepository extends ServiceEntityRepository {
             }
         }
         return $set;
+    }
+
+    /**
+     * Returns all run logs linked to a plan (via plannedSession), ordered by date ASC.
+     * @return array<int, RunLog>
+     */
+    public function findByPlan(Plan $plan): array
+    {
+        return $this->createQueryBuilder('r')
+            ->join('r.plannedSession', 'd')
+            ->andWhere('d.plan = :plan')
+            ->setParameter('plan', $plan)
+            ->orderBy('r.date', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Returns user run logs whose date (YYYY-MM-DD) is within [from, to] inclusive, ordered by date ASC.
+     * @return array<int, RunLog>
+     */
+    public function findByUserAndDateRange(User $user, string $fromYmd, string $toYmd): array
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.user = :user')
+            ->andWhere('r.date >= :from')
+            ->andWhere('r.date <= :to')
+            ->setParameter('user', $user)
+            ->setParameter('from', $fromYmd)
+            ->setParameter('to', $toYmd)
+            ->orderBy('r.date', 'ASC')
+            ->getQuery()
+            ->getResult();
     }
 
     public function countSinceDate(string $dateYmd): int

@@ -13,4 +13,18 @@ class RaceRepository extends ServiceEntityRepository {
             ->getQuery()
             ->getSingleScalarResult();
     }
+
+    public function findNextRace(\App\Entity\User $user, string $todayYmd): ?Race
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.user = :user')
+            ->andWhere('r.date >= :today')
+            ->andWhere('r.dnfStatus IS NULL')
+            ->setParameter('user', $user)
+            ->setParameter('today', $todayYmd)
+            ->orderBy('r.date', 'ASC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
 }
