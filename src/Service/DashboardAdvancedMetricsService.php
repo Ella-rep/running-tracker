@@ -453,6 +453,15 @@ final class DashboardAdvancedMetricsService
     }
 
     /** @param array<int,RunLog> $logs */
+    /**
+     * Public accessor for the acute/chronic charge ratio (null when not computable).
+     * @param array<int,RunLog> $logs
+     */
+    public function getChargeRatio(array $logs): ?float
+    {
+        return $this->computeChargeRatioOnly($logs);
+    }
+
     private function computeChargeRatioOnly(array $logs): ?float
     {
         $dailyLoads = $this->buildDailyLoads($logs);

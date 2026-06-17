@@ -1,0 +1,267 @@
+{% extends 'base/layout.html.twig' %}
+{% block title %}{{ selectedPlanView.title ?? 'Plan' }} - Running Tracker{% endblock %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
+<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260616-p2p5">
+<link rel="stylesheet" href="{{ asset('css/plans.css') }}?v=20260617-p4">
+{% endblock %}
+
+{% block body %}
+{% include 'components/_app_header.html.twig' with { current_page: 'plans', username: username } %}
+
+<main>
+  <section id="plans" class="visible" data-initial-plan-id="{{ selectedPlanView.id }}">
+    {% for label, messages in app.flashes %}
+      {% for message in messages %}
+        <div class="section-sub" style="margin:8px 0; color: {{ label == 'error' ? 'var(--accent3)' : 'var(--z1)' }}">{{ message }}</div>
+      {% endfor %}
+    {% endfor %}
+
+    <div id="plans-detail" class="plans-detail">
+      <div class="plans-detail-header">
+        <div class="plans-detail-meta">
+          <nav class="plans-breadcrumb" aria-label="Fil d'ariane">
+            <a class="plans-breadcrumb-link" href="{{ path('app_plans') }}">Plans</a>
+            <span class="plans-breadcrumb-sep">/</span>
+            <span class="plans-breadcrumb-current" id="plans-crumb-current">{{ selectedPlanView.title ?? '' }}</span>
+          </nav>
+          <div class="section-title plans-detail-title" id="plans-detail-title">{{ selectedPlanView.title ?? '' }}</div>
+          <div class="section-sub" id="plans-detail-sub">{{ selectedPlanView.sub ?? '' }}</div>
+        </div>
+        <button id="plans-edit-meta-btn" class="btn-inline-icon" type="button" onclick="editPlanMeta({{ selectedPlanView.id }})" title="Renommer">✏️</button>
+        <form method="post" action="{{ path('app_plans_duplicate', { planId: selectedPlanView.id }) }}" onsubmit="return confirm('Dupliquer ce plan ? Copie sans dates, séances non effectuées.');">
+          <input type="hidden" name="_token" value="{{ csrf_token('plans.duplicate.' ~ selectedPlanView.id) }}">
+          <button id="plans-duplicate-btn" class="btn-inline" type="submit" title="Dupliquer ce plan">⧉ Dupliquer</button>
+        </form>
+        <form method="post" action="{{ path('app_plans_delete', { planId: selectedPlanView.id }) }}" onsubmit="return confirm('Supprimer ce plan ?');">
+          <input type="hidden" name="_token" value="{{ csrf_token('plans.delete.' ~ selectedPlanView.id) }}">
+          <button id="delete-extra-btn" class="btn-inline btn-inline-danger" type="submit">🗑 Supprimer</button>
+        </form>
+      </div>
+
+      <div class="plans-detail-actions">
+        <button class="btn btn-small plans-add-session-btn" id="plans-add-session-btn" type="button" onclick="addPlanSession({{ selectedPlanView.id }})">+ Ajouter séance</button>
+        <button class="btn btn-small btn-ghost plans-mark-complete-btn" id="plans-mark-complete-btn" type="button" onclick="markPlanComplete({{ selectedPlanView.id }})">✓ Marquer comme terminé</button>
+        <span class="badge-done plans-detail-complete-badge" id="plans-detail-complete-badge" style="display:none">✓ Plan terminé</span>
+      </div>
+
+      <div class="zone-legend plans-zone-legend" id="plans-zone-legend">
+        <div class="zone-item"><div class="zone-dot zone-dot-z1"></div><span class="zone-z1-text">Z1 récup</span></div>
+        <div class="zone-item"><div class="zone-dot zone-dot-z2"></div>Z2 endurance</div>
+        <div class="zone-item"><div class="zone-dot zone-dot-z3"></div>Z3 tempo</div>
+        <div class="zone-item"><div class="zone-dot zone-dot-z4"></div>Z4 seuil</div>
+        <div class="zone-item"><div class="zone-dot zone-dot-z5"></div>Z5 VO2max</div>
+      </div>
+
+      <script type="application/json" id="starter-placeholders-data">{{ starterPlaceholders|default([])|json_encode|raw }}</script>
+      {% if selectedPlanView.evolution.hasData %}
+        {% set evo = selectedPlanView.evolution %}
+        <div class="plan-evolution-card" id="plan-evolution">
+          {% if evo.summary %}
+            <div class="evo-summary-title">Résumé du plan</div>
+            <div class="evo-summary-boxes">
+              <div class="evo-box">
+                <span class="evo-box-value">{{ evo.summary.runs }}</span>
+                <span class="evo-box-label">sorties</span>
+              </div>
+              <div class="evo-box">
+                <span class="evo-box-value">{{ evo.summary.km }} km</span>
+                <span class="evo-box-label">parcourus</span>
+              </div>
+              {% if evo.summary.time %}
+                <div class="evo-box">
+                  <span class="evo-box-value">{{ evo.summary.time }}</span>
+                  <span class="evo-box-label">au total de courses</span>
+                </div>
+              {% endif %}
+            </div>
+          {% endif %}
+          <div class="section-title">Ta progression</div>
+          <p class="plan-evolution-intro">Comparaison entre le premier et le dernier mois du plan.</p>
+          {% if evo.cards is not empty %}
+            <div class="evo-cards">
+              {% for c in evo.cards %}
+                <div class="evo-card">
+                  <div class="evo-card-head">
+                    <span class="evo-card-type">{{ c.typeLabel }}</span>
+                  </div>
+                  {% for m in [{ k: 'bpm', label: 'FC moyenne', d: c.bpm }, { k: 'pace', label: 'Allure moyenne', d: c.pace }] %}
+                    {% if m.d %}
+                      <div class="evo-metric{% if m.d.trend %} evo-{{ m.d.improved ? 'good' : (m.d.trend == 'flat' ? 'flat' : 'bad') }}{% endif %}">
+                        <span class="evo-metric-label">{{ m.label }}</span>
+                        <div class="evo-card-values">
+                          <span class="evo-from">{{ m.d.from }}</span>
+                          <span class="evo-arrow">→</span>
+                          <span class="evo-to">{{ m.d.to }}</span>
+                        </div>
+                        {% if m.d.gap %}
+                          <div class="evo-card-gap">{{ m.d.trend == 'down' ? '↘' : (m.d.trend == 'up' ? '↗' : '→') }} {{ m.d.gap }}</div>
+                        {% endif %}
+                      </div>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </div>
+      {% endif %}
+      <div id="plans-detail-weeks">
+        {% for week in selectedPlanView.weeks %}
+          <div class="week-card">
+            <div class="week-header">
+              <span class="week-num">SEMAINE {{ week.weekNumber }}</span>
+              <span class="week-date">{{ week.weekDate ? week.weekDate|date('d M Y') : '—' }}</span>
+            </div>
+            <div class="week-sessions">
+              {% for session in week.sessions %}
+                <div class="session-row" data-session-index="{{ session.position - 1 }}">
+                  <div class="session-check{% if session.isDone %} done{% endif %}">
+                    <form method="post" action="{{ path('app_plans_session_toggle', { planId: selectedPlanView.id, sessionId: session.id }) }}">
+                      <input type="hidden" name="_token" value="{{ csrf_token('plans.session.toggle.' ~ session.id) }}">
+                      <button class="action-btn" type="submit" title="Basculer la validation">{% if session.isDone %}✓{% else %}○{% endif %}</button>
+                    </form>
+                  </div>
+                  <div class="session-format">{{ session.format }}</div>
+                  <div class="session-meta">
+                    <span class="session-date-badge{% if not session.date %} session-meta-slot--empty{% endif %}"{% if not session.date %} aria-hidden="true"{% endif %}>{{ session.date ? session.date|date('d M Y') : '00 xxx 0000' }}</span>
+                    <span class="session-type-badge{% if not session.sessionType %} session-meta-slot--empty{% endif %}"{% if not session.sessionType %} aria-hidden="true"{% endif %}>{{ session.sessionType ?: 'TYPE' }}</span>
+                    <span class="pe-badge{% if not session.pe %} session-meta-slot--empty{% endif %}"{% if not session.pe %} aria-hidden="true"{% endif %}>PE {{ session.pe ?: '0/10' }}</span>
+                    <span class="duration-badge{% if not session.totalMin %} session-meta-slot--empty{% endif %}"{% if not session.totalMin %} aria-hidden="true"{% endif %}>{{ session.totalMin ?: '00' }}'</span>
+                    {% if session.isOptional %}<span class="optional-tag">(optionnel)</span>{% endif %}
+                    <form method="post" action="{{ path('app_plans_session_delete', { planId: selectedPlanView.id, sessionId: session.id }) }}" onsubmit="return confirm('Supprimer cette séance ?');" style="display:inline-flex; margin-left:8px;">
+                      <input type="hidden" name="_token" value="{{ csrf_token('plans.session.delete.' ~ session.id) }}">
+                      <button class="action-btn del" type="submit" title="Supprimer">🗑</button>
+                    </form>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% else %}
+          <div class="week-card week-card--placeholder">
+            <div class="week-header">
+              <span class="week-num">SÉANCES SUGGÉRÉES</span>
+              <span class="week-date">exemple</span>
+            </div>
+            <div class="plans-placeholder-hint">Ce plan est vide. Voici des séances types pour démarrer — ajoute tes propres séances avec « + Ajouter séance ».</div>
+            <div class="week-sessions">
+              {% for ph in starterPlaceholders|default([]) %}
+                <div class="session-row session-row--placeholder">
+                  <div class="session-check" aria-hidden="true">○</div>
+                  <div class="session-format">{{ ph.format }}{% if ph.isOptional %} <span class="session-format-optional">(optionnel)</span>{% endif %}</div>
+                  <div class="session-meta">
+                    <span class="session-type-badge{% if not ph.sessionType %} session-meta-slot--empty{% endif %}">{{ ph.sessionType ?: 'TYPE' }}</span>
+                    <span class="pe-badge{% if not ph.pe %} session-meta-slot--empty{% endif %}">PE {{ ph.pe ?: '0/10' }}</span>
+                    <span class="duration-badge{% if not ph.totalMin %} session-meta-slot--empty{% endif %}">{{ ph.totalMin ?: '00' }}'</span>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      <template id="plan-week-card-template">
+        <div class="week-card">
+          <div class="week-header">
+            <span class="week-num"></span>
+            <span class="week-date"></span>
+            <button type="button" class="week-add-session-btn btn-inline" title="Ajouter une séance dans cette semaine">+ Séance</button>
+          </div>
+          <div class="week-sessions"></div>
+        </div>
+      </template>
+      <template id="plan-session-row-template">
+        <div class="session-row">
+          <div class="session-check"></div>
+          <div class="session-format"></div>
+          <div class="session-meta">
+            <span class="session-date-badge session-meta-slot--empty" aria-hidden="true">00 xxx 0000</span>
+            <span class="session-type-badge session-meta-slot--empty" aria-hidden="true">TYPE</span>
+            <span class="pe-badge session-meta-slot--empty" aria-hidden="true">PE 0/10</span>
+            <span class="duration-badge session-meta-slot--empty" aria-hidden="true">00'</span>
+            <span class="optional-tag" hidden>(optionnel)</span>
+            <div class="action-btns">
+              <button class="action-btn session-cancel" title="Annuler la séance">✕</button>
+              <button class="action-btn session-edit" title="Modifier">✏️</button>
+              <button class="action-btn del session-delete" title="Supprimer">🗑</button>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </section>
+</main>
+
+<div class="notif" id="notif"></div>
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="modal">
+    <div class="modal-title" id="confirm-title">Confirmation</div>
+    <div id="confirm-msg"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="confirmDelete()">Confirmer</button>
+      <button class="btn btn-ghost" onclick="closeConfirm()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="plan-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('plan-modal')">✕</button>
+    <div class="modal-title" id="plan-modal-title">Modifier la séance</div>
+    <input type="hidden" id="pm-statekey"><input type="hidden" id="pm-idx"><input type="hidden" id="pm-week-min"><input type="hidden" id="pm-week-max">
+    <div class="form-grid form-grid-single">
+      <div class="field"><label for="pm-format">Format</label><input type="text" id="pm-format"></div>
+      <div class="field"><label for="pm-type">Type de séance</label>
+        <select id="pm-type">
+          <option value="">—</option>
+          <option value="EF">EF – Endurance fondamentale</option>
+          <option value="FC">FC – Fractionné court</option>
+          <option value="FL">FL – Fractionné long</option>
+          <option value="SL">SL – Sortie longue</option>
+          <option value="T">T – Tempo</option>
+          <option value="Race">🏁 Course</option>
+        </select>
+      </div>
+      <div class="field"><label for="pm-date">Date</label>
+        <div class="date-text-wrapper">
+          <input type="text" id="pm-date" placeholder="jj/mm/yyyy ou yyyy-mm-dd" autocomplete="off">
+          <input type="date" id="pm-date-picker" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none;" tabindex="-1" aria-hidden="true">
+          <button type="button" id="pm-date-calendar-btn" class="date-picker-icon-btn" title="Ouvrir le calendrier" onclick="document.getElementById('pm-date-picker').showPicker && document.getElementById('pm-date-picker').showPicker()">📅</button>
+        </div>
+      </div>
+      <div class="field"><label for="pm-pe">PE</label><input type="text" id="pm-pe" placeholder="ex: 6/10"></div>
+      <div class="field"><label for="pm-total">Temps total (min ou hh:mm:ss)</label><input type="text" id="pm-total" placeholder="45 ou 01:15:00"></div>
+      <div class="field field-inline">
+        <label for="pm-opt" class="pm-opt-wrap">
+          <input type="checkbox" id="pm-opt" class="pm-opt">
+          <span class="pm-opt-label">Optionnelle</span>
+        </label>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="plan-modal-save-btn" onclick="savePlanEdit()">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeModal('plan-modal')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="meta-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('meta-modal')">✕</button>
+    <div class="modal-title">Modifier le plan</div>
+    <div class="form-grid form-grid-single">
+      <div class="field"><label for="meta-title">Titre</label><input type="text" id="meta-title"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="meta-save-btn">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeModal('meta-modal')">Annuler</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script src="{{ asset('js/app.js') }}?v=20260616-p2p5"></script>
+{% endblock %}

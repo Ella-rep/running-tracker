@@ -121,11 +121,26 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(options: ['default' => false])]
     private bool $dashboardRaceAvgVisible = false;
 
+    #[ORM\Column(options: ['default' => true])]
+    #[Groups(['user:read', 'user:write'])]
+    private bool $emailHebdo = true;
+
     #[ORM\Column(length: 128, nullable: true, unique: true)]
     private ?string $googleId = null;
 
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $meteoCity = null;
+
+    /** @var resource|string|null Raw binary of the profile picture, stored in DB (BYTEA). */
+    #[ORM\Column(type: 'blob', nullable: true)]
+    private $photoData = null;
+
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $photoMimeType = null;
+
+    #[ORM\ManyToOne(targetEntity: DefaultAvatar::class)]
+    #[ORM\JoinColumn(name: 'default_avatar_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?DefaultAvatar $defaultAvatar = null;
 
 
     #[ORM\OneToOne(targetEntity: HealthPause::class, mappedBy: 'user', cascade: ['remove'])]
@@ -189,11 +204,31 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function isDashboardRaceAvgVisible(): bool { return $this->dashboardRaceAvgVisible; }
     public function setDashboardRaceAvgVisible(bool $visible): static { $this->dashboardRaceAvgVisible = $visible; return $this; }
 
+    public function isEmailHebdo(): bool { return $this->emailHebdo; }
+    public function setEmailHebdo(bool $emailHebdo): static { $this->emailHebdo = $emailHebdo; return $this; }
+
     public function getGoogleId(): ?string { return $this->googleId; }
     public function setGoogleId(?string $googleId): static { $this->googleId = $googleId; return $this; }
 
     public function getMeteoCity(): ?string { return $this->meteoCity; }
     public function setMeteoCity(?string $city): static { $this->meteoCity = $city !== null ? trim($city) : null; return $this; }
+
+    /** @return resource|string|null */
+    public function getPhotoData() { return $this->photoData; }
+    /** @param resource|string|null $data */
+    public function setPhotoData($data): static { $this->photoData = $data; return $this; }
+    public function getPhotoMimeType(): ?string { return $this->photoMimeType; }
+    public function setPhotoMimeType(?string $mime): static { $this->photoMimeType = $mime; return $this; }
+    public function getDefaultAvatar(): ?DefaultAvatar { return $this->defaultAvatar; }
+    public function setDefaultAvatar(?DefaultAvatar $a): static { $this->defaultAvatar = $a; return $this; }
+    public function hasPhoto(): bool { return $this->photoData !== null; }
+    public function hasAvatar(): bool { return $this->photoData !== null || $this->defaultAvatar !== null; }
+    /** Returns the binary content as string (reads stream if needed). */
+    public function getPhotoBinary(): ?string {
+        if ($this->photoData === null) { return null; }
+        if (is_resource($this->photoData)) { rewind($this->photoData); return (string) stream_get_contents($this->photoData); }
+        return (string) $this->photoData;
+    }
 
     /** @return array<string, bool> */
     public function getDashboardWidgetVisibilityMap(): array
@@ -210,6 +245,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     }
 
     public function getHealthPause(): ?HealthPause { return $this->healthPause; }
+    public function getRunLogs(): Collection { return $this->runLogs; }
 
     public function isOnHealthPause(): bool
     {

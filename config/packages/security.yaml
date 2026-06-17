@@ -28,6 +28,7 @@ security:
         main:
             pattern: ^/
             lazy: true
+            stateless: true
             jwt: ~
             entry_point: App\Security\WebLoginEntryPoint
             custom_authenticators:
@@ -43,6 +44,7 @@ security:
         - { path: ^/api/admin,         roles: ROLE_ADMIN }
         - { path: ^/admin,             roles: ROLE_ADMIN }
         - { path: ^/contact,           roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/profile,           roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api/user/preferences, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/api,               roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/,                  roles: PUBLIC_ACCESS }

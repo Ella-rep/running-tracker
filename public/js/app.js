@@ -2011,8 +2011,7 @@ function focusPlannedSessionFromAdvice(planId, sessionIndex) {
 
   // On dashboard-only pages, navigate to /plans and carry focus info.
   if (!plansDetailRoot || !plansSection) {
-    const target = new URL('/plans', globalThis.location.origin);
-    target.searchParams.set('focusPlanId', String(planId));
+    const target = new URL(`/plans/${Number(planId)}`, globalThis.location.origin);
     target.searchParams.set('focusSessionIndex', String(Number(sessionIndex) || 0));
     globalThis.location.href = target.toString();
     return;
@@ -2028,14 +2027,14 @@ function focusPlannedSessionFromAdvice(planId, sessionIndex) {
 
 function consumeAdviceFocusFromUrl() {
   const params = new URLSearchParams(globalThis.location.search || '');
-  const rawPlanId = params.get('focusPlanId');
-  if (!rawPlanId) return;
+  if (!params.has('focusSessionIndex')) return;
 
-  const planId = Number(rawPlanId);
-  if (!Number.isFinite(planId)) return;
+  const rawPlanId = params.get('focusPlanId');
+  const planId = rawPlanId ? Number(rawPlanId) : parsePlanIdFromPathname(globalThis.location?.pathname || '');
+  if (planId === null || !Number.isFinite(Number(planId))) return;
 
   const sessionIndex = Number(params.get('focusSessionIndex') || 0);
-  openPlan(planId);
+  openPlan(Number(planId));
 
   // Try multiple times while the plan detail DOM settles.
   let attempts = 0;
@@ -2672,11 +2671,24 @@ function renderDashboard() {
         }
         if (actionEl instanceof HTMLButtonElement) {
           actionEl.textContent = 'Retirer';
-          actionEl.addEventListener('click', () => {
+          actionEl.addEventListener('click', (e) => {
+            e.stopPropagation();
             actionEl.disabled = true;
             void setPlanDashboardTracked(plan.id, false).finally(() => {
               actionEl.disabled = false;
             });
+          });
+        }
+
+        if (Number.isFinite(Number(plan.id))) {
+          node.classList.add('is-actionable');
+          node.style.cursor = 'pointer';
+          node.setAttribute('role', 'button');
+          node.tabIndex = 0;
+          const goToPlan = () => { globalThis.location.href = `/plans/${plan.id}`; };
+          node.addEventListener('click', goToPlan);
+          node.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goToPlan(); }
           });
         }
 
@@ -4769,7 +4781,10 @@ function planCard(id, title, sub, totalSessions, doneCount, isExtra, complete = 
   if (pctEl) pctEl.textContent = complete ? 'Terminé' : `${pct}%`;
   if (countEl) countEl.textContent = `${doneCount}/${totalSessions} séances`;
   if (barEl) barEl.style.width = `${pct}%`;
-  const open = () => openPlan(id);
+  const href = `/plans/${id}`;
+  const arrow = card.querySelector('.plan-card-arrow');
+  if (arrow) arrow.setAttribute('href', href);
+  const open = () => { globalThis.location.href = href; };
   card.addEventListener('click', open);
   if (deleteBtn) {
     deleteBtn.addEventListener('click', (e) => {
@@ -4849,6 +4864,9 @@ function backToPlansList(options = {}) {
   const pushHistory = options.pushHistory !== false;
   currentPlanId = null;
   const plansList = document.getElementById('plans-list');
+  // Per-route templates: the list DOM only exists on /plans. If we are on a
+  // detail-only page (/plans/{id}), navigate to the list instead of toggling.
+  if (!plansList) { globalThis.location.href = '/plans'; return; }
   if (plansList) plansList.style.display = 'flex';
   const plansDoneSectionClose = document.getElementById('plans-done-section');
   if (plansDoneSectionClose) plansDoneSectionClose.style.display = '';
@@ -5297,8 +5315,9 @@ function renderPlan(containerId, data, stateKey) {
       const delBtn = row.querySelector('.session-delete');
       const isCancelled = !!s.isCancelled;
       if (checkEl) {
-        checkEl.classList.toggle('done', done);
-        checkEl.textContent = done ? '✓' : '';
+        const showDone = done && !isCancelled;
+        checkEl.classList.toggle('done', showDone);
+        checkEl.textContent = showDone ? '✓' : '';
       }
       if (cancelBtn) {
         cancelBtn.classList.toggle('is-cancelled', isCancelled);
@@ -5376,6 +5395,11 @@ function renderPlan(containerId, data, stateKey) {
             await cancelPlanSessionInDb(plan.id, detailId, next);
             // Live DOM update so the line-through shows without a page reload.
             row.classList.toggle('session-cancelled', next);
+            if (checkEl) {
+              const showDone = done && !next;
+              checkEl.classList.toggle('done', showDone);
+              checkEl.textContent = showDone ? '✓' : '';
+            }
             if (cancelBtn) {
               cancelBtn.classList.toggle('is-cancelled', next);
               cancelBtn.title = next ? 'Remettre la séance' : 'Annuler la séance';

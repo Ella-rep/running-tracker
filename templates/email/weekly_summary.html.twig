@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#0f1115;font-family:Arial,Helvetica,sans-serif;color:#e6e8ec;">
+  <div style="max-width:480px;margin:0 auto;padding:24px;">
+    <h1 style="font-size:18px;margin:0 0 16px;">Semaine du {{ weekLabel }} 🏃</h1>
+    <p style="margin:0 0 16px;">Salut {{ prenom }},</p>
+    <p style="margin:0 0 8px;color:#9aa1ac;">Cette semaine :</p>
+    <div style="font-size:16px;line-height:1.8;margin:0 0 16px;">
+      <div>📦 {{ runs }} sortie{{ runs > 1 ? 's' : '' }} · {{ km }} km · {{ duration }}</div>
+      {% if chargePct is not null %}<div>⚡ Charge : {{ chargePct }}% de ta base</div>{% endif %}
+      {% if race is not null %}<div>🏁 {{ race.name }} dans {{ race.days }} jour{{ race.days > 1 ? 's' : '' }}</div>{% endif %}
+    </div>
+    <p style="margin:0 0 20px;color:#c8ccd2;">{{ conseil }}</p>
+    <a href="{{ dashboardUrl }}" style="display:inline-block;background:#5b8def;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:bold;">Voir mon dashboard →</a>
+    <hr style="border:none;border-top:1px solid #262b33;margin:24px 0;">
+    <p style="font-size:12px;color:#6b7280;margin:0;">Tu reçois ce mail car tu es inscrit·e au résumé hebdo. Gère tes préférences depuis <a href="{{ profileUrl }}" style="color:#5b8def;">ton profil</a>.</p>
+  </div>
+</body>
+</html>

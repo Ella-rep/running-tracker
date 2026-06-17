@@ -1,0 +1,113 @@
+{% extends 'base/layout.html.twig' %}
+{% block title %}Profil - Running Tracker{% endblock %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
+<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260617-p5">
+{% endblock %}
+
+{% block body %}
+{% include 'components/_app_header.html.twig' with { current_page: 'profile', username: username } %}
+
+<main>
+  <section class="profile-page visible">
+    <div class="section-title">Mon profil</div>
+    <div class="section-sub">Gère tes informations de compte et tes préférences d'e-mail.</div>
+
+    {% for label, messages in app.flashes %}
+      {% for message in messages %}
+        <div class="contact-flash contact-flash-{{ label == 'error' ? 'error' : 'success' }}">{{ message }}</div>
+      {% endfor %}
+    {% endfor %}
+
+    <div class="form-card profile-identity">
+      <div class="profile-avatar-block">
+        <div class="profile-avatar">
+          {% if profileUser.hasAvatar %}
+            <img src="{{ path('app_profile_photo_show') }}?v={{ profileUser.defaultAvatar ? profileUser.defaultAvatar.id : 'p' }}" alt="Avatar">
+          {% else %}
+            <span class="profile-avatar-fallback">{{ profileUser.userIdentifier|slice(0,1)|upper }}</span>
+          {% endif %}
+        </div>
+        <div class="profile-avatar-actions">
+          <form method="post" action="{{ path('app_profile_photo') }}" enctype="multipart/form-data">
+            <input type="hidden" name="_token" value="{{ csrf_token('profile_photo') }}">
+            <label class="btn btn-sm" for="photo">{{ profileUser.hasAvatar ? 'Changer ma photo' : 'Ajouter ma photo' }}</label>
+            <input type="file" id="photo" name="photo" accept="image/png,image/jpeg,image/webp,image/gif" hidden onchange="this.form.submit()">
+          </form>
+          {% if profileUser.hasAvatar %}
+            <form method="post" action="{{ path('app_profile_photo_delete') }}" onsubmit="return confirm('Supprimer ton avatar ?');">
+              <input type="hidden" name="_token" value="{{ csrf_token('profile_photo_delete') }}">
+              <button class="btn btn-ghost btn-sm" type="submit">Supprimer</button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+      <div class="profile-identity-info">
+        <div class="field">
+          <label>Nom d'utilisateur</label>
+          <div>{{ profileUser.userIdentifier }}</div>
+        </div>
+        <div class="field">
+          <label>E-mail</label>
+          <div>{{ profileUser.email ?: 'Non renseigné' }}</div>
+        </div>
+      </div>
+      {% if defaultAvatars is not empty %}
+        <details class="profile-avatar-picker"{{ profileUser.hasAvatar ? '' : ' open' }}>
+          <summary class="avatar-picker-toggle">Pas de photo ? Choisis un avatar</summary>
+          <form method="post" action="{{ path('app_profile_avatar_default') }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('profile_avatar_default') }}">
+            <div class="avatar-grid">
+              {% for a in defaultAvatars %}
+                {% set selected = profileUser.defaultAvatar and profileUser.defaultAvatar.id == a.id %}
+                <button type="submit" name="avatar_id" value="{{ a.id }}" class="avatar-choice{{ selected ? ' is-selected' : '' }}" title="{{ a.label }}" aria-label="{{ a.label }}">
+                  <img src="{{ path('app_profile_avatar_image', { id: a.id }) }}" alt="{{ a.label }}" loading="lazy">
+                </button>
+              {% endfor %}
+            </div>
+          </form>
+        </details>
+      {% endif %}
+    </div>
+
+    <form class="form-card" method="post" action="{{ path('app_profile_password') }}">
+      <input type="hidden" name="_token" value="{{ csrf_token('profile_password') }}">
+      <div class="section-title" style="font-size:1rem;">Changer le mot de passe</div>
+      <div class="section-sub">6 caractères minimum.</div>
+      <div class="field">
+        <label for="current_password">Mot de passe actuel</label>
+        <input type="password" id="current_password" name="current_password" autocomplete="current-password" required>
+      </div>
+      <div class="field">
+        <label for="new_password">Nouveau mot de passe</label>
+        <input type="password" id="new_password" name="new_password" autocomplete="new-password" minlength="6" required>
+      </div>
+      <div class="field">
+        <label for="new_password_confirm">Confirmer le nouveau mot de passe</label>
+        <input type="password" id="new_password_confirm" name="new_password_confirm" autocomplete="new-password" minlength="6" required>
+      </div>
+      <div class="profile-actions">
+        <button class="btn" type="submit">Mettre à jour</button>
+      </div>
+    </form>
+
+    <form class="form-card" method="post" action="{{ path('app_profile_email_hebdo') }}">
+      <input type="hidden" name="_token" value="{{ csrf_token('profile_email_hebdo') }}">
+      <div class="section-title" style="font-size:1rem;">Résumé hebdomadaire</div>
+      <div class="section-sub">Reçois chaque semaine un récap de tes sorties par e-mail.</div>
+      <div class="field field-inline" style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+        <input type="checkbox" id="email_hebdo" name="email_hebdo" value="1" {{ profileUser.emailHebdo ? 'checked' : '' }}>
+        <label for="email_hebdo" style="margin:0;">Je veux recevoir le résumé hebdo</label>
+      </div>
+      <div class="profile-actions">
+        <button class="btn" type="submit">Enregistrer</button>
+      </div>
+    </form>
+  </section>
+</main>
+{% endblock %}
+
+{% block javascripts %}
+<script src="{{ asset('js/app.js') }}?v=20260617-p3"></script>
+{% endblock %}
