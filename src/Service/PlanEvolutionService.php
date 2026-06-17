@@ -135,7 +135,7 @@ final class PlanEvolutionService
     }
 
     /**
-     * @return array{from:string, to:string, fromSec:?int, toSec:?int, gap:?string, trend:?string, improved:?bool}
+     * @return array{from:string, to:string, gap:?string, trend:?string, improved:?bool}
      */
     private function paceMetric(?string $from, ?string $to): array
     {
@@ -153,8 +153,6 @@ final class PlanEvolutionService
         return [
             'from' => $from !== null ? $from . '/km' : '—',
             'to' => $to !== null ? $to . '/km' : '—',
-            'fromSec' => $fromSec,
-            'toSec' => $toSec,
             'gap' => $gap,
             'trend' => $trend,
             'improved' => $improved,

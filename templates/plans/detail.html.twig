@@ -79,35 +79,6 @@
           {% endif %}
           <div class="section-title">Ta progression</div>
           <p class="plan-evolution-intro">Comparaison entre le premier et le dernier mois du plan.</p>
-          {% set paceTypes = [] %}
-          {% set paceVals = [] %}
-          {% for c in evo.cards %}
-            {% if c.pace and c.pace.fromSec is not null and c.pace.toSec is not null %}
-              {% set paceTypes = paceTypes|merge([c]) %}
-              {% set paceVals = paceVals|merge([c.pace.fromSec, c.pace.toSec]) %}
-            {% endif %}
-          {% endfor %}
-          {% if paceTypes|length > 0 %}
-            {% set vmin = min(paceVals) %}
-            {% set vmax = max(paceVals) %}
-            {% set span = (vmax - vmin) > 0 ? (vmax - vmin) : 1 %}
-            <div class="evo-chart">
-              <div class="evo-chart-title">Allure par type · premier → dernier mois</div>
-              <svg class="evo-chart-svg" viewBox="0 0 320 180" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Évolution de l'allure par type">
-                <text x="50" y="174" class="evo-axis">premier</text>
-                <text x="250" y="174" text-anchor="end" class="evo-axis">dernier</text>
-                {% for c in paceTypes %}
-                  {% set y1 = 18 + (c.pace.fromSec - vmin) / span * 120 %}
-                  {% set y2 = 18 + (c.pace.toSec - vmin) / span * 120 %}
-                  <line x1="50" y1="{{ y1 }}" x2="250" y2="{{ y2 }}" class="evo-line {{ c.pace.improved ? 'evo-line-good' : (c.pace.trend == 'flat' ? 'evo-line-flat' : 'evo-line-bad') }}"/>
-                  <circle cx="50" cy="{{ y1 }}" r="3.5" class="evo-dot"/>
-                  <circle cx="250" cy="{{ y2 }}" r="3.5" class="evo-dot"/>
-                  <text x="44" y="{{ y1 + 3 }}" text-anchor="end" class="evo-point-label">{{ c.code }}</text>
-                  <text x="256" y="{{ y2 + 3 }}" class="evo-point-label">{{ c.pace.to }}</text>
-                {% endfor %}
-              </svg>
-            </div>
-          {% endif %}
           {% if evo.cards is not empty %}
             <div class="evo-cards">
               {% for c in evo.cards %}
