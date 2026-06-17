@@ -143,6 +143,30 @@ final class PlanMaintenanceApiController extends AbstractController
     }
 
     /**
+     * Debug helper: returns the APP_URL environment variable as seen by the app
+     * (used to diagnose broken links in the weekly recap email). Admin only.
+     * Route in config/routes/admin.yaml.
+     */
+    public function showAppUrl(): JsonResponse
+    {
+        try {
+            $this->requireAdminUser();
+        } catch (AccessDeniedHttpException $e) {
+            return $this->json([
+                'message' => $e->getMessage(),
+                'error' => 'access_denied',
+            ], 403);
+        }
+
+        $raw = $_ENV['APP_URL'] ?? $_SERVER['APP_URL'] ?? null;
+
+        return $this->json([
+            'appUrl' => $raw,
+            'isSet' => $raw !== null && $raw !== '',
+        ]);
+    }
+
+    /**
      * Returns the current authenticated user.
      */
     private function requireUser(): User

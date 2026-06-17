@@ -3,7 +3,7 @@
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
-<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260616-p2p4">
+<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260617-p3">
 {% endblock %}
 
 {% block body %}
@@ -20,31 +20,86 @@
       {% endfor %}
     {% endfor %}
 
-    <div class="form-card" style="margin-bottom:16px;">
-      <div class="field">
-        <label>Nom d'utilisateur</label>
-        <div>{{ profileUser.userIdentifier }}</div>
+    <div class="form-card profile-identity">
+      <div class="profile-avatar">
+        {% if profileUser.photoFilename %}
+          <img src="{{ asset('uploads/avatars/' ~ profileUser.photoFilename) }}" alt="Photo de profil">
+        {% else %}
+          <span class="profile-avatar-fallback">{{ profileUser.userIdentifier|slice(0,1)|upper }}</span>
+        {% endif %}
       </div>
-      <div class="field">
-        <label>E-mail</label>
-        <div>{{ profileUser.email ?: 'Non renseigné' }}</div>
+      <div class="profile-identity-info">
+        <div class="field">
+          <label>Nom d'utilisateur</label>
+          <div>{{ profileUser.userIdentifier }}</div>
+        </div>
+        <div class="field">
+          <label>E-mail</label>
+          <div>{{ profileUser.email ?: 'Non renseigné' }}</div>
+        </div>
       </div>
     </div>
+
+    <form class="form-card" method="post" action="{{ path('app_profile_photo') }}" enctype="multipart/form-data">
+      <input type="hidden" name="_token" value="{{ csrf_token('profile_photo') }}">
+      <div class="section-title" style="font-size:1rem;">Photo de profil</div>
+      <div class="section-sub">Optionnelle. JPEG, PNG, WEBP ou GIF — 4 Mo max.</div>
+      <div class="field" style="margin-top:8px;">
+        <label for="photo">Choisir une image</label>
+        <input type="file" id="photo" name="photo" accept="image/png,image/jpeg,image/webp,image/gif">
+      </div>
+      <div class="profile-actions">
+        <button class="btn" type="submit">Téléverser</button>
+      </div>
+    </form>
+
+    {% if profileUser.photoFilename %}
+      <form class="form-card" method="post" action="{{ path('app_profile_photo_delete') }}" onsubmit="return confirm('Supprimer ta photo de profil ?');">
+        <input type="hidden" name="_token" value="{{ csrf_token('profile_photo_delete') }}">
+        <div class="section-sub">Supprimer la photo de profil actuelle.</div>
+        <div class="profile-actions">
+          <button class="btn btn-ghost" type="submit">Supprimer la photo</button>
+        </div>
+      </form>
+    {% endif %}
+
+    <form class="form-card" method="post" action="{{ path('app_profile_password') }}">
+      <input type="hidden" name="_token" value="{{ csrf_token('profile_password') }}">
+      <div class="section-title" style="font-size:1rem;">Changer le mot de passe</div>
+      <div class="section-sub">6 caractères minimum.</div>
+      <div class="field">
+        <label for="current_password">Mot de passe actuel</label>
+        <input type="password" id="current_password" name="current_password" autocomplete="current-password" required>
+      </div>
+      <div class="field">
+        <label for="new_password">Nouveau mot de passe</label>
+        <input type="password" id="new_password" name="new_password" autocomplete="new-password" minlength="6" required>
+      </div>
+      <div class="field">
+        <label for="new_password_confirm">Confirmer le nouveau mot de passe</label>
+        <input type="password" id="new_password_confirm" name="new_password_confirm" autocomplete="new-password" minlength="6" required>
+      </div>
+      <div class="profile-actions">
+        <button class="btn" type="submit">Mettre à jour</button>
+      </div>
+    </form>
 
     <form class="form-card" method="post" action="{{ path('app_profile_email_hebdo') }}">
       <input type="hidden" name="_token" value="{{ csrf_token('profile_email_hebdo') }}">
       <div class="section-title" style="font-size:1rem;">Résumé hebdomadaire</div>
       <div class="section-sub">Reçois chaque semaine un récap de tes sorties par e-mail.</div>
-      <div class="field" style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+      <div class="field field-inline" style="display:flex;align-items:center;gap:10px;margin-top:8px;">
         <input type="checkbox" id="email_hebdo" name="email_hebdo" value="1" {{ profileUser.emailHebdo ? 'checked' : '' }}>
         <label for="email_hebdo" style="margin:0;">Je veux recevoir le résumé hebdo</label>
       </div>
-      <button class="btn" type="submit" style="margin-top:12px;">Enregistrer</button>
+      <div class="profile-actions">
+        <button class="btn" type="submit">Enregistrer</button>
+      </div>
     </form>
   </section>
 </main>
 {% endblock %}
 
 {% block javascripts %}
-<script src="{{ asset('js/app.js') }}?v=20260616-p2p4"></script>
+<script src="{{ asset('js/app.js') }}?v=20260617-p3"></script>
 {% endblock %}

@@ -131,6 +131,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $meteoCity = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $photoFilename = null;
+
 
     #[ORM\OneToOne(targetEntity: HealthPause::class, mappedBy: 'user', cascade: ['remove'])]
     private ?HealthPause $healthPause = null;
@@ -201,6 +204,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getMeteoCity(): ?string { return $this->meteoCity; }
     public function setMeteoCity(?string $city): static { $this->meteoCity = $city !== null ? trim($city) : null; return $this; }
+
+    public function getPhotoFilename(): ?string { return $this->photoFilename; }
+    public function setPhotoFilename(?string $filename): static { $this->photoFilename = $filename; return $this; }
 
     /** @return array<string, bool> */
     public function getDashboardWidgetVisibilityMap(): array

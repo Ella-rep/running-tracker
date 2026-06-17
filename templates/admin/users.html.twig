@@ -110,6 +110,12 @@
         <button id="admin-recap-mail-btn" class="btn btn-ghost" onclick="adminSendWeeklySummary()">Envoyer le récap</button>
         <div id="admin-recap-mail-status" style="margin-top:12px;"></div>
       </div>
+      <div class="admin-maintenance-section" style="margin-top:16px;">
+        <h4>Debug : APP_URL</h4>
+        <p class="admin-maintenance-desc">Affiche la variable d'environnement APP_URL utilisée pour générer les liens du mail récap.</p>
+        <button id="admin-appurl-btn" class="btn btn-ghost" onclick="adminShowAppUrl()">Afficher APP_URL</button>
+        <div id="admin-appurl-status" style="margin-top:12px;"></div>
+      </div>
     </div>
 
     <div class="chart-wrap admin-announce-card">
@@ -370,6 +376,55 @@
 {% block javascripts %}
 <script src="{{ asset('js/app.js') }}?v=20260616-p2p4"></script>
 <script>
+async function adminShowAppUrl() {
+  const btn = document.getElementById('admin-appurl-btn');
+  const status = document.getElementById('admin-appurl-status');
+  if (!btn || !status) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Lecture...';
+  status.innerHTML = '';
+
+  try {
+    const authHeaders = globalThis.rtAuth?.buildAuthHeaders ? globalThis.rtAuth.buildAuthHeaders() : {};
+    const response = await fetch('/api/admin/maintenance/app-url', {
+      method: 'GET',
+      headers: { ...authHeaders },
+    });
+
+    let result;
+    try {
+      result = await response.json();
+    } catch (e) {
+      status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur ${response.status}:</strong> Réponse invalide</span>`;
+      btn.disabled = false;
+      btn.textContent = 'Afficher APP_URL';
+      return;
+    }
+
+    if (!response.ok) {
+      status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur ${response.status}:</strong> ${result.message || 'Échec'}</span>`;
+      btn.disabled = false;
+      btn.textContent = 'Afficher APP_URL';
+      return;
+    }
+
+    const val = result.isSet ? result.appUrl : '(non définie)';
+    const color = result.isSet ? 'var(--z1)' : 'var(--accent3)';
+    status.innerHTML = `
+      <div style="color:${color};padding:12px;background:color-mix(in srgb, ${color} 16%, var(--surface2));border-radius:4px;word-break:break-all;">
+        <strong>APP_URL</strong><br>
+        <code>${val}</code>
+      </div>
+    `;
+  } catch (e) {
+    status.innerHTML = `<span style="color:var(--accent3);">Erreur réseau: ${e.message}</span>`;
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Afficher APP_URL';
+}
+
 async function adminSendWeeklySummary() {
   const btn = document.getElementById('admin-recap-mail-btn');
   const status = document.getElementById('admin-recap-mail-status');

@@ -702,3 +702,88 @@
 }
 #plans-done-list .plan-card { opacity: 0.7; }
 #plans-done-list .plan-card:hover { opacity: 1; }
+
+/* ===== Plan evolution (responsive + début→fin) ===== */
+.plan-evolution-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 16px 0;
+}
+.plan-evolution-card .section-title { margin-bottom: 12px; }
+
+/* début → fin summary cards */
+.plan-evolution-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.evo-summary-item {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.evo-summary-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.evo-summary-values {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 4px;
+  font-weight: 700;
+  font-size: 15px;
+}
+.evo-summary-from { color: var(--text-muted); font-weight: 600; }
+.evo-summary-arrow { color: var(--text-muted); }
+.evo-summary-gap {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.evo-summary-item.evo-up .evo-summary-gap,
+.evo-summary-item.evo-up .evo-summary-trend { color: var(--z1); }
+.evo-summary-item.evo-down .evo-summary-gap,
+.evo-summary-item.evo-down .evo-summary-trend { color: var(--z2); }
+.evo-summary-item.evo-flat .evo-summary-gap { color: var(--text-muted); }
+
+/* quarterly table */
+.plan-evolution-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.plan-evolution-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.plan-evolution-table th,
+.plan-evolution-table td {
+  padding: 8px 10px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+.plan-evolution-table th {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.plan-evolution-delta td { font-weight: 600; }
+.evo-delta { display: inline-block; margin-right: 14px; white-space: nowrap; }
+
+@media (max-width: 640px) {
+  .plan-evolution-card { padding: 12px; }
+  .plan-evolution-summary { grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); }
+  .plan-evolution-scroll {
+    margin: 0 -12px;
+    padding: 0 12px;
+  }
+  .plan-evolution-table { font-size: 12px; }
+}

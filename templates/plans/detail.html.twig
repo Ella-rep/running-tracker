@@ -4,7 +4,7 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260616-p2p5">
-<link rel="stylesheet" href="{{ asset('css/plans.css') }}?v=20260616-p2p5">
+<link rel="stylesheet" href="{{ asset('css/plans.css') }}?v=20260617-p3">
 {% endblock %}
 
 {% block body %}
@@ -59,6 +59,22 @@
         {% set evo = selectedPlanView.evolution %}
         <div class="plan-evolution-card" id="plan-evolution">
           <div class="section-title">Évolution du plan</div>
+          {% if evo.delta is not empty %}
+            {% set evoLabels = { km: 'Volume', bpmEf: 'BPM EF', pace: 'Allure' } %}
+            <div class="plan-evolution-summary">
+              {% for key, d in evo.delta %}
+                <div class="evo-summary-item {{ d.trend == '↗' ? 'evo-up' : (d.trend == '↘' ? 'evo-down' : 'evo-flat') }}">
+                  <div class="evo-summary-label">{{ evoLabels[key] ?? key }}</div>
+                  <div class="evo-summary-values">
+                    <span class="evo-summary-from">{{ d.from }}</span>
+                    <span class="evo-summary-arrow">→</span>
+                    <span>{{ d.to }}</span>
+                  </div>
+                  <div class="evo-summary-gap"><span class="evo-summary-trend">{{ d.trend }}</span> {{ d.gap }}</div>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
           <div class="plan-evolution-scroll">
             <table class="plan-evolution-table">
               <thead>
