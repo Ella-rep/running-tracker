@@ -32,7 +32,7 @@
         <div class="profile-avatar-actions">
           <form method="post" action="{{ path('app_profile_photo') }}" enctype="multipart/form-data">
             <input type="hidden" name="_token" value="{{ csrf_token('profile_photo') }}">
-            <label class="btn btn-sm" for="photo">{{ profileUser.hasPhoto ? 'Changer ma photo' : 'Ajouter ma photo' }}</label>
+            <label class="btn btn-sm" for="photo">{{ profileUser.hasAvatar ? 'Changer ma photo' : 'Ajouter ma photo' }}</label>
             <input type="file" id="photo" name="photo" accept="image/png,image/jpeg,image/webp,image/gif" hidden onchange="this.form.submit()">
           </form>
           {% if profileUser.hasAvatar %}
