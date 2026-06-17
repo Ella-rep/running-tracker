@@ -801,6 +801,10 @@ function syncPlanTypeFromFormat() {
   if (suggested) {
     typeSelect.value = suggested;
     typeSelect.dataset.autoSet = '1';
+    if (suggested === 'EF') {
+      const peEl = document.getElementById('pm-pe');
+      if (peEl && !peEl.value) peEl.value = '3/10';
+    }
   }
 }
 
