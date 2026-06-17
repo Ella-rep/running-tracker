@@ -143,11 +143,11 @@ final class PlanMaintenanceApiController extends AbstractController
     }
 
     /**
-     * Debug helper: returns the APP_URL environment variable as seen by the app
-     * (used to diagnose broken links in the weekly recap email). Admin only.
-     * Route in config/routes/admin.yaml.
+     * Debug helper: returns the DEFAULT_URI environment variable as seen by the app
+     * (router default_uri, used to build absolute links in the weekly recap email).
+     * Admin only. Route in config/routes/admin.yaml.
      */
-    public function showAppUrl(): JsonResponse
+    public function showDefaultUri(): JsonResponse
     {
         try {
             $this->requireAdminUser();
@@ -158,10 +158,10 @@ final class PlanMaintenanceApiController extends AbstractController
             ], 403);
         }
 
-        $raw = $_ENV['APP_URL'] ?? $_SERVER['APP_URL'] ?? null;
+        $raw = $_ENV['DEFAULT_URI'] ?? $_SERVER['DEFAULT_URI'] ?? null;
 
         return $this->json([
-            'appUrl' => $raw,
+            'defaultUri' => $raw,
             'isSet' => $raw !== null && $raw !== '',
         ]);
     }

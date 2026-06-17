@@ -111,10 +111,10 @@
         <div id="admin-recap-mail-status" style="margin-top:12px;"></div>
       </div>
       <div class="admin-maintenance-section" style="margin-top:16px;">
-        <h4>Debug : APP_URL</h4>
-        <p class="admin-maintenance-desc">Affiche la variable d'environnement APP_URL utilisée pour générer les liens du mail récap.</p>
-        <button id="admin-appurl-btn" class="btn btn-ghost" onclick="adminShowAppUrl()">Afficher APP_URL</button>
-        <div id="admin-appurl-status" style="margin-top:12px;"></div>
+        <h4>Debug : DEFAULT_URI</h4>
+        <p class="admin-maintenance-desc">Affiche la variable d'environnement DEFAULT_URI (router default_uri) utilisée pour générer les liens absolus du mail récap.</p>
+        <button id="admin-defaulturi-btn" class="btn btn-ghost" onclick="adminShowDefaultUri()">Afficher DEFAULT_URI</button>
+        <div id="admin-defaulturi-status" style="margin-top:12px;"></div>
       </div>
     </div>
 
@@ -376,9 +376,9 @@
 {% block javascripts %}
 <script src="{{ asset('js/app.js') }}?v=20260616-p2p4"></script>
 <script>
-async function adminShowAppUrl() {
-  const btn = document.getElementById('admin-appurl-btn');
-  const status = document.getElementById('admin-appurl-status');
+async function adminShowDefaultUri() {
+  const btn = document.getElementById('admin-defaulturi-btn');
+  const status = document.getElementById('admin-defaulturi-status');
   if (!btn || !status) return;
 
   btn.disabled = true;
@@ -387,7 +387,7 @@ async function adminShowAppUrl() {
 
   try {
     const authHeaders = globalThis.rtAuth?.buildAuthHeaders ? globalThis.rtAuth.buildAuthHeaders() : {};
-    const response = await fetch('/api/admin/maintenance/app-url', {
+    const response = await fetch('/api/admin/maintenance/default-uri', {
       method: 'GET',
       headers: { ...authHeaders },
     });
@@ -398,23 +398,24 @@ async function adminShowAppUrl() {
     } catch (e) {
       status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur ${response.status}:</strong> Réponse invalide</span>`;
       btn.disabled = false;
-      btn.textContent = 'Afficher APP_URL';
+      btn.textContent = 'Afficher DEFAULT_URI';
       return;
     }
 
     if (!response.ok) {
       status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur ${response.status}:</strong> ${result.message || 'Échec'}</span>`;
       btn.disabled = false;
-      btn.textContent = 'Afficher APP_URL';
+      btn.textContent = 'Afficher DEFAULT_URI';
       return;
     }
 
-    const val = result.isSet ? result.appUrl : '(non définie)';
+    const val = result.isSet ? result.defaultUri : '(non définie)';
     const color = result.isSet ? 'var(--z1)' : 'var(--accent3)';
+    const safe = String(val).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     status.innerHTML = `
       <div style="color:${color};padding:12px;background:color-mix(in srgb, ${color} 16%, var(--surface2));border-radius:4px;word-break:break-all;">
-        <strong>APP_URL</strong><br>
-        <code>${val}</code>
+        <strong>DEFAULT_URI</strong><br>
+        <code>${safe}</code>
       </div>
     `;
   } catch (e) {
@@ -422,7 +423,7 @@ async function adminShowAppUrl() {
   }
 
   btn.disabled = false;
-  btn.textContent = 'Afficher APP_URL';
+  btn.textContent = 'Afficher DEFAULT_URI';
 }
 
 async function adminSendWeeklySummary() {

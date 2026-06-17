@@ -58,10 +58,13 @@ final class PlanEvolutionService
             $quarters[] = $this->buildQuarterRow($key, $runs);
         }
 
+        $sorted = $logs;
+        usort($sorted, static fn (RunLog $a, RunLog $b): int => strcmp($a->getDate(), $b->getDate()));
+
         return [
             'hasData' => true,
             'quarters' => $quarters,
-            'delta' => $this->buildDelta($quarters),
+            'delta' => $this->buildDelta($sorted),
         ];
     }
 
@@ -121,18 +124,20 @@ final class PlanEvolutionService
     }
 
     /**
-     * Global first->last quarter delta per indicator.
-     * @param array<int, array<string,mixed>> $quarters
+     * Global start->end delta per indicator, computed from the plan's run logs
+     * split into two chronological halves (works even within a single quarter).
+     * @param array<int, RunLog> $logs chronologically sorted run logs
      * @return array<string, array{from:string, to:string, gap:string, trend:string}>
      */
-    private function buildDelta(array $quarters): array
+    private function buildDelta(array $logs): array
     {
-        if (count($quarters) < 2) {
+        if (count($logs) < 2) {
             return [];
         }
 
-        $first = $quarters[0];
-        $last = $quarters[count($quarters) - 1];
+        $mid = intdiv(count($logs), 2);
+        $first = $this->buildQuarterRow('start', array_slice($logs, 0, $mid));
+        $last = $this->buildQuarterRow('end', array_slice($logs, $mid));
         $delta = [];
 
         // BPM EF: lower is better -> down arrow = progress.
@@ -195,7 +200,11 @@ final class PlanEvolutionService
 
     private function quarterLabel(string $key): string
     {
-        [$year, $q] = explode('-', $key);
+        $parts = explode('-', $key);
+        if (count($parts) < 2) {
+            return $key;
+        }
+        [$year, $q] = $parts;
         return $q . ' ' . $year;
     }
 

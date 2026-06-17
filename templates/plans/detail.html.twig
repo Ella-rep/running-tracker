@@ -4,7 +4,7 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260616-p2p5">
-<link rel="stylesheet" href="{{ asset('css/plans.css') }}?v=20260617-p3">
+<link rel="stylesheet" href="{{ asset('css/plans.css') }}?v=20260617-p4">
 {% endblock %}
 
 {% block body %}
@@ -93,15 +93,15 @@
               <tbody>
                 {% for q in evo.quarters %}
                   <tr>
-                    <td>{{ q.label }}</td>
-                    <td>{{ q.runs }}</td>
-                    <td>{{ q.km }} km</td>
-                    <td>{{ q.avgBpmEf is not null ? q.avgBpmEf ~ ' bpm' : '—' }}</td>
-                    <td>{{ q.avgPace ? q.avgPace ~ '/km' : '—' }}</td>
-                    <td>{{ q.avgPaceEf ? q.avgPaceEf ~ '/km' : '—' }}</td>
-                    <td>{{ q.avgPaceTempo ? q.avgPaceTempo ~ '/km' : '—' }}</td>
-                    <td>{{ q.dplus }} m</td>
-                    <td>{{ q.totalTime ?: '—' }}</td>
+                    <td data-label="Trimestre">{{ q.label }}</td>
+                    <td data-label="Sorties">{{ q.runs }}</td>
+                    <td data-label="Volume">{{ q.km }} km</td>
+                    <td data-label="BPM EF">{{ q.avgBpmEf is not null ? q.avgBpmEf ~ ' bpm' : '—' }}</td>
+                    <td data-label="Allure">{{ q.avgPace ? q.avgPace ~ '/km' : '—' }}</td>
+                    <td data-label="Allure EF">{{ q.avgPaceEf ? q.avgPaceEf ~ '/km' : '—' }}</td>
+                    <td data-label="Allure tempo">{{ q.avgPaceTempo ? q.avgPaceTempo ~ '/km' : '—' }}</td>
+                    <td data-label="D+">{{ q.dplus }} m</td>
+                    <td data-label="Temps">{{ q.totalTime ?: '—' }}</td>
                   </tr>
                 {% endfor %}
               </tbody>

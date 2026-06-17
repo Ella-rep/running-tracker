@@ -6,6 +6,7 @@ use App\Repository\UserRepository;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Twig\Environment;
 
 /**
@@ -21,6 +22,7 @@ final class WeeklySummaryMailer
         private WeeklySummaryService $weeklySummaryService,
         private MailerInterface $mailer,
         private Environment $twig,
+        private UrlGeneratorInterface $urlGenerator,
     ) {
     }
 
@@ -35,9 +37,10 @@ final class WeeklySummaryMailer
         $weekLabel = $now->modify('monday this week')->format('d/m/Y');
 
         $from = $_ENV['MAILER_FROM'] ?? 'no-reply@runtracker.app';
-        $appUrl = rtrim((string) ($_ENV['APP_URL'] ?? ''), '/');
-        $dashboardUrl = $appUrl !== '' ? $appUrl . '/dashboard' : '/dashboard';
-        $profileUrl = $appUrl !== '' ? $appUrl . '/profile' : '/profile';
+        // Absolute URLs via the router default_uri (env DEFAULT_URI). Sent from CLI,
+        // so a relative URL would 404 in the mail client — must be absolute.
+        $dashboardUrl = $this->urlGenerator->generate('app_dashboard', [], UrlGeneratorInterface::ABSOLUTE_URL);
+        $profileUrl = $this->urlGenerator->generate('app_profile', [], UrlGeneratorInterface::ABSOLUTE_URL);
 
         $sent = 0;
         $skipped = 0;
