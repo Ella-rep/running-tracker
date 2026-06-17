@@ -24,7 +24,7 @@
       <div class="profile-avatar-block">
         <div class="profile-avatar">
           {% if profileUser.hasAvatar %}
-            <img src="{{ path('app_profile_photo_show') }}" alt="Avatar">
+            <img src="{{ path('app_profile_photo_show') }}?v={{ profileUser.defaultAvatar ? profileUser.defaultAvatar.id : 'p' }}" alt="Avatar">
           {% else %}
             <span class="profile-avatar-fallback">{{ profileUser.userIdentifier|slice(0,1)|upper }}</span>
           {% endif %}

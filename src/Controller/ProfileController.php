@@ -195,7 +195,7 @@ final class ProfileController extends AbstractController
         if ($avatar instanceof DefaultAvatar) {
             return new Response($avatar->getImageBinary(), Response::HTTP_OK, [
                 'Content-Type' => $avatar->getMimeType(),
-                'Cache-Control' => 'private, max-age=86400',
+                'Cache-Control' => 'private, no-cache',
             ]);
         }
 
