@@ -44,13 +44,11 @@ final class Version20260617160000 extends AbstractMigration
             $stream = fopen('php://temp', 'r+');
             fwrite($stream, base64_decode($a['b64']));
             rewind($stream);
-            $this->connection->insert('default_avatar', [
-                'slug' => $a['slug'],
-                'label' => $a['label'],
-                'image_data' => $stream,
-                'mime_type' => 'image/webp',
-                'sort_order' => $a['sort_order'],
-            ], ['image_data' => Types::BLOB]);
+            $this->addSql(
+                'INSERT INTO default_avatar (slug, label, image_data, mime_type, sort_order) VALUES (?, ?, ?, ?, ?)',
+                [$a['slug'], $a['label'], $stream, 'image/webp', $a['sort_order']],
+                [Types::STRING, Types::STRING, Types::BLOB, Types::STRING, Types::INTEGER]
+            );
         }
     }
 
