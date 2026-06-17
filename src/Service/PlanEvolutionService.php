@@ -7,14 +7,24 @@ use App\Entity\RunLog;
 use App\Repository\RunLogRepository;
 
 /**
- * Builds a per-plan evolution recap: a side-by-side comparison between the
- * first two weeks and the last two weeks of the plan's run logs.
+ * Builds a per-plan evolution recap: per-run-type BPM/pace comparison between
+ * the first and the last month of the plan, plus a global plan summary.
  * Source: run logs linked to the plan (via plannedSession or date window).
  */
 final class PlanEvolutionService
 {
-    /** Comparison window length, in days (2 weeks). */
-    private const WINDOW_DAYS = 14;
+    /** Canonical display order for run types. */
+    private const TYPE_ORDER = ['EF', 'SL', 'T', 'FL', 'FC', 'RACE', 'RECUP'];
+
+    private const TYPE_LABELS = [
+        'EF' => 'en endurance (sorties EF)',
+        'SL' => 'en sortie longue',
+        'T' => 'en tempo',
+        'FL' => 'en fractionné long',
+        'FC' => 'en fractionné court',
+        'RACE' => 'en course',
+        'RECUP' => 'en récupération',
+    ];
 
     public function __construct(private RunLogRepository $runLogRepository)
     {
@@ -23,138 +33,218 @@ final class PlanEvolutionService
     /**
      * @return array{
      *   hasData: bool,
-     *   rows: array<int, array{label:string, from:string, to:string}>
+     *   cards: array<int, array{metric:string, title:string, typeLabel:string, from:string, to:string, gap:?string, trend:?string, improved:?bool}>,
+     *   summary: ?array{runs:int, km:string, time:?string}
      * }
      */
     public function buildQuarterlyRecap(Plan $plan): array
     {
         $logs = $this->runLogRepository->findByPlan($plan);
         if ($logs === []) {
-            return ['hasData' => false, 'rows' => []];
+            return ['hasData' => false, 'cards' => [], 'summary' => null];
         }
 
         usort($logs, static fn (RunLog $a, RunLog $b): int => strcmp($a->getDate(), $b->getDate()));
 
-        $firstDate = $logs[0]->getDate();
-        $lastDate = $logs[count($logs) - 1]->getDate();
-
-        $startRuns = $this->runsBetween($logs, $firstDate, $this->shiftDays($firstDate, self::WINDOW_DAYS - 1));
-        $endRuns = $this->runsBetween($logs, $this->shiftDays($lastDate, -(self::WINDOW_DAYS - 1)), $lastDate);
-
-        if ($startRuns === [] && $endRuns === []) {
-            return ['hasData' => false, 'rows' => []];
+        // Group by calendar month (YYYY-MM); compare first vs last month.
+        $months = [];
+        foreach ($logs as $log) {
+            $key = substr($log->getDate(), 0, 7);
+            $months[$key][] = $log;
         }
-
-        $start = $this->buildAggregate($startRuns);
-        $end = $this->buildAggregate($endRuns);
+        ksort($months);
+        $keys = array_keys($months);
+        $startLogs = $months[$keys[0]];
+        $endLogs = $months[$keys[count($keys) - 1]];
 
         return [
             'hasData' => true,
-            'rows' => $this->buildRows($start, $end),
+            'cards' => $this->buildCards($this->perType($startLogs), $this->perType($endLogs)),
+            'summary' => $this->buildSummary($logs),
         ];
     }
 
     /**
-     * @param array{runs:int,km:float,avgBpmEf:?int,avgPace:?string,avgPaceEf:?string,avgPaceTempo:?string,dplus:int,totalTime:?string} $start
-     * @param array{runs:int,km:float,avgBpmEf:?int,avgPace:?string,avgPaceEf:?string,avgPaceTempo:?string,dplus:int,totalTime:?string} $end
-     * @return array<int, array{label:string, from:string, to:string}>
+     * @param array<string, array{bpm:?int, pace:?string}> $start
+     * @param array<string, array{bpm:?int, pace:?string}> $end
+     * @return array<int, array{metric:string, title:string, typeLabel:string, from:string, to:string, gap:?string, trend:?string, improved:?bool}>
      */
-    private function buildRows(array $start, array $end): array
+    private function buildCards(array $start, array $end): array
     {
-        return [
-            ['label' => 'Sorties', 'from' => (string) $start['runs'], 'to' => (string) $end['runs']],
-            ['label' => 'Volume', 'from' => $this->fmtKm($start['km']), 'to' => $this->fmtKm($end['km'])],
-            ['label' => 'BPM EF', 'from' => $this->fmtBpm($start['avgBpmEf']), 'to' => $this->fmtBpm($end['avgBpmEf'])],
-            ['label' => 'Allure', 'from' => $this->fmtPace($start['avgPace']), 'to' => $this->fmtPace($end['avgPace'])],
-            ['label' => 'Allure EF', 'from' => $this->fmtPace($start['avgPaceEf']), 'to' => $this->fmtPace($end['avgPaceEf'])],
-            ['label' => 'Allure tempo', 'from' => $this->fmtPace($start['avgPaceTempo']), 'to' => $this->fmtPace($end['avgPaceTempo'])],
-            ['label' => 'D+', 'from' => $start['dplus'] . ' m', 'to' => $end['dplus'] . ' m'],
-            ['label' => 'Temps total couru', 'from' => $start['totalTime'] ?? '—', 'to' => $end['totalTime'] ?? '—'],
-        ];
+        $order = array_values(array_unique(array_merge(
+            self::TYPE_ORDER,
+            array_keys($start),
+            array_keys($end)
+        )));
+
+        $cards = [];
+
+        // BPM cards first, then pace cards (both following the canonical order).
+        foreach ($order as $code) {
+            $from = $start[$code]['bpm'] ?? null;
+            $to = $end[$code]['bpm'] ?? null;
+            if ($from === null && $to === null) {
+                continue;
+            }
+            $cards[] = $this->bpmCard($code, $from, $to);
+        }
+        foreach ($order as $code) {
+            $from = $start[$code]['pace'] ?? null;
+            $to = $end[$code]['pace'] ?? null;
+            if ($from === null && $to === null) {
+                continue;
+            }
+            $cards[] = $this->paceCard($code, $from, $to);
+        }
+
+        return $cards;
     }
 
     /**
-     * @param array<int, RunLog> $runs
-     * @return array{runs:int,km:float,avgBpmEf:?int,avgPace:?string,avgPaceEf:?string,avgPaceTempo:?string,dplus:int,totalTime:?string}
+     * @return array{metric:string, title:string, typeLabel:string, from:string, to:string, gap:?string, trend:?string, improved:?bool}
      */
-    private function buildAggregate(array $runs): array
+    private function bpmCard(string $code, ?int $from, ?int $to): array
     {
-        $km = 0.0;
-        $dplus = 0;
-        $totalSec = 0;
-
-        $efBpm = [];
-        $paceAll = [];
-        $paceEf = [];
-        $paceTempo = [];
-
-        foreach ($runs as $run) {
-            $km += (float) ($run->getKm() ?? 0.0);
-            $dplus += (int) ($run->getDplus() ?? 0);
-
-            $dur = $this->durationToSeconds($run->getDuration());
-            if ($dur !== null) {
-                $totalSec += $dur;
-            }
-
-            $type = strtoupper((string) ($run->getRunType() ?? ''));
-            $pace = $this->paceToSeconds($run->getAllure());
-
-            if ($pace !== null) {
-                $paceAll[] = $pace;
-                if ($type === 'EF') {
-                    $paceEf[] = $pace;
-                } elseif ($type === 'TEMPO') {
-                    $paceTempo[] = $pace;
-                }
-            }
-
-            if ($type === 'EF' && $run->getBpm() !== null) {
-                $efBpm[] = (int) $run->getBpm();
-            }
+        $gap = $trend = null;
+        $improved = null;
+        if ($from !== null && $to !== null) {
+            $diff = $to - $from;
+            $gap = ($diff > 0 ? '+' : '') . $diff . ' bpm';
+            $trend = $diff < 0 ? 'down' : ($diff > 0 ? 'up' : 'flat');
+            $improved = $diff < 0; // lower HR = progress
         }
 
         return [
-            'runs' => count($runs),
-            'km' => round($km, 1),
-            'avgBpmEf' => $efBpm !== [] ? (int) round(array_sum($efBpm) / count($efBpm)) : null,
-            'avgPace' => $this->avgPace($paceAll),
-            'avgPaceEf' => $this->avgPace($paceEf),
-            'avgPaceTempo' => $this->avgPace($paceTempo),
-            'dplus' => $dplus,
-            'totalTime' => $totalSec > 0 ? $this->secondsToHms($totalSec) : null,
+            'metric' => 'bpm',
+            'title' => 'FC moyenne',
+            'typeLabel' => $this->typeLabel($code),
+            'from' => $from !== null ? $from . ' bpm' : '—',
+            'to' => $to !== null ? $to . ' bpm' : '—',
+            'gap' => $gap,
+            'trend' => $trend,
+            'improved' => $improved,
         ];
+    }
+
+    /**
+     * @return array{metric:string, title:string, typeLabel:string, from:string, to:string, gap:?string, trend:?string, improved:?bool}
+     */
+    private function paceCard(string $code, ?string $from, ?string $to): array
+    {
+        $gap = $trend = null;
+        $improved = null;
+        $fromSec = $this->paceToSeconds($from);
+        $toSec = $this->paceToSeconds($to);
+        if ($fromSec !== null && $toSec !== null) {
+            $diff = $toSec - $fromSec;
+            $gap = ($diff < 0 ? '-' : '+') . $this->secondsToMmSs(abs($diff)) . '/km';
+            $trend = $diff < 0 ? 'down' : ($diff > 0 ? 'up' : 'flat');
+            $improved = $diff < 0; // faster = progress
+        }
+
+        return [
+            'metric' => 'pace',
+            'title' => 'Allure moyenne',
+            'typeLabel' => $this->typeLabel($code),
+            'from' => $from !== null ? $from . '/km' : '—',
+            'to' => $to !== null ? $to . '/km' : '—',
+            'gap' => $gap,
+            'trend' => $trend,
+            'improved' => $improved,
+        ];
+    }
+
+    /**
+     * Average BPM and pace per run type for a set of logs.
+     * @param array<int, RunLog> $logs
+     * @return array<string, array{bpm:?int, pace:?string}>
+     */
+    private function perType(array $logs): array
+    {
+        $bucket = [];
+        foreach ($logs as $log) {
+            $code = $this->normalizeType((string) ($log->getRunType() ?? ''));
+            if ($code === null) {
+                continue;
+            }
+            $bucket[$code] ??= ['bpm' => [], 'pace' => []];
+
+            $pace = $this->paceToSeconds($log->getAllure());
+            if ($pace !== null) {
+                $bucket[$code]['pace'][] = $pace;
+            }
+            if ($log->getBpm() !== null) {
+                $bucket[$code]['bpm'][] = (int) $log->getBpm();
+            }
+        }
+
+        $out = [];
+        foreach ($bucket as $code => $d) {
+            $out[$code] = [
+                'bpm' => $d['bpm'] !== [] ? (int) round(array_sum($d['bpm']) / count($d['bpm'])) : null,
+                'pace' => $this->avgPace($d['pace']),
+            ];
+        }
+        return $out;
     }
 
     /**
      * @param array<int, RunLog> $logs
-     * @return array<int, RunLog>
+     * @return array{runs:int, km:string, time:?string}
      */
-    private function runsBetween(array $logs, string $from, string $to): array
+    private function buildSummary(array $logs): array
     {
-        return array_values(array_filter(
-            $logs,
-            static fn (RunLog $r): bool => $r->getDate() >= $from && $r->getDate() <= $to
-        ));
-    }
-
-    private function shiftDays(string $dateYmd, int $days): string
-    {
-        $date = \DateTimeImmutable::createFromFormat('Y-m-d', $dateYmd);
-        if ($date === false) {
-            return $dateYmd;
+        $km = 0.0;
+        $totalSec = 0;
+        foreach ($logs as $log) {
+            $km += (float) ($log->getKm() ?? 0.0);
+            $dur = $this->durationToSeconds($log->getDuration());
+            if ($dur !== null) {
+                $totalSec += $dur;
+            }
         }
-        return $date->modify(($days >= 0 ? '+' : '') . $days . ' days')->format('Y-m-d');
+
+        return [
+            'runs' => count($logs),
+            'km' => number_format(round($km, 1), 1, '.', ''),
+            'time' => $totalSec > 0 ? $this->secondsToHms($totalSec) : null,
+        ];
     }
 
-    private function fmtBpm(?int $bpm): string
+    private function typeLabel(string $code): string
     {
-        return $bpm !== null ? $bpm . ' bpm' : '—';
+        return self::TYPE_LABELS[$code] ?? ('en ' . strtolower($code));
     }
 
-    private function fmtPace(?string $pace): string
+    private function normalizeType(string $raw): ?string
     {
-        return $pace !== null ? $pace . '/km' : '—';
+        $compact = strtoupper(trim((string) iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $raw)));
+        $compact = preg_replace('/\s+/', ' ', $compact) ?? $compact;
+        if ($compact === '') {
+            return null;
+        }
+        if ($compact === 'EF' || str_contains($compact, 'ENDURANCE FONDAMENTALE') || $compact === 'ENDURANCE') {
+            return 'EF';
+        }
+        if ($compact === 'SL' || str_contains($compact, 'SORTIE LONGUE')) {
+            return 'SL';
+        }
+        if ($compact === 'FL' || str_contains($compact, 'FRACTIONNE LONG') || $compact === 'SEUIL') {
+            return 'FL';
+        }
+        if ($compact === 'FC' || str_contains($compact, 'FRACTIONNE COURT') || $compact === 'VMA' || str_contains($compact, 'FRACTIONNE')) {
+            return 'FC';
+        }
+        if ($compact === 'T' || str_contains($compact, 'TEMPO')) {
+            return 'T';
+        }
+        if ($compact === 'RACE' || str_contains($compact, 'COURSE')) {
+            return 'RACE';
+        }
+        if ($compact === 'RECUP' || str_contains($compact, 'RECUPERATION')) {
+            return 'RECUP';
+        }
+        return $compact;
     }
 
     /** @param array<int,int> $paces */
@@ -164,11 +254,6 @@ final class PlanEvolutionService
             return null;
         }
         return $this->secondsToMmSs((int) round(array_sum($paces) / count($paces)));
-    }
-
-    private function fmtKm(float $km): string
-    {
-        return number_format($km, 1, '.', '') . ' km';
     }
 
     private function paceToSeconds(?string $pace): ?int

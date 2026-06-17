@@ -5,7 +5,6 @@ namespace App\Controller;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -154,34 +153,39 @@ final class ProfileController extends AbstractController
             return $this->redirectToRoute('app_profile');
         }
 
-        $dir = $this->getParameter('kernel.project_dir') . '/public/uploads/avatars';
-        if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
-            $this->addFlash('error', "Impossible de préparer le dossier d'upload.");
+        $binary = @file_get_contents($file->getPathname());
+        if ($binary === false) {
+            $this->addFlash('error', "Échec de la lecture de l'image.");
 
             return $this->redirectToRoute('app_profile');
         }
 
-        $ext = $file->guessExtension() ?: 'bin';
-        $filename = 'avatar_' . $user->getId() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-
-        try {
-            $previous = $user->getPhotoFilename();
-            $file->move($dir, $filename);
-            if ($previous !== null && $previous !== '' && is_file($dir . '/' . $previous)) {
-                @unlink($dir . '/' . $previous);
-            }
-        } catch (FileException) {
-            $this->addFlash('error', "Échec de l'enregistrement de l'image.");
-
-            return $this->redirectToRoute('app_profile');
-        }
-
-        $user->setPhotoFilename($filename);
+        $user->setPhotoData($binary);
+        $user->setPhotoMimeType($file->getMimeType());
         $entityManager->flush();
 
         $this->addFlash('success', 'Photo de profil mise à jour.');
 
         return $this->redirectToRoute('app_profile');
+    }
+
+    /**
+     * Streams the profile picture stored in database (BYTEA).
+     */
+    #[Route('/profile/photo/view', name: 'app_profile_photo_show', methods: ['GET'])]
+    public function showPhoto(): Response
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User || !$user->hasPhoto()) {
+            throw $this->createNotFoundException('Aucune photo de profil.');
+        }
+
+        $binary = $user->getPhotoBinary();
+
+        return new Response($binary, Response::HTTP_OK, [
+            'Content-Type' => $user->getPhotoMimeType() ?? 'application/octet-stream',
+            'Cache-Control' => 'private, no-cache',
+        ]);
     }
 
     /**
@@ -201,13 +205,9 @@ final class ProfileController extends AbstractController
             return $this->redirectToRoute('app_profile');
         }
 
-        $filename = $user->getPhotoFilename();
-        if ($filename !== null && $filename !== '') {
-            $path = $this->getParameter('kernel.project_dir') . '/public/uploads/avatars/' . $filename;
-            if (is_file($path)) {
-                @unlink($path);
-            }
-            $user->setPhotoFilename(null);
+        if ($user->hasPhoto()) {
+            $user->setPhotoData(null);
+            $user->setPhotoMimeType(null);
             $entityManager->flush();
         }
 

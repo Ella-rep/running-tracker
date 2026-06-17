@@ -59,27 +59,46 @@
         {% set evo = selectedPlanView.evolution %}
         <div class="plan-evolution-card" id="plan-evolution">
           <div class="section-title">Évolution du plan</div>
-          <p class="plan-evolution-intro">Comparaison entre les 2 premières et les 2 dernières semaines de sorties du plan.</p>
-          <div class="plan-evolution-scroll">
-            <table class="plan-evolution-table plan-evolution-compare">
-              <thead>
-                <tr>
-                  <th>Métrique</th>
-                  <th>Début du plan</th>
-                  <th>Fin du plan</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for row in evo.rows %}
-                  <tr>
-                    <th scope="row" data-label="Métrique">{{ row.label }}</th>
-                    <td data-label="Début du plan">{{ row.from }}</td>
-                    <td data-label="Fin du plan">{{ row.to }}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
+          <p class="plan-evolution-intro">Comparaison entre le premier et le dernier mois du plan.</p>
+          {% if evo.cards is not empty %}
+            <div class="evo-cards">
+              {% for c in evo.cards %}
+                <div class="evo-card{% if c.trend %} evo-{{ c.improved ? 'good' : (c.trend == 'flat' ? 'flat' : 'bad') }}{% endif %}">
+                  <div class="evo-card-head">
+                    <span class="evo-card-metric">{{ c.title }}</span>
+                    <span class="evo-card-type">{{ c.typeLabel }}</span>
+                  </div>
+                  <div class="evo-card-values">
+                    <span class="evo-from">{{ c.from }}</span>
+                    <span class="evo-arrow">→</span>
+                    <span class="evo-to">{{ c.to }}</span>
+                  </div>
+                  {% if c.gap %}
+                    <div class="evo-card-gap">{{ c.trend == 'down' ? '↘' : (c.trend == 'up' ? '↗' : '→') }} {{ c.gap }}</div>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+          {% if evo.summary %}
+            <div class="evo-summary-title">Résumé du plan</div>
+            <div class="evo-summary-boxes">
+              <div class="evo-box">
+                <span class="evo-box-value">{{ evo.summary.runs }}</span>
+                <span class="evo-box-label">sorties</span>
+              </div>
+              <div class="evo-box">
+                <span class="evo-box-value">{{ evo.summary.km }} km</span>
+                <span class="evo-box-label">parcourus</span>
+              </div>
+              {% if evo.summary.time %}
+                <div class="evo-box">
+                  <span class="evo-box-value">{{ evo.summary.time }}</span>
+                  <span class="evo-box-label">au total de courses</span>
+                </div>
+              {% endif %}
+            </div>
+          {% endif %}
         </div>
       {% endif %}
       <div id="plans-detail-weeks">

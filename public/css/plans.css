@@ -703,7 +703,7 @@
 #plans-done-list .plan-card { opacity: 0.7; }
 #plans-done-list .plan-card:hover { opacity: 1; }
 
-/* ===== Plan evolution (comparison table) ===== */
+/* ===== Plan evolution (cards + summary) ===== */
 .plan-evolution-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -711,85 +711,104 @@
   padding: 16px;
   margin: 16px 0;
 }
-.plan-evolution-card .section-title { margin-bottom: 12px; }
+.plan-evolution-card .section-title { margin-bottom: 4px; }
 .plan-evolution-intro {
-  margin: 0 0 12px;
+  margin: 0 0 14px;
   font-size: 12px;
   line-height: 1.4;
   color: var(--text-muted);
 }
 
-.plan-evolution-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.plan-evolution-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
+/* comparison cards, one per metric + run type */
+.evo-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
 }
-.plan-evolution-table th,
-.plan-evolution-table td {
-  padding: 8px 10px;
-  text-align: left;
-  white-space: nowrap;
-  border-bottom: 1px solid var(--border);
+.evo-card {
+  position: relative;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
 }
-.plan-evolution-table thead th {
+.evo-card.evo-good { border-left-color: var(--z2); }
+.evo-card.evo-bad  { border-left-color: var(--z3); }
+.evo-card.evo-flat { border-left-color: var(--text-muted); }
+.evo-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.evo-card-metric {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
   color: var(--text-muted);
-  font-weight: 600;
+}
+.evo-card-type { font-size: 11px; color: var(--text-muted); }
+.evo-card-values {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+.evo-from { color: var(--text-muted); font-weight: 600; }
+.evo-arrow { color: var(--text-muted); font-weight: 400; }
+.evo-card-gap {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.evo-card.evo-good .evo-card-gap { color: var(--z2); }
+.evo-card.evo-bad  .evo-card-gap { color: var(--z3); }
+
+/* plan summary boxes */
+.evo-summary-title {
+  margin: 18px 0 10px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+.evo-summary-boxes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+.evo-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+  padding: 22px 14px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--surface2), color-mix(in srgb, var(--accent2) 12%, var(--surface2)));
+  border: 1px solid var(--border);
+}
+.evo-box-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text);
+}
+.evo-box-label {
   font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: .03em;
+  letter-spacing: .05em;
+  color: var(--text-muted);
 }
-/* metric name = row header */
-.plan-evolution-compare tbody th[scope="row"] {
-  color: var(--text);
-  font-weight: 600;
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: 13px;
-}
-.plan-evolution-compare tbody tr:last-child th,
-.plan-evolution-compare tbody tr:last-child td { border-bottom: none; }
 
 @media (max-width: 640px) {
   .plan-evolution-card { padding: 12px; }
-
-  /* stacked-card layout: no horizontal scroll on mobile */
-  .plan-evolution-scroll { overflow: visible; }
-  .plan-evolution-table thead { display: none; }
-  .plan-evolution-table,
-  .plan-evolution-table tbody,
-  .plan-evolution-table tr,
-  .plan-evolution-table th,
-  .plan-evolution-table td { display: block; width: 100%; }
-  .plan-evolution-table tbody tr {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 6px 12px;
-    margin-bottom: 10px;
-  }
-  .plan-evolution-compare tbody th[scope="row"] {
-    border-bottom: 1px solid var(--border);
-    padding: 6px 0;
-    font-size: 14px;
-  }
-  .plan-evolution-table td {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 12px;
-    padding: 6px 0;
-    border-bottom: 1px solid var(--border);
-    white-space: normal;
-    text-align: right;
-  }
-  .plan-evolution-table tbody tr td:last-child { border-bottom: none; }
-  .plan-evolution-table td::before {
-    content: attr(data-label);
-    color: var(--text-muted);
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: .03em;
-    text-align: left;
-  }
+  .evo-cards { grid-template-columns: 1fr; }
+  .evo-summary-boxes { grid-template-columns: 1fr; }
+  .evo-box { padding: 16px 14px; }
 }

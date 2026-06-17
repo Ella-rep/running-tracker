@@ -131,8 +131,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $meteoCity = null;
 
-    #[ORM\Column(length: 255, nullable: true)]
-    private ?string $photoFilename = null;
+    /** @var resource|string|null Raw binary of the profile picture, stored in DB (BYTEA). */
+    #[ORM\Column(type: 'blob', nullable: true)]
+    private $photoData = null;
+
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $photoMimeType = null;
 
 
     #[ORM\OneToOne(targetEntity: HealthPause::class, mappedBy: 'user', cascade: ['remove'])]
@@ -205,8 +209,19 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getMeteoCity(): ?string { return $this->meteoCity; }
     public function setMeteoCity(?string $city): static { $this->meteoCity = $city !== null ? trim($city) : null; return $this; }
 
-    public function getPhotoFilename(): ?string { return $this->photoFilename; }
-    public function setPhotoFilename(?string $filename): static { $this->photoFilename = $filename; return $this; }
+    /** @return resource|string|null */
+    public function getPhotoData() { return $this->photoData; }
+    /** @param resource|string|null $data */
+    public function setPhotoData($data): static { $this->photoData = $data; return $this; }
+    public function getPhotoMimeType(): ?string { return $this->photoMimeType; }
+    public function setPhotoMimeType(?string $mime): static { $this->photoMimeType = $mime; return $this; }
+    public function hasPhoto(): bool { return $this->photoData !== null; }
+    /** Returns the binary content as string (reads stream if needed). */
+    public function getPhotoBinary(): ?string {
+        if ($this->photoData === null) { return null; }
+        if (is_resource($this->photoData)) { rewind($this->photoData); return (string) stream_get_contents($this->photoData); }
+        return (string) $this->photoData;
+    }
 
     /** @return array<string, bool> */
     public function getDashboardWidgetVisibilityMap(): array

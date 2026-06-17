@@ -126,11 +126,6 @@ else
     echo "⚠️   Aucun transport email configuré (MAILER_DSN ou SMTP_HOST manquant)."
 fi
 
-echo "🖼️   Préparation du dossier uploads (volume persistant)..."
-mkdir -p public/uploads/avatars
-chown -R www-data:www-data public/uploads
-chmod -R ug+rwX public/uploads
-
 echo "📦  Installation des assets..."
 php bin/console assets:install public --symlink --relative --env="$RUNTIME_ENV" || \
 php bin/console assets:install public --env="$RUNTIME_ENV"

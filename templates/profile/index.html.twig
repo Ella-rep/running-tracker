@@ -22,8 +22,8 @@
 
     <div class="form-card profile-identity">
       <div class="profile-avatar">
-        {% if profileUser.photoFilename %}
-          <img src="{{ asset('uploads/avatars/' ~ profileUser.photoFilename) }}" alt="Photo de profil">
+        {% if profileUser.hasPhoto %}
+          <img src="{{ path('app_profile_photo_show') }}" alt="Photo de profil">
         {% else %}
           <span class="profile-avatar-fallback">{{ profileUser.userIdentifier|slice(0,1)|upper }}</span>
         {% endif %}
@@ -53,7 +53,7 @@
       </div>
     </form>
 
-    {% if profileUser.photoFilename %}
+    {% if profileUser.hasPhoto %}
       <form class="form-card" method="post" action="{{ path('app_profile_photo_delete') }}" onsubmit="return confirm('Supprimer ta photo de profil ?');">
         <input type="hidden" name="_token" value="{{ csrf_token('profile_photo_delete') }}">
         <div class="section-sub">Supprimer la photo de profil actuelle.</div>
