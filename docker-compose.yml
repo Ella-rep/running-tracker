@@ -64,6 +64,7 @@ services:
       - ./:/app:rw
       - ./vendor:/app/vendor
       - ./var:/app/var
+      - avatars_data:/app/public/uploads/avatars
     depends_on:
       db:
         condition: service_healthy
@@ -91,6 +92,8 @@ volumes:
   postgres_data:
     driver: local
   jwt_keys:
+  avatars_data:
+    driver: local
 
 ###> doctrine/doctrine-bundle ###
   database_data:

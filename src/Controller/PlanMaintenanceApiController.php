@@ -143,30 +143,6 @@ final class PlanMaintenanceApiController extends AbstractController
     }
 
     /**
-     * Debug helper: returns the DEFAULT_URI environment variable as seen by the app
-     * (router default_uri, used to build absolute links in the weekly recap email).
-     * Admin only. Route in config/routes/admin.yaml.
-     */
-    public function showDefaultUri(): JsonResponse
-    {
-        try {
-            $this->requireAdminUser();
-        } catch (AccessDeniedHttpException $e) {
-            return $this->json([
-                'message' => $e->getMessage(),
-                'error' => 'access_denied',
-            ], 403);
-        }
-
-        $raw = $_ENV['DEFAULT_URI'] ?? $_SERVER['DEFAULT_URI'] ?? null;
-
-        return $this->json([
-            'defaultUri' => $raw,
-            'isSet' => $raw !== null && $raw !== '',
-        ]);
-    }
-
-    /**
      * Returns the current authenticated user.
      */
     private function requireUser(): User

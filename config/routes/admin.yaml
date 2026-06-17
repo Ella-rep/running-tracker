@@ -8,7 +8,3 @@ api_auth_test_grant_admin:
   controller: App\Controller\PlanMaintenanceApiController::grantAdminRoleForTest
   methods: [POST]
 
-api_admin_maintenance_default_uri:
-  path: /api/admin/maintenance/default-uri
-  controller: App\Controller\PlanMaintenanceApiController::showDefaultUri
-  methods: [GET]
