@@ -712,6 +712,12 @@
   margin: 16px 0;
 }
 .plan-evolution-card .section-title { margin-bottom: 12px; }
+.plan-evolution-intro {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
 
 /* début → fin summary cards */
 .plan-evolution-summary {

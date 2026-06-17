@@ -60,7 +60,8 @@
         <div class="plan-evolution-card" id="plan-evolution">
           <div class="section-title">Évolution du plan</div>
           {% if evo.delta is not empty %}
-            {% set evoLabels = { km: 'Volume', bpmEf: 'BPM EF', pace: 'Allure' } %}
+            {% set evoLabels = { km: 'Volume parcouru (km cumulés)', bpmEf: 'FC moyenne en endurance (sorties EF)', pace: 'Allure moyenne (toutes sorties)' } %}
+            <p class="plan-evolution-intro">Comparaison entre la 1<sup>re</sup> moitié et la 2<sup>e</sup> moitié des sorties du plan (début → fin).</p>
             <div class="plan-evolution-summary">
               {% for key, d in evo.delta %}
                 <div class="evo-summary-item {{ d.trend == '↗' ? 'evo-up' : (d.trend == '↘' ? 'evo-down' : 'evo-flat') }}">
@@ -79,7 +80,6 @@
             <table class="plan-evolution-table">
               <thead>
                 <tr>
-                  <th>Trimestre</th>
                   <th>Sorties</th>
                   <th>Volume</th>
                   <th>BPM EF</th>
@@ -87,13 +87,12 @@
                   <th>Allure EF</th>
                   <th>Allure tempo</th>
                   <th>D+</th>
-                  <th>Temps</th>
+                  <th>Temps total couru</th>
                 </tr>
               </thead>
               <tbody>
                 {% for q in evo.quarters %}
                   <tr>
-                    <td data-label="Trimestre">{{ q.label }}</td>
                     <td data-label="Sorties">{{ q.runs }}</td>
                     <td data-label="Volume">{{ q.km }} km</td>
                     <td data-label="BPM EF">{{ q.avgBpmEf is not null ? q.avgBpmEf ~ ' bpm' : '—' }}</td>
@@ -101,15 +100,15 @@
                     <td data-label="Allure EF">{{ q.avgPaceEf ? q.avgPaceEf ~ '/km' : '—' }}</td>
                     <td data-label="Allure tempo">{{ q.avgPaceTempo ? q.avgPaceTempo ~ '/km' : '—' }}</td>
                     <td data-label="D+">{{ q.dplus }} m</td>
-                    <td data-label="Temps">{{ q.totalTime ?: '—' }}</td>
+                    <td data-label="Temps total couru">{{ q.totalTime ?: '—' }}</td>
                   </tr>
                 {% endfor %}
               </tbody>
               {% if evo.delta is not empty %}
                 <tfoot>
                   <tr class="plan-evolution-delta">
-                    <td>Δ début→fin</td>
-                    <td colspan="8">
+                    <td>Écart début → fin</td>
+                    <td colspan="7">
                       {% if evo.delta.km is defined %}<span class="evo-delta">Volume {{ evo.delta.km.trend }} {{ evo.delta.km.gap }} ({{ evo.delta.km.from }} → {{ evo.delta.km.to }})</span>{% endif %}
                       {% if evo.delta.bpmEf is defined %}<span class="evo-delta">BPM EF {{ evo.delta.bpmEf.trend }} {{ evo.delta.bpmEf.gap }} ({{ evo.delta.bpmEf.from }} → {{ evo.delta.bpmEf.to }})</span>{% endif %}
                       {% if evo.delta.pace is defined %}<span class="evo-delta">Allure {{ evo.delta.pace.trend }} {{ evo.delta.pace.gap }} ({{ evo.delta.pace.from }} → {{ evo.delta.pace.to }})</span>{% endif %}
