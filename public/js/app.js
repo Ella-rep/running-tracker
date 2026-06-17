@@ -2671,11 +2671,24 @@ function renderDashboard() {
         }
         if (actionEl instanceof HTMLButtonElement) {
           actionEl.textContent = 'Retirer';
-          actionEl.addEventListener('click', () => {
+          actionEl.addEventListener('click', (e) => {
+            e.stopPropagation();
             actionEl.disabled = true;
             void setPlanDashboardTracked(plan.id, false).finally(() => {
               actionEl.disabled = false;
             });
+          });
+        }
+
+        if (Number.isFinite(Number(plan.id))) {
+          node.classList.add('is-actionable');
+          node.style.cursor = 'pointer';
+          node.setAttribute('role', 'button');
+          node.tabIndex = 0;
+          const goToPlan = () => { globalThis.location.href = `/plans/${plan.id}`; };
+          node.addEventListener('click', goToPlan);
+          node.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goToPlan(); }
           });
         }
 
@@ -5302,8 +5315,9 @@ function renderPlan(containerId, data, stateKey) {
       const delBtn = row.querySelector('.session-delete');
       const isCancelled = !!s.isCancelled;
       if (checkEl) {
-        checkEl.classList.toggle('done', done);
-        checkEl.textContent = done ? '✓' : '';
+        const showDone = done && !isCancelled;
+        checkEl.classList.toggle('done', showDone);
+        checkEl.textContent = showDone ? '✓' : '';
       }
       if (cancelBtn) {
         cancelBtn.classList.toggle('is-cancelled', isCancelled);
@@ -5381,6 +5395,11 @@ function renderPlan(containerId, data, stateKey) {
             await cancelPlanSessionInDb(plan.id, detailId, next);
             // Live DOM update so the line-through shows without a page reload.
             row.classList.toggle('session-cancelled', next);
+            if (checkEl) {
+              const showDone = done && !next;
+              checkEl.classList.toggle('done', showDone);
+              checkEl.textContent = showDone ? '✓' : '';
+            }
             if (cancelBtn) {
               cancelBtn.classList.toggle('is-cancelled', next);
               cancelBtn.title = next ? 'Remettre la séance' : 'Annuler la séance';
