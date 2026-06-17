@@ -44,7 +44,7 @@
               <div class="plan-card-sub">{{ plan.sub }}</div>
             </div>
             <div class="plan-card-stats">
-              <div class="plan-card-pct">{% if plan.pct >= 100 %}Terminé{% else %}{{ plan.pct }}%{% endif %}</div>
+              <div class="plan-card-pct">{% if plan.pct >= 100 or plan.completed %}Terminé{% else %}{{ plan.pct }}%{% endif %}</div>
               <div class="plan-card-count">{{ plan.done }}/{{ plan.total }} séances</div>
             </div>
             <form method="post" action="{{ path('app_plans_delete', { planId: plan.id }) }}" onsubmit="return confirm('Supprimer ce plan ?');" style="display:inline-flex">

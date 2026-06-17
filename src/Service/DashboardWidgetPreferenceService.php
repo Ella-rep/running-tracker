@@ -56,6 +56,11 @@ class DashboardWidgetPreferenceService
                 'label' => 'Alertes coherence',
                 'description' => 'Points d attention entre objectifs et charge.',
             ],
+            [
+                'key' => DashboardWidgetKeys::RACE_AVG,
+                'label' => 'Allure moyenne course',
+                'description' => 'Allure moyenne sur tes courses officielles terminees.',
+            ],
         ];
     }
 

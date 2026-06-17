@@ -23,7 +23,7 @@ final class DashboardMetricsFacadeService
      * pace to an estimated race-equivalent pace before projecting: race pace is
      * faster than EF, hence a factor < 1 that shortens the projected times.
      */
-    private const EF_RACE_PACE_FACTOR = 0.92;
+    private const EF_RACE_PACE_FACTOR = 0.80;
     // Single tuning point: chart window long enough for trend, short enough to stay readable.
     private const PROJECTION_HISTORY_MONTHS = 8;
     private const PROJECTION_RULES = "Modèle de projection: formule de Riegel T2 = T1 × (D2/D1)^1.06 (T1 = temps sur la distance de référence).";

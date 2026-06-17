@@ -200,6 +200,40 @@ class PlansController extends AbstractController
         return $this->json(['id' => $copy->getId(), 'name' => $copy->getName()]);
     }
 
+    #[Route('/api/plans/{planId<\d+>}/complete', name: 'api_plans_complete', methods: ['POST'])]
+    public function apiComplete(
+        int $planId,
+        Request $request,
+        PlanRepository $planRepository,
+        EntityManagerInterface $entityManager,
+    ): JsonResponse {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->json(['message' => 'Utilisateur non authentifié.'], 401);
+        }
+
+        $plan = $planRepository->find($planId);
+        if (!$plan instanceof Plan || $plan->getUser()->getId() !== $user->getId()) {
+            return $this->json(['message' => 'Plan introuvable.'], 404);
+        }
+
+        $completed = true;
+        try {
+            $data = json_decode($request->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+            if (is_array($data) && array_key_exists('completed', $data)) {
+                $completed = (bool) $data['completed'];
+            }
+        } catch (\JsonException) {
+            // Empty/invalid body => default to marking complete.
+        }
+
+        // Manual completion only: sessions are intentionally left untouched.
+        $plan->setIsCompleted($completed);
+        $entityManager->flush();
+
+        return $this->json(['id' => $plan->getId(), 'isCompleted' => $plan->isCompleted()]);
+    }
+
     /**
      * Clones a plan and its sessions: same format/type/pe/duration, but with no
      * dates and every session reset to "not done" / "not cancelled".
@@ -554,6 +588,7 @@ class PlansController extends AbstractController
                 'total' => $total,
                 'done' => $done,
                 'pct' => $pct,
+                'completed' => $plan->isCompleted(),
             ];
         }
 
