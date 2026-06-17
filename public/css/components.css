@@ -358,6 +358,16 @@ tr:hover .action-btns,
 .profile-avatar-actions .btn { width: 100%; justify-content: center; cursor: pointer; }
 .btn-sm { padding: 6px 10px; font-size: 0.8rem; }
 .profile-avatar-picker { flex: 1 1 100%; margin-top: 4px; }
+.avatar-picker-toggle {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  padding: 6px 10px; font-size: 0.8rem; border-radius: 8px;
+  background: var(--surface-2, rgba(255,255,255,.06)); color: inherit;
+  list-style: none; user-select: none;
+}
+.avatar-picker-toggle::-webkit-details-marker { display: none; }
+.avatar-picker-toggle::before { content: "\25B8"; transition: transform .15s; }
+details[open] > .avatar-picker-toggle::before { transform: rotate(90deg); }
+.avatar-picker-toggle:hover { background: var(--surface-3, rgba(255,255,255,.1)); }
 .avatar-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));

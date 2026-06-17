@@ -54,8 +54,8 @@
         </div>
       </div>
       {% if defaultAvatars is not empty %}
-        <div class="profile-avatar-picker">
-          <div class="section-sub">Pas de photo ? Choisis un avatar :</div>
+        <details class="profile-avatar-picker"{{ profileUser.hasAvatar ? '' : ' open' }}>
+          <summary class="avatar-picker-toggle">Pas de photo ? Choisis un avatar</summary>
           <form method="post" action="{{ path('app_profile_avatar_default') }}">
             <input type="hidden" name="_token" value="{{ csrf_token('profile_avatar_default') }}">
             <div class="avatar-grid">
@@ -67,7 +67,7 @@
               {% endfor %}
             </div>
           </form>
-        </div>
+        </details>
       {% endif %}
     </div>
 
