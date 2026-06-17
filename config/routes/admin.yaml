@@ -1,6 +1,6 @@
-api_admin_maintenance_gmail_errors_report:
-  path: /api/admin/maintenance/gmail-errors/report
-  controller: App\Controller\PlanMaintenanceApiController::sendGoogleOAuthErrorReport
+api_admin_maintenance_weekly_summary_send:
+  path: /api/admin/maintenance/weekly-summary/send
+  controller: App\Controller\PlanMaintenanceApiController::sendWeeklySummaryNow
   methods: [POST]
 
 api_admin_maintenance_races_backfill_logs:

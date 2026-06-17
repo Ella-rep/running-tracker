@@ -105,10 +105,10 @@
     <div class="chart-wrap admin-maintenance-card">
       <div class="chart-title">Maintenance</div>
       <div class="admin-maintenance-section">
-        <h4>Rapport erreurs Gmail/OAuth</h4>
-        <p class="admin-maintenance-desc">Collecte les erreurs OAuth Google des logs récents et envoie un rapport détaillé à l'adresse interne de contact.</p>
-        <button id="admin-gmail-report-btn" class="btn btn-ghost" onclick="adminSendGmailErrorReport()">Envoyer rapport Gmail</button>
-        <div id="admin-gmail-report-status" style="margin-top:12px;"></div>
+        <h4>Envoyer le mail récap</h4>
+        <p class="admin-maintenance-desc">Envoie immédiatement le mail récap hebdomadaire actionnable aux utilisateurs abonnés, sans attendre la fin de semaine.</p>
+        <button id="admin-recap-mail-btn" class="btn btn-ghost" onclick="adminSendWeeklySummary()">Envoyer le récap</button>
+        <div id="admin-recap-mail-status" style="margin-top:12px;"></div>
       </div>
       <div class="admin-maintenance-section" style="margin-top:18px;">
         <h4>Importer les courses terminées dans les logs</h4>
@@ -376,9 +376,9 @@
 {% block javascripts %}
 <script src="{{ asset('js/app.js') }}?v=20260616-p2p4"></script>
 <script>
-async function adminSendGmailErrorReport() {
-  const btn = document.getElementById('admin-gmail-report-btn');
-  const status = document.getElementById('admin-gmail-report-status');
+async function adminSendWeeklySummary() {
+  const btn = document.getElementById('admin-recap-mail-btn');
+  const status = document.getElementById('admin-recap-mail-status');
   if (!btn || !status) return;
 
   btn.disabled = true;
@@ -388,7 +388,7 @@ async function adminSendGmailErrorReport() {
   try {
     const authHeaders = globalThis.rtAuth?.buildAuthHeaders ? globalThis.rtAuth.buildAuthHeaders() : {};
 
-    const response = await fetch('/api/admin/maintenance/gmail-errors/report', {
+    const response = await fetch('/api/admin/maintenance/weekly-summary/send', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -403,35 +403,31 @@ async function adminSendGmailErrorReport() {
     } catch (e) {
       status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur ${response.status}:</strong> Réponse invalide (pas du JSON)</span>`;
       btn.disabled = false;
-      btn.textContent = 'Envoyer rapport Gmail';
+      btn.textContent = 'Envoyer le récap';
       return;
     }
 
     if (!response.ok) {
       status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur ${response.status}:</strong> ${result.message || 'Échec inconnu'}</span>`;
       btn.disabled = false;
-      btn.textContent = 'Envoyer rapport Gmail';
+      btn.textContent = 'Envoyer le récap';
       return;
     }
 
-    const topCodes = result.codes && typeof result.codes === 'object'
-      ? Object.entries(result.codes).slice(0, 3).map(([code, hits]) => `${code}: ${hits}`).join(' · ')
-      : 'aucun code détaillé';
-
     status.innerHTML = `
       <div style="color:var(--z1);padding:12px;background:color-mix(in srgb, var(--z1) 16%, var(--surface2));border-radius:4px;">
-        <strong>✓ Rapport envoyé</strong><br>
-        Erreurs détectées (24h): ${result.errors || 0}<br>
-        Codes: ${topCodes}
+        <strong>✓ Récap envoyé</strong><br>
+        Mails envoyés: ${result.sent || 0}<br>
+        Ignorés: ${result.skipped || 0} · Échecs: ${result.failed || 0}
       </div>
     `;
 
     btn.disabled = false;
-    btn.textContent = 'Envoyer rapport Gmail';
+    btn.textContent = 'Envoyer le récap';
   } catch (e) {
     status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur reseau:</strong> ${e.message}</span>`;
     btn.disabled = false;
-    btn.textContent = 'Envoyer rapport Gmail';
+    btn.textContent = 'Envoyer le récap';
   }
 }
 

@@ -6,16 +6,13 @@ namespace App\Controller;
 
 use App\Entity\User;
 use App\Repository\UserRepository;
-use App\Service\GoogleOAuthErrorReportService;
 use App\Service\RaceLogSyncService;
+use App\Service\WeeklySummaryMailer;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-use Symfony\Component\Mailer\MailerInterface;
-use Symfony\Component\Mime\Email;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -24,10 +21,6 @@ use Doctrine\ORM\EntityManagerInterface;
 final class PlanMaintenanceApiController extends AbstractController
 {
     public function __construct(
-        private readonly GoogleOAuthErrorReportService $googleOAuthErrorReportService,
-        private readonly MailerInterface $mailer,
-        #[Autowire('%env(string:CONTACT_EMAIL_TO)%')] private readonly string $contactEmailTo,
-        #[Autowire('%env(string:MAILER_FROM)%')] private readonly string $mailerFrom,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -115,38 +108,28 @@ final class PlanMaintenanceApiController extends AbstractController
     }
 
     /**
-     * Sends a Gmail/OAuth operational error report to the internal contact mailbox.
-     * Route is defined in config/routes/admin.yaml to avoid caching issues.
+     * Sends the actionable weekly recap email to subscribers on demand,
+     * without waiting for the end-of-week cron. Route in config/routes/admin.yaml.
      */
-    public function sendGoogleOAuthErrorReport(): JsonResponse
+    public function sendWeeklySummaryNow(WeeklySummaryMailer $weeklySummaryMailer): JsonResponse
     {
         try {
             $admin = $this->requireAdminUser();
 
-            $report = $this->googleOAuthErrorReportService->collectRecentErrors();
-            $body = $this->googleOAuthErrorReportService->buildReportBody($report);
+            $result = $weeklySummaryMailer->sendAll();
 
-            $email = (new Email())
-                ->from($this->mailerFrom)
-                ->to($this->contactEmailTo)
-                ->subject(sprintf('[Admin] Rapport erreurs Gmail OAuth (%d erreurs)', (int) $report['count']))
-                ->text($body);
-
-            $this->mailer->send($email);
-
-            $this->logger->error('Admin maintenance: Google OAuth error report sent.', [
+            $this->logger->warning('Admin maintenance: weekly recap sent on demand.', [
                 'admin' => $admin->getUserIdentifier(),
-                'errors_count' => $report['count'],
-                'window_hours' => $report['window_hours'],
-                'target' => $this->contactEmailTo,
-            ]);
+            ] + $result);
 
             return $this->json([
-                'message' => 'Rapport erreurs Gmail envoyé.',
-                'errors' => $report['count'],
-                'window_hours' => $report['window_hours'],
-                'codes' => $report['codes'],
-            ]);
+                'message' => sprintf(
+                    'Récap envoyé : %d mail(s), %d ignoré(s), %d échec(s).',
+                    $result['sent'],
+                    $result['skipped'],
+                    $result['failed']
+                ),
+            ] + $result);
         } catch (AccessDeniedHttpException $e) {
             return $this->json([
                 'message' => $e->getMessage(),
