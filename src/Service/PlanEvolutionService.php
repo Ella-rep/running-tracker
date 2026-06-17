@@ -14,14 +14,13 @@ use App\Repository\RunLogRepository;
 final class PlanEvolutionService
 {
     /** Canonical display order for run types. */
-    private const TYPE_ORDER = ['EF', 'SL', 'T', 'FL', 'FC', 'RACE', 'RECUP'];
+    private const TYPE_ORDER = ['EF', 'SL', 'T', 'FRAC', 'RACE', 'RECUP'];
 
     private const TYPE_LABELS = [
         'EF' => 'en endurance (sorties EF)',
         'SL' => 'en sortie longue',
         'T' => 'en tempo',
-        'FL' => 'en fractionné long',
-        'FC' => 'en fractionné court',
+        'FRAC' => 'en fractionné',
         'RACE' => 'en course',
         'RECUP' => 'en récupération',
     ];
@@ -87,6 +86,9 @@ final class PlanEvolutionService
 
         $cards = [];
         foreach ($order as $code) {
+            if ($code === 'RACE') {
+                continue; // la course/objectif n'entre pas dans la progression
+            }
             $bpmFrom = $start[$code]['bpm'] ?? null;
             $bpmTo = $end[$code]['bpm'] ?? null;
             $paceFrom = $start[$code]['pace'] ?? null;
@@ -133,7 +135,7 @@ final class PlanEvolutionService
     }
 
     /**
-     * @return array{from:string, to:string, gap:?string, trend:?string, improved:?bool}
+     * @return array{from:string, to:string, fromSec:?int, toSec:?int, gap:?string, trend:?string, improved:?bool}
      */
     private function paceMetric(?string $from, ?string $to): array
     {
@@ -151,6 +153,8 @@ final class PlanEvolutionService
         return [
             'from' => $from !== null ? $from . '/km' : '—',
             'to' => $to !== null ? $to . '/km' : '—',
+            'fromSec' => $fromSec,
+            'toSec' => $toSec,
             'gap' => $gap,
             'trend' => $trend,
             'improved' => $improved,
@@ -232,11 +236,8 @@ final class PlanEvolutionService
         if ($compact === 'SL' || str_contains($compact, 'SORTIE LONGUE')) {
             return 'SL';
         }
-        if ($compact === 'FL' || str_contains($compact, 'FRACTIONNE LONG') || $compact === 'SEUIL') {
-            return 'FL';
-        }
-        if ($compact === 'FC' || str_contains($compact, 'FRACTIONNE COURT') || $compact === 'VMA' || str_contains($compact, 'FRACTIONNE')) {
-            return 'FC';
+        if ($compact === 'FL' || $compact === 'FC' || $compact === 'VMA' || $compact === 'SEUIL' || str_contains($compact, 'FRACTIONNE')) {
+            return 'FRAC';
         }
         if ($compact === 'T' || str_contains($compact, 'TEMPO')) {
             return 'T';

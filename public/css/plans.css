@@ -783,6 +783,40 @@
 .evo-metric.evo-good .evo-card-gap { color: var(--z2); }
 .evo-metric.evo-bad  .evo-card-gap { color: var(--z3); }
 
+/* progression slope chart */
+.evo-chart {
+  margin: 4px 0 16px;
+  padding: 12px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.evo-chart-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.evo-chart-svg { display: block; width: 100%; height: auto; }
+.evo-line { stroke-width: 2; fill: none; opacity: .85; }
+.evo-line-good { stroke: var(--z2); }
+.evo-line-bad  { stroke: var(--z3); }
+.evo-line-flat { stroke: var(--text-muted); }
+.evo-dot { fill: var(--surface); stroke: var(--text-muted); stroke-width: 1.5; }
+.evo-axis {
+  fill: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.evo-point-label {
+  fill: var(--text);
+  font-size: 10px;
+  font-weight: 700;
+}
+
 /* plan summary boxes */
 .evo-summary-title {
   margin: 18px 0 10px;
