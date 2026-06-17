@@ -138,6 +138,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $photoMimeType = null;
 
+    #[ORM\ManyToOne(targetEntity: DefaultAvatar::class)]
+    #[ORM\JoinColumn(name: 'default_avatar_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?DefaultAvatar $defaultAvatar = null;
+
 
     #[ORM\OneToOne(targetEntity: HealthPause::class, mappedBy: 'user', cascade: ['remove'])]
     private ?HealthPause $healthPause = null;
@@ -215,7 +219,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setPhotoData($data): static { $this->photoData = $data; return $this; }
     public function getPhotoMimeType(): ?string { return $this->photoMimeType; }
     public function setPhotoMimeType(?string $mime): static { $this->photoMimeType = $mime; return $this; }
+    public function getDefaultAvatar(): ?DefaultAvatar { return $this->defaultAvatar; }
+    public function setDefaultAvatar(?DefaultAvatar $a): static { $this->defaultAvatar = $a; return $this; }
     public function hasPhoto(): bool { return $this->photoData !== null; }
+    public function hasAvatar(): bool { return $this->photoData !== null || $this->defaultAvatar !== null; }
     /** Returns the binary content as string (reads stream if needed). */
     public function getPhotoBinary(): ?string {
         if ($this->photoData === null) { return null; }

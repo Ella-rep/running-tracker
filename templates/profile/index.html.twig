@@ -3,7 +3,7 @@
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
-<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260617-p4">
+<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260617-p5">
 {% endblock %}
 
 {% block body %}
@@ -21,12 +21,27 @@
     {% endfor %}
 
     <div class="form-card profile-identity">
-      <div class="profile-avatar">
-        {% if profileUser.hasPhoto %}
-          <img src="{{ path('app_profile_photo_show') }}" alt="Photo de profil">
-        {% else %}
-          <span class="profile-avatar-fallback">{{ profileUser.userIdentifier|slice(0,1)|upper }}</span>
-        {% endif %}
+      <div class="profile-avatar-block">
+        <div class="profile-avatar">
+          {% if profileUser.hasAvatar %}
+            <img src="{{ path('app_profile_photo_show') }}" alt="Avatar">
+          {% else %}
+            <span class="profile-avatar-fallback">{{ profileUser.userIdentifier|slice(0,1)|upper }}</span>
+          {% endif %}
+        </div>
+        <div class="profile-avatar-actions">
+          <form method="post" action="{{ path('app_profile_photo') }}" enctype="multipart/form-data">
+            <input type="hidden" name="_token" value="{{ csrf_token('profile_photo') }}">
+            <label class="btn btn-sm" for="photo">{{ profileUser.hasPhoto ? 'Changer ma photo' : 'Ajouter ma photo' }}</label>
+            <input type="file" id="photo" name="photo" accept="image/png,image/jpeg,image/webp,image/gif" hidden onchange="this.form.submit()">
+          </form>
+          {% if profileUser.hasAvatar %}
+            <form method="post" action="{{ path('app_profile_photo_delete') }}" onsubmit="return confirm('Supprimer ton avatar ?');">
+              <input type="hidden" name="_token" value="{{ csrf_token('profile_photo_delete') }}">
+              <button class="btn btn-ghost btn-sm" type="submit">Supprimer</button>
+            </form>
+          {% endif %}
+        </div>
       </div>
       <div class="profile-identity-info">
         <div class="field">
@@ -38,30 +53,23 @@
           <div>{{ profileUser.email ?: 'Non renseigné' }}</div>
         </div>
       </div>
-    </div>
-
-    <form class="form-card" method="post" action="{{ path('app_profile_photo') }}" enctype="multipart/form-data">
-      <input type="hidden" name="_token" value="{{ csrf_token('profile_photo') }}">
-      <div class="section-title" style="font-size:1rem;">Photo de profil</div>
-      <div class="section-sub">Optionnelle. JPEG, PNG, WEBP ou GIF — 4 Mo max.</div>
-      <div class="field" style="margin-top:8px;">
-        <label for="photo">Choisir une image</label>
-        <input type="file" id="photo" name="photo" accept="image/png,image/jpeg,image/webp,image/gif">
-      </div>
-      <div class="profile-actions">
-        <button class="btn" type="submit">Téléverser</button>
-      </div>
-    </form>
-
-    {% if profileUser.hasPhoto %}
-      <form class="form-card" method="post" action="{{ path('app_profile_photo_delete') }}" onsubmit="return confirm('Supprimer ta photo de profil ?');">
-        <input type="hidden" name="_token" value="{{ csrf_token('profile_photo_delete') }}">
-        <div class="section-sub">Supprimer la photo de profil actuelle.</div>
-        <div class="profile-actions">
-          <button class="btn btn-ghost" type="submit">Supprimer la photo</button>
+      {% if defaultAvatars is not empty %}
+        <div class="profile-avatar-picker">
+          <div class="section-sub">Pas de photo ? Choisis un avatar :</div>
+          <form method="post" action="{{ path('app_profile_avatar_default') }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('profile_avatar_default') }}">
+            <div class="avatar-grid">
+              {% for a in defaultAvatars %}
+                {% set selected = profileUser.defaultAvatar and profileUser.defaultAvatar.id == a.id %}
+                <button type="submit" name="avatar_id" value="{{ a.id }}" class="avatar-choice{{ selected ? ' is-selected' : '' }}" title="{{ a.label }}" aria-label="{{ a.label }}">
+                  <img src="{{ path('app_profile_avatar_image', { id: a.id }) }}" alt="{{ a.label }}" loading="lazy">
+                </button>
+              {% endfor %}
+            </div>
+          </form>
         </div>
-      </form>
-    {% endif %}
+      {% endif %}
+    </div>
 
     <form class="form-card" method="post" action="{{ path('app_profile_password') }}">
       <input type="hidden" name="_token" value="{{ csrf_token('profile_password') }}">

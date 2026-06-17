@@ -2,7 +2,9 @@
 
 namespace App\Controller;
 
+use App\Entity\DefaultAvatar;
 use App\Entity\User;
+use App\Repository\DefaultAvatarRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -26,13 +28,14 @@ final class ProfileController extends AbstractController
      * Displays the profile page with account info and preferences.
      */
     #[Route('/profile', name: 'app_profile', methods: ['GET'])]
-    public function index(): Response
+    public function index(DefaultAvatarRepository $defaultAvatars): Response
     {
         $user = $this->getUser();
 
         return $this->render('profile/index.html.twig', [
             'username' => $user?->getUserIdentifier(),
             'profileUser' => $user,
+            'defaultAvatars' => $defaultAvatars->findAllOrdered(),
         ]);
     }
 
@@ -162,6 +165,7 @@ final class ProfileController extends AbstractController
 
         $user->setPhotoData($binary);
         $user->setPhotoMimeType($file->getMimeType());
+        $user->setDefaultAvatar(null);
         $entityManager->flush();
 
         $this->addFlash('success', 'Photo de profil mise à jour.');
@@ -176,16 +180,63 @@ final class ProfileController extends AbstractController
     public function showPhoto(): Response
     {
         $user = $this->getUser();
-        if (!$user instanceof User || !$user->hasPhoto()) {
+        if (!$user instanceof User) {
             throw $this->createNotFoundException('Aucune photo de profil.');
         }
 
-        $binary = $user->getPhotoBinary();
+        if ($user->hasPhoto()) {
+            return new Response($user->getPhotoBinary(), Response::HTTP_OK, [
+                'Content-Type' => $user->getPhotoMimeType() ?? 'application/octet-stream',
+                'Cache-Control' => 'private, no-cache',
+            ]);
+        }
 
-        return new Response($binary, Response::HTTP_OK, [
-            'Content-Type' => $user->getPhotoMimeType() ?? 'application/octet-stream',
-            'Cache-Control' => 'private, no-cache',
-        ]);
+        $avatar = $user->getDefaultAvatar();
+        if ($avatar instanceof DefaultAvatar) {
+            return new Response($avatar->getImageBinary(), Response::HTTP_OK, [
+                'Content-Type' => $avatar->getMimeType(),
+                'Cache-Control' => 'private, max-age=86400',
+            ]);
+        }
+
+        throw $this->createNotFoundException('Aucune photo de profil.');
+    }
+
+    /**
+     * Selects one of the built-in default avatars (clears any uploaded photo).
+     */
+    #[Route('/profile/avatar/default', name: 'app_profile_avatar_default', methods: ['POST'])]
+    public function selectDefaultAvatar(
+        Request $request,
+        EntityManagerInterface $entityManager,
+        DefaultAvatarRepository $defaultAvatars,
+    ): RedirectResponse {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            throw $this->createAccessDeniedException('Utilisateur non authentifié.');
+        }
+
+        if (!$this->isCsrfTokenValid('profile_avatar_default', (string) $request->request->get('_token'))) {
+            $this->addFlash('error', 'Jeton de sécurité invalide, merci de réessayer.');
+
+            return $this->redirectToRoute('app_profile');
+        }
+
+        $avatar = $defaultAvatars->find((int) $request->request->get('avatar_id'));
+        if (!$avatar instanceof DefaultAvatar) {
+            $this->addFlash('error', 'Avatar introuvable.');
+
+            return $this->redirectToRoute('app_profile');
+        }
+
+        $user->setPhotoData(null);
+        $user->setPhotoMimeType(null);
+        $user->setDefaultAvatar($avatar);
+        $entityManager->flush();
+
+        $this->addFlash('success', 'Avatar mis à jour.');
+
+        return $this->redirectToRoute('app_profile');
     }
 
     /**
@@ -205,14 +256,30 @@ final class ProfileController extends AbstractController
             return $this->redirectToRoute('app_profile');
         }
 
-        if ($user->hasPhoto()) {
-            $user->setPhotoData(null);
-            $user->setPhotoMimeType(null);
-            $entityManager->flush();
-        }
+        $user->setPhotoData(null);
+        $user->setPhotoMimeType(null);
+        $user->setDefaultAvatar(null);
+        $entityManager->flush();
 
         $this->addFlash('success', 'Photo de profil supprimée.');
 
         return $this->redirectToRoute('app_profile');
+    }
+
+    /**
+     * Streams a built-in default avatar image (for the picker thumbnails).
+     */
+    #[Route('/profile/avatar/{id}/image', name: 'app_profile_avatar_image', methods: ['GET'], requirements: ['id' => '\\d+'])]
+    public function showDefaultAvatarImage(int $id, DefaultAvatarRepository $defaultAvatars): Response
+    {
+        $avatar = $defaultAvatars->find($id);
+        if (!$avatar instanceof DefaultAvatar) {
+            throw $this->createNotFoundException('Avatar introuvable.');
+        }
+
+        return new Response($avatar->getImageBinary(), Response::HTTP_OK, [
+            'Content-Type' => $avatar->getMimeType(),
+            'Cache-Control' => 'public, max-age=604800',
+        ]);
     }
 }
