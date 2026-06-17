@@ -23,14 +23,19 @@ final class DashboardMetricsFacadeService
      * pace to an estimated race-equivalent pace before projecting: race pace is
      * faster than EF, hence a factor < 1 that shortens the projected times.
      */
-    private const EF_RACE_PACE_FACTOR = 0.80;
+    private const EF_RACE_PACE_FACTOR = 0.78;
 
     /**
      * Sorties longues (SL): allure volontairement basse, plus lente qu'une
      * allure de course (mais moins que l'EF). Convertie en allure course
      * estimée avant projection via un facteur < 1.
      */
-    private const SL_RACE_PACE_FACTOR = 0.85;
+    private const SL_RACE_PACE_FACTOR = 0.80;
+
+    /**
+     * Footing long (FL): allure d'endurance, plus lente qu'une course.
+     */
+    private const FL_RACE_PACE_FACTOR = 0.82;
     // Single tuning point: chart window long enough for trend, short enough to stay readable.
     private const PROJECTION_HISTORY_MONTHS = 8;
     private const PROJECTION_RULES = "Modèle de projection: formule de Riegel T2 = T1 × (D2/D1)^1.06 (T1 = temps sur la distance de référence).";
@@ -592,9 +597,10 @@ final class DashboardMetricsFacadeService
             : ' · Aucun D+ renseigne - allure brute utilisee';
 
         $efNote = sprintf(
-            ' · EF (×%.2f) et SL (×%.2f) converties en allure course estimée car plus lentes qu\'une allure de course',
+            ' · EF (×%.2f), SL (×%.2f), FL (×%.2f) converties en allure course estimée car plus lentes qu\'une allure de course',
             self::EF_RACE_PACE_FACTOR,
-            self::SL_RACE_PACE_FACTOR
+            self::SL_RACE_PACE_FACTOR,
+            self::FL_RACE_PACE_FACTOR
         );
         $meta = sprintf(
             '%s (5 dernieres sorties): %s/km · Distance de reference: %.1f km',
@@ -779,6 +785,7 @@ final class DashboardMetricsFacadeService
             $factor = match ($sample['type'] ?? '') {
                 'EF' => self::EF_RACE_PACE_FACTOR,
                 'SL' => self::SL_RACE_PACE_FACTOR,
+                'FL' => self::FL_RACE_PACE_FACTOR,
                 default => 1.0,
             };
             $effectivePace = (float) $paceSec * $factor;
