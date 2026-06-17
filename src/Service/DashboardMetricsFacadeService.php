@@ -24,6 +24,13 @@ final class DashboardMetricsFacadeService
      * faster than EF, hence a factor < 1 that shortens the projected times.
      */
     private const EF_RACE_PACE_FACTOR = 0.80;
+
+    /**
+     * Sorties longues (SL): allure volontairement basse, plus lente qu'une
+     * allure de course (mais moins que l'EF). Convertie en allure course
+     * estimée avant projection via un facteur < 1.
+     */
+    private const SL_RACE_PACE_FACTOR = 0.85;
     // Single tuning point: chart window long enough for trend, short enough to stay readable.
     private const PROJECTION_HISTORY_MONTHS = 8;
     private const PROJECTION_RULES = "Modèle de projection: formule de Riegel T2 = T1 × (D2/D1)^1.06 (T1 = temps sur la distance de référence).";
@@ -585,8 +592,9 @@ final class DashboardMetricsFacadeService
             : ' · Aucun D+ renseigne - allure brute utilisee';
 
         $efNote = sprintf(
-            ' · Sorties EF converties en allure course estimée (×%.2f) car l\'EF est plus lente qu\'une allure de course',
-            self::EF_RACE_PACE_FACTOR
+            ' · EF (×%.2f) et SL (×%.2f) converties en allure course estimée car plus lentes qu\'une allure de course',
+            self::EF_RACE_PACE_FACTOR,
+            self::SL_RACE_PACE_FACTOR
         );
         $meta = sprintf(
             '%s (5 dernieres sorties): %s/km · Distance de reference: %.1f km',
@@ -610,7 +618,8 @@ final class DashboardMetricsFacadeService
         $samples = [];
 
         foreach ($runs as $log) {
-            $isEf = strtoupper(trim((string) ($log->getRunType() ?? ''))) === 'EF';
+            $type = strtoupper(trim((string) ($log->getRunType() ?? '')));
+            $isEf = $type === 'EF';
             $gapSec = $this->paceToSeconds($log->getGap());
             $allureSec = $this->paceToSeconds($log->getAllure());
             $hasDplus = ($log->getDplus() ?? 0) > 0;
@@ -622,7 +631,7 @@ final class DashboardMetricsFacadeService
                 if ($km > 0.0) {
                     $distanceKmList[] = $km;
                 }
-                $samples[] = ['paceSec' => $gapSec, 'km' => $km > 0.0 ? $km : null, 'isEf' => $isEf];
+                $samples[] = ['paceSec' => $gapSec, 'km' => $km > 0.0 ? $km : null, 'isEf' => $isEf, 'type' => $type];
                 continue;
             }
             if ($allureSec !== null) {
@@ -630,7 +639,7 @@ final class DashboardMetricsFacadeService
                 if ($km > 0.0) {
                     $distanceKmList[] = $km;
                 }
-                $samples[] = ['paceSec' => $allureSec, 'km' => $km > 0.0 ? $km : null, 'isEf' => $isEf];
+                $samples[] = ['paceSec' => $allureSec, 'km' => $km > 0.0 ? $km : null, 'isEf' => $isEf, 'type' => $type];
             }
         }
 
@@ -755,7 +764,7 @@ final class DashboardMetricsFacadeService
      * Falls back to the aggregate pace/median-distance model when no per-run
      * distances are available.
      *
-     * @param array<int,array{paceSec:int,km:float|null,isEf?:bool}> $samples
+     * @param array<int,array{paceSec:int,km:float|null,isEf?:bool,type?:string}> $samples
      */
     private function projectFromSamples(array $samples, float $avgSecPerKm, float $sourceDistanceKm, float $targetDistanceKm): int
     {
@@ -767,7 +776,12 @@ final class DashboardMetricsFacadeService
                 continue;
             }
             // EF pace is easy/slow: convert to estimated race pace before projecting.
-            $effectivePace = ($sample['isEf'] ?? false) ? (float) $paceSec * self::EF_RACE_PACE_FACTOR : (float) $paceSec;
+            $factor = match ($sample['type'] ?? '') {
+                'EF' => self::EF_RACE_PACE_FACTOR,
+                'SL' => self::SL_RACE_PACE_FACTOR,
+                default => 1.0,
+            };
+            $effectivePace = (float) $paceSec * $factor;
             $projected[] = $this->projectedTimeSeconds($effectivePace, (float) $km, $targetDistanceKm);
         }
 
