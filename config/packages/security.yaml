@@ -28,6 +28,7 @@ security:
         main:
             pattern: ^/
             lazy: true
+            stateless: true
             jwt: ~
             entry_point: App\Security\WebLoginEntryPoint
             custom_authenticators:
