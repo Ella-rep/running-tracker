@@ -63,19 +63,25 @@
           {% if evo.cards is not empty %}
             <div class="evo-cards">
               {% for c in evo.cards %}
-                <div class="evo-card{% if c.trend %} evo-{{ c.improved ? 'good' : (c.trend == 'flat' ? 'flat' : 'bad') }}{% endif %}">
+                <div class="evo-card">
                   <div class="evo-card-head">
-                    <span class="evo-card-metric">{{ c.title }}</span>
                     <span class="evo-card-type">{{ c.typeLabel }}</span>
                   </div>
-                  <div class="evo-card-values">
-                    <span class="evo-from">{{ c.from }}</span>
-                    <span class="evo-arrow">→</span>
-                    <span class="evo-to">{{ c.to }}</span>
-                  </div>
-                  {% if c.gap %}
-                    <div class="evo-card-gap">{{ c.trend == 'down' ? '↘' : (c.trend == 'up' ? '↗' : '→') }} {{ c.gap }}</div>
-                  {% endif %}
+                  {% for m in [{ k: 'bpm', label: 'FC moyenne', d: c.bpm }, { k: 'pace', label: 'Allure moyenne', d: c.pace }] %}
+                    {% if m.d %}
+                      <div class="evo-metric{% if m.d.trend %} evo-{{ m.d.improved ? 'good' : (m.d.trend == 'flat' ? 'flat' : 'bad') }}{% endif %}">
+                        <span class="evo-metric-label">{{ m.label }}</span>
+                        <div class="evo-card-values">
+                          <span class="evo-from">{{ m.d.from }}</span>
+                          <span class="evo-arrow">→</span>
+                          <span class="evo-to">{{ m.d.to }}</span>
+                        </div>
+                        {% if m.d.gap %}
+                          <div class="evo-card-gap">{{ m.d.trend == 'down' ? '↘' : (m.d.trend == 'up' ? '↗' : '→') }} {{ m.d.gap }}</div>
+                        {% endif %}
+                      </div>
+                    {% endif %}
+                  {% endfor %}
                 </div>
               {% endfor %}
             </div>

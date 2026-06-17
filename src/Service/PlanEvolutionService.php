@@ -33,7 +33,7 @@ final class PlanEvolutionService
     /**
      * @return array{
      *   hasData: bool,
-     *   cards: array<int, array{metric:string, title:string, typeLabel:string, from:string, to:string, gap:?string, trend:?string, improved:?bool}>,
+     *   cards: array<int, array{code:string, typeLabel:string, bpm:?array, pace:?array}>,
      *   summary: ?array{runs:int, km:string, time:?string}
      * }
      */
@@ -65,9 +65,10 @@ final class PlanEvolutionService
     }
 
     /**
+     * One card per run type, each carrying its BPM and pace evolution.
      * @param array<string, array{bpm:?int, pace:?string}> $start
      * @param array<string, array{bpm:?int, pace:?string}> $end
-     * @return array<int, array{metric:string, title:string, typeLabel:string, from:string, to:string, gap:?string, trend:?string, improved:?bool}>
+     * @return array<int, array{code:string, typeLabel:string, bpm:?array, pace:?array}>
      */
     private function buildCards(array $start, array $end): array
     {
@@ -78,32 +79,33 @@ final class PlanEvolutionService
         )));
 
         $cards = [];
+        foreach ($order as $code) {
+            $bpmFrom = $start[$code]['bpm'] ?? null;
+            $bpmTo = $end[$code]['bpm'] ?? null;
+            $paceFrom = $start[$code]['pace'] ?? null;
+            $paceTo = $end[$code]['pace'] ?? null;
 
-        // BPM cards first, then pace cards (both following the canonical order).
-        foreach ($order as $code) {
-            $from = $start[$code]['bpm'] ?? null;
-            $to = $end[$code]['bpm'] ?? null;
-            if ($from === null && $to === null) {
+            $hasBpm = $bpmFrom !== null || $bpmTo !== null;
+            $hasPace = $paceFrom !== null || $paceTo !== null;
+            if (!$hasBpm && !$hasPace) {
                 continue;
             }
-            $cards[] = $this->bpmCard($code, $from, $to);
-        }
-        foreach ($order as $code) {
-            $from = $start[$code]['pace'] ?? null;
-            $to = $end[$code]['pace'] ?? null;
-            if ($from === null && $to === null) {
-                continue;
-            }
-            $cards[] = $this->paceCard($code, $from, $to);
+
+            $cards[] = [
+                'code' => $code,
+                'typeLabel' => $this->typeLabel($code),
+                'bpm' => $hasBpm ? $this->bpmMetric($bpmFrom, $bpmTo) : null,
+                'pace' => $hasPace ? $this->paceMetric($paceFrom, $paceTo) : null,
+            ];
         }
 
         return $cards;
     }
 
     /**
-     * @return array{metric:string, title:string, typeLabel:string, from:string, to:string, gap:?string, trend:?string, improved:?bool}
+     * @return array{from:string, to:string, gap:?string, trend:?string, improved:?bool}
      */
-    private function bpmCard(string $code, ?int $from, ?int $to): array
+    private function bpmMetric(?int $from, ?int $to): array
     {
         $gap = $trend = null;
         $improved = null;
@@ -115,9 +117,6 @@ final class PlanEvolutionService
         }
 
         return [
-            'metric' => 'bpm',
-            'title' => 'FC moyenne',
-            'typeLabel' => $this->typeLabel($code),
             'from' => $from !== null ? $from . ' bpm' : '—',
             'to' => $to !== null ? $to . ' bpm' : '—',
             'gap' => $gap,
@@ -127,9 +126,9 @@ final class PlanEvolutionService
     }
 
     /**
-     * @return array{metric:string, title:string, typeLabel:string, from:string, to:string, gap:?string, trend:?string, improved:?bool}
+     * @return array{from:string, to:string, gap:?string, trend:?string, improved:?bool}
      */
-    private function paceCard(string $code, ?string $from, ?string $to): array
+    private function paceMetric(?string $from, ?string $to): array
     {
         $gap = $trend = null;
         $improved = null;
@@ -143,9 +142,6 @@ final class PlanEvolutionService
         }
 
         return [
-            'metric' => 'pace',
-            'title' => 'Allure moyenne',
-            'typeLabel' => $this->typeLabel($code),
             'from' => $from !== null ? $from . '/km' : '—',
             'to' => $to !== null ? $to . '/km' : '—',
             'gap' => $gap,
