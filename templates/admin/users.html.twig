@@ -110,12 +110,6 @@
         <button id="admin-recap-mail-btn" class="btn btn-ghost" onclick="adminSendWeeklySummary()">Envoyer le récap</button>
         <div id="admin-recap-mail-status" style="margin-top:12px;"></div>
       </div>
-      <div class="admin-maintenance-section" style="margin-top:18px;">
-        <h4>Importer les courses terminées dans les logs</h4>
-        <p class="admin-maintenance-desc">Crée une sortie (type Course) pour chaque course officielle déjà terminée qui n'a pas encore de log correspondant. Les logs existants ne sont jamais modifiés.</p>
-        <button id="admin-backfill-races-btn" class="btn btn-ghost" onclick="adminBackfillRaceLogs()">Importer les courses</button>
-        <div id="admin-backfill-races-status" style="margin-top:12px;"></div>
-      </div>
     </div>
 
     <div class="chart-wrap admin-announce-card">
@@ -428,63 +422,6 @@ async function adminSendWeeklySummary() {
     status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur reseau:</strong> ${e.message}</span>`;
     btn.disabled = false;
     btn.textContent = 'Envoyer le récap';
-  }
-}
-
-async function adminBackfillRaceLogs() {
-  const btn = document.getElementById('admin-backfill-races-btn');
-  const status = document.getElementById('admin-backfill-races-status');
-  if (!btn || !status) return;
-
-  if (!confirm('Importer toutes les courses terminées manquantes dans les logs ?')) return;
-
-  btn.disabled = true;
-  btn.textContent = 'En cours...';
-  status.innerHTML = '';
-
-  try {
-    const authHeaders = globalThis.rtAuth?.buildAuthHeaders ? globalThis.rtAuth.buildAuthHeaders() : {};
-
-    const response = await fetch('/api/admin/maintenance/races/backfill-logs', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders,
-      },
-      body: '{}',
-    });
-
-    let result;
-    try {
-      result = await response.json();
-    } catch (e) {
-      status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur ${response.status}:</strong> Réponse invalide (pas du JSON)</span>`;
-      btn.disabled = false;
-      btn.textContent = 'Importer les courses';
-      return;
-    }
-
-    if (!response.ok) {
-      status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur ${response.status}:</strong> ${result.message || 'Échec inconnu'}</span>`;
-      btn.disabled = false;
-      btn.textContent = 'Importer les courses';
-      return;
-    }
-
-    status.innerHTML = `
-      <div style="color:var(--z1);padding:12px;background:color-mix(in srgb, var(--z1) 16%, var(--surface2));border-radius:4px;">
-        <strong>✓ Import terminé</strong><br>
-        ${result.created || 0} course(s) ajoutée(s) aux logs<br>
-        ${result.users || 0} utilisateur(s) concerné(s)
-      </div>
-    `;
-
-    btn.disabled = false;
-    btn.textContent = 'Importer les courses';
-  } catch (e) {
-    status.innerHTML = `<span style="color:var(--accent3);"><strong>Erreur reseau:</strong> ${e.message}</span>`;
-    btn.disabled = false;
-    btn.textContent = 'Importer les courses';
   }
 }
 

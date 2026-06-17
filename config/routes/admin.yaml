@@ -3,11 +3,6 @@ api_admin_maintenance_weekly_summary_send:
   controller: App\Controller\PlanMaintenanceApiController::sendWeeklySummaryNow
   methods: [POST]
 
-api_admin_maintenance_races_backfill_logs:
-  path: /api/admin/maintenance/races/backfill-logs
-  controller: App\Controller\PlanMaintenanceApiController::backfillRaceLogs
-  methods: [POST]
-
 api_auth_test_grant_admin:
   path: /api/auth/test/grant-admin
   controller: App\Controller\PlanMaintenanceApiController::grantAdminRoleForTest

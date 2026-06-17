@@ -217,6 +217,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     }
 
     public function getHealthPause(): ?HealthPause { return $this->healthPause; }
+    public function getRunLogs(): Collection { return $this->runLogs; }
 
     public function isOnHealthPause(): bool
     {

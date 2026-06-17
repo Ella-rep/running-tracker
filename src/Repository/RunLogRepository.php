@@ -1,6 +1,7 @@
 <?php
 namespace App\Repository;
 use App\Entity\Plan;
+use App\Entity\PlanDetails;
 use App\Entity\RunLog;
 use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -34,18 +35,57 @@ class RunLogRepository extends ServiceEntityRepository {
     }
 
     /**
-     * Returns all run logs linked to a plan (via plannedSession), ordered by date ASC.
+     * Returns the run logs relevant to a plan, ordered by date ASC.
+     *
+     * Combines two sources so the evolution recap is not empty when sessions are
+     * validated without an explicitly linked run:
+     *  1. runs explicitly linked to the plan via a planned session;
+     *  2. the plan owner's runs falling inside the plan's scheduled date window
+     *     (min..max sessionDate of its PlanDetails).
+     * Results are de-duplicated by id.
+     *
      * @return array<int, RunLog>
      */
     public function findByPlan(Plan $plan): array
     {
-        return $this->createQueryBuilder('r')
+        $byId = [];
+
+        $linked = $this->createQueryBuilder('r')
             ->join('r.plannedSession', 'd')
             ->andWhere('d.plan = :plan')
             ->setParameter('plan', $plan)
-            ->orderBy('r.date', 'ASC')
             ->getQuery()
             ->getResult();
+        foreach ($linked as $log) {
+            $byId[(int) $log->getId()] = $log;
+        }
+
+        $window = $this->getEntityManager()->createQueryBuilder()
+            ->select('MIN(d.sessionDate) AS minDate', 'MAX(d.sessionDate) AS maxDate')
+            ->from(PlanDetails::class, 'd')
+            ->andWhere('d.plan = :plan')
+            ->andWhere('d.sessionDate IS NOT NULL')
+            ->setParameter('plan', $plan)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        if ($window !== null && $window['minDate'] !== null && $window['maxDate'] !== null) {
+            $from = $window['minDate'] instanceof \DateTimeInterface
+                ? $window['minDate']->format('Y-m-d')
+                : substr((string) $window['minDate'], 0, 10);
+            $to = $window['maxDate'] instanceof \DateTimeInterface
+                ? $window['maxDate']->format('Y-m-d')
+                : substr((string) $window['maxDate'], 0, 10);
+
+            foreach ($this->findByUserAndDateRange($plan->getUser(), $from, $to) as $log) {
+                $byId[(int) $log->getId()] = $log;
+            }
+        }
+
+        $logs = array_values($byId);
+        usort($logs, static fn (RunLog $a, RunLog $b): int => strcmp($a->getDate(), $b->getDate()));
+
+        return $logs;
     }
 
     /**
