@@ -1,0 +1,50 @@
+{% extends 'base/layout.html.twig' %}
+{% block title %}Profil - Running Tracker{% endblock %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
+<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260616-p2p4">
+{% endblock %}
+
+{% block body %}
+{% include 'components/_app_header.html.twig' with { current_page: 'profile', username: username } %}
+
+<main>
+  <section class="profile-page visible">
+    <div class="section-title">Mon profil</div>
+    <div class="section-sub">Gère tes informations de compte et tes préférences d'e-mail.</div>
+
+    {% for label, messages in app.flashes %}
+      {% for message in messages %}
+        <div class="contact-flash contact-flash-{{ label == 'error' ? 'error' : 'success' }}">{{ message }}</div>
+      {% endfor %}
+    {% endfor %}
+
+    <div class="form-card" style="margin-bottom:16px;">
+      <div class="field">
+        <label>Nom d'utilisateur</label>
+        <div>{{ profileUser.userIdentifier }}</div>
+      </div>
+      <div class="field">
+        <label>E-mail</label>
+        <div>{{ profileUser.email ?: 'Non renseigné' }}</div>
+      </div>
+    </div>
+
+    <form class="form-card" method="post" action="{{ path('app_profile_email_hebdo') }}">
+      <input type="hidden" name="_token" value="{{ csrf_token('profile_email_hebdo') }}">
+      <div class="section-title" style="font-size:1rem;">Résumé hebdomadaire</div>
+      <div class="section-sub">Reçois chaque semaine un récap de tes sorties par e-mail.</div>
+      <div class="field" style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+        <input type="checkbox" id="email_hebdo" name="email_hebdo" value="1" {{ profileUser.emailHebdo ? 'checked' : '' }}>
+        <label for="email_hebdo" style="margin:0;">Je veux recevoir le résumé hebdo</label>
+      </div>
+      <button class="btn" type="submit" style="margin-top:12px;">Enregistrer</button>
+    </form>
+  </section>
+</main>
+{% endblock %}
+
+{% block javascripts %}
+<script src="{{ asset('js/app.js') }}?v=20260616-p2p4"></script>
+{% endblock %}

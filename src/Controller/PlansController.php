@@ -97,7 +97,7 @@ class PlansController extends AbstractController
             }
         }
 
-        return $this->render('plans/index.html.twig', [
+        return $this->render($selectedPlanView !== null ? 'plans/detail.html.twig' : 'plans/index.html.twig', [
             'username' => $this->getUser()?->getUserIdentifier(),
             'initialPlanId' => $planId,
             'plansView' => $this->buildPlansView($plans, $detailsByPlanId),

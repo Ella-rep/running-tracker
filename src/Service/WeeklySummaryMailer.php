@@ -37,6 +37,7 @@ final class WeeklySummaryMailer
         $from = $_ENV['MAILER_FROM'] ?? 'no-reply@runtracker.app';
         $appUrl = rtrim((string) ($_ENV['APP_URL'] ?? ''), '/');
         $dashboardUrl = $appUrl !== '' ? $appUrl . '/dashboard' : '/dashboard';
+        $profileUrl = $appUrl !== '' ? $appUrl . '/profile' : '/profile';
 
         $sent = 0;
         $skipped = 0;
@@ -59,7 +60,7 @@ final class WeeklySummaryMailer
                 ? 'email/weekly_summary_pause.html.twig'
                 : 'email/weekly_summary.html.twig';
 
-            $context = $summary + ['weekLabel' => $weekLabel, 'dashboardUrl' => $dashboardUrl];
+            $context = $summary + ['weekLabel' => $weekLabel, 'dashboardUrl' => $dashboardUrl, 'profileUrl' => $profileUrl];
             $html = $this->twig->render($template, $context);
 
             if ($dryRun) {
@@ -72,7 +73,7 @@ final class WeeklySummaryMailer
                 ->to($email)
                 ->subject(sprintf('Semaine du %s — ton résumé running 🏃', $weekLabel))
                 ->html($html)
-                ->text($this->buildTextFallback($summary, $dashboardUrl));
+                ->text($this->buildTextFallback($summary, $dashboardUrl, $profileUrl));
 
             try {
                 $this->mailer->send($message);
@@ -86,7 +87,7 @@ final class WeeklySummaryMailer
     }
 
     /** @param array<string,mixed> $s */
-    private function buildTextFallback(array $s, string $dashboardUrl): string
+    private function buildTextFallback(array $s, string $dashboardUrl, string $profileUrl): string
     {
         $lines = ['Salut ' . $s['prenom'] . ',', '', 'Cette semaine :'];
         if ($s['pause']) {
@@ -104,6 +105,7 @@ final class WeeklySummaryMailer
         $lines[] = $s['conseil'];
         $lines[] = '';
         $lines[] = 'Voir mon dashboard : ' . $dashboardUrl;
+        $lines[] = 'Gérer mes préférences : ' . $profileUrl;
 
         return implode("\n", $lines);
     }

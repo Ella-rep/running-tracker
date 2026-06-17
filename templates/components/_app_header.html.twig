@@ -22,6 +22,7 @@
     <a href="{{ path('app_log') }}" class="nav-link{{ current_page == 'log' ? ' active' : '' }}">Log</a>
     <a href="{{ path('app_courses') }}" class="nav-link{{ current_page == 'courses' ? ' active' : '' }}">Courses</a>
     <a href="{{ path('app_contact') }}" class="nav-link{{ current_page == 'contact' ? ' active' : '' }}">Contact</a>
+    <a href="{{ path('app_profile') }}" class="nav-link{{ current_page == 'profile' ? ' active' : '' }}">Profil</a>
     {% if is_granted('ROLE_ADMIN') %}
       <a
         id="admin-nav-link"

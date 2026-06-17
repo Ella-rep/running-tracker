@@ -2011,8 +2011,7 @@ function focusPlannedSessionFromAdvice(planId, sessionIndex) {
 
   // On dashboard-only pages, navigate to /plans and carry focus info.
   if (!plansDetailRoot || !plansSection) {
-    const target = new URL('/plans', globalThis.location.origin);
-    target.searchParams.set('focusPlanId', String(planId));
+    const target = new URL(`/plans/${Number(planId)}`, globalThis.location.origin);
     target.searchParams.set('focusSessionIndex', String(Number(sessionIndex) || 0));
     globalThis.location.href = target.toString();
     return;
@@ -2028,14 +2027,14 @@ function focusPlannedSessionFromAdvice(planId, sessionIndex) {
 
 function consumeAdviceFocusFromUrl() {
   const params = new URLSearchParams(globalThis.location.search || '');
-  const rawPlanId = params.get('focusPlanId');
-  if (!rawPlanId) return;
+  if (!params.has('focusSessionIndex')) return;
 
-  const planId = Number(rawPlanId);
-  if (!Number.isFinite(planId)) return;
+  const rawPlanId = params.get('focusPlanId');
+  const planId = rawPlanId ? Number(rawPlanId) : parsePlanIdFromPathname(globalThis.location?.pathname || '');
+  if (planId === null || !Number.isFinite(Number(planId))) return;
 
   const sessionIndex = Number(params.get('focusSessionIndex') || 0);
-  openPlan(planId);
+  openPlan(Number(planId));
 
   // Try multiple times while the plan detail DOM settles.
   let attempts = 0;
@@ -4769,7 +4768,10 @@ function planCard(id, title, sub, totalSessions, doneCount, isExtra, complete = 
   if (pctEl) pctEl.textContent = complete ? 'Terminé' : `${pct}%`;
   if (countEl) countEl.textContent = `${doneCount}/${totalSessions} séances`;
   if (barEl) barEl.style.width = `${pct}%`;
-  const open = () => openPlan(id);
+  const href = `/plans/${id}`;
+  const arrow = card.querySelector('.plan-card-arrow');
+  if (arrow) arrow.setAttribute('href', href);
+  const open = () => { globalThis.location.href = href; };
   card.addEventListener('click', open);
   if (deleteBtn) {
     deleteBtn.addEventListener('click', (e) => {
@@ -4849,6 +4851,9 @@ function backToPlansList(options = {}) {
   const pushHistory = options.pushHistory !== false;
   currentPlanId = null;
   const plansList = document.getElementById('plans-list');
+  // Per-route templates: the list DOM only exists on /plans. If we are on a
+  // detail-only page (/plans/{id}), navigate to the list instead of toggling.
+  if (!plansList) { globalThis.location.href = '/plans'; return; }
   if (plansList) plansList.style.display = 'flex';
   const plansDoneSectionClose = document.getElementById('plans-done-section');
   if (plansDoneSectionClose) plansDoneSectionClose.style.display = '';
