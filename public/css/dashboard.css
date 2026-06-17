@@ -1163,6 +1163,7 @@
 
 .race-projection-card[data-status="ahead"]   { border-color: color-mix(in srgb, var(--z1) 40%, var(--border)); }
 .race-projection-card[data-status="behind"]  { border-color: color-mix(in srgb, var(--z3) 40%, var(--border)); }
+.race-projection-card[hidden]                 { display: none; }
 
 .race-proj-name  { font-weight: 600; }
 .race-proj-days  { color: var(--text-muted); font-size: 0.82rem; }

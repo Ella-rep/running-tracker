@@ -181,18 +181,18 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-#log .field-label-row {
+:is(#log, #log-modal) .field-label-row {
   display: block;
   margin-bottom: 6px;
   line-height: 1;
 }
 
-#log .field-label-row > label {
+:is(#log, #log-modal) .field-label-row > label {
   display: inline;
   margin-bottom: 0;
 }
 
-#log .field-help-icon {
+:is(#log, #log-modal) .field-help-icon {
   appearance: none;
   background: color-mix(in srgb, var(--surface2) 72%, var(--surface));
   padding: 0;
@@ -211,15 +211,15 @@
   transition: border-color .16s ease, color .16s ease, background-color .16s ease, transform .16s ease;
 }
 
-#log .field-help-icon:hover,
-#log .field-help-icon:focus-visible {
+:is(#log, #log-modal) .field-help-icon:hover,
+:is(#log, #log-modal) .field-help-icon:focus-visible {
   color: var(--text);
   background: color-mix(in srgb, var(--accent2) 14%, var(--surface));
   border-color: color-mix(in srgb, var(--accent2) 55%, var(--border));
   outline: none;
 }
 
-#log .field-help-icon-svg {
+:is(#log, #log-modal) .field-help-icon-svg {
   width: 7px;
   height: 7px;
 }
@@ -231,8 +231,8 @@
   align-items: center;
 }
 
-#log .field-help-icon-svg circle,
-#log .field-help-icon-svg line {
+:is(#log, #log-modal) .field-help-icon-svg circle,
+:is(#log, #log-modal) .field-help-icon-svg line {
   fill: none;
   stroke: currentColor;
   stroke-width: 1.5;
@@ -240,7 +240,7 @@
   stroke-linejoin: round;
 }
 
-#log .field-help-icon-svg circle:last-child {
+:is(#log, #log-modal) .field-help-icon-svg circle:last-child {
   fill: currentColor;
   stroke: none;
 }
