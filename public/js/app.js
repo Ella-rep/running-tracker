@@ -5502,7 +5502,8 @@ function openPlanEdit(stateKey, idx) {
   document.getElementById('pm-format').value = s.format || '';
   document.getElementById('pm-type').value = normalizeSessionType(s.sessionType ?? s.session_type ?? s.type) || '';
   document.getElementById('pm-date').value = normalizeDateForStorage(sessionDateValue(s));
-  document.getElementById('pm-pe').value = s.pe || '';
+  const _peVal = s.pe || (normalizeSessionType(s.sessionType ?? s.session_type ?? s.type) === 'EF' ? '3/10' : '');
+  document.getElementById('pm-pe').value = _peVal;
   document.getElementById('pm-total').value = sessionTotalMinutesValue(s) ?? '';
   document.getElementById('pm-total').readOnly = false;
   document.getElementById('pm-total').title = '';
