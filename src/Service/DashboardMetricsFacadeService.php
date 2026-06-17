@@ -16,6 +16,14 @@ final class DashboardMetricsFacadeService
 {
     // Riegel fatigue exponent: T2 = T1 * (D2/D1)^EXPONENT.
     private const RIEGEL_EXPONENT = 1.06;
+
+    /**
+     * EF runs are deliberately slow (easy aerobic pace), so projecting a race
+     * time straight from EF pace over-estimates (times too long). We convert EF
+     * pace to an estimated race-equivalent pace before projecting: race pace is
+     * faster than EF, hence a factor < 1 that shortens the projected times.
+     */
+    private const EF_RACE_PACE_FACTOR = 0.92;
     // Single tuning point: chart window long enough for trend, short enough to stay readable.
     private const PROJECTION_HISTORY_MONTHS = 8;
     private const PROJECTION_RULES = "Modèle de projection: formule de Riegel T2 = T1 × (D2/D1)^1.06 (T1 = temps sur la distance de référence).";
@@ -576,13 +584,16 @@ final class DashboardMetricsFacadeService
             ? sprintf(' · D+ present sur %d/%d sorties: GAP utilisee quand disponible', $runsWithGap, count($recent))
             : ' · Aucun D+ renseigne - allure brute utilisee';
 
+        $efNote = sprintf(
+            ' · Sorties EF converties en allure course estimée (×%.2f) car l\'EF est plus lente qu\'une allure de course',
+            self::EF_RACE_PACE_FACTOR
+        );
         $meta = sprintf(
-            '%s (5 dernieres sorties): %s/km · Distance de reference: %.1f km · ' . self::PROJECTION_RULES,
+            '%s (5 dernieres sorties): %s/km · Distance de reference: %.1f km',
             $paceLabel,
             $avgAllureStr,
-            $sourceDistanceKm,
-            $gapNote
-        );
+            $sourceDistanceKm
+        ) . $gapNote . $efNote . ' · ' . self::PROJECTION_RULES;
 
         return [$projections, $meta, $history, ['avgSecPerKm' => $avgSecPerKm, 'sourceDistanceKm' => $sourceDistanceKm, 'samples' => $samples]];
     }
@@ -599,6 +610,7 @@ final class DashboardMetricsFacadeService
         $samples = [];
 
         foreach ($runs as $log) {
+            $isEf = strtoupper(trim((string) ($log->getRunType() ?? ''))) === 'EF';
             $gapSec = $this->paceToSeconds($log->getGap());
             $allureSec = $this->paceToSeconds($log->getAllure());
             $hasDplus = ($log->getDplus() ?? 0) > 0;
@@ -610,7 +622,7 @@ final class DashboardMetricsFacadeService
                 if ($km > 0.0) {
                     $distanceKmList[] = $km;
                 }
-                $samples[] = ['paceSec' => $gapSec, 'km' => $km > 0.0 ? $km : null];
+                $samples[] = ['paceSec' => $gapSec, 'km' => $km > 0.0 ? $km : null, 'isEf' => $isEf];
                 continue;
             }
             if ($allureSec !== null) {
@@ -618,7 +630,7 @@ final class DashboardMetricsFacadeService
                 if ($km > 0.0) {
                     $distanceKmList[] = $km;
                 }
-                $samples[] = ['paceSec' => $allureSec, 'km' => $km > 0.0 ? $km : null];
+                $samples[] = ['paceSec' => $allureSec, 'km' => $km > 0.0 ? $km : null, 'isEf' => $isEf];
             }
         }
 
@@ -743,7 +755,7 @@ final class DashboardMetricsFacadeService
      * Falls back to the aggregate pace/median-distance model when no per-run
      * distances are available.
      *
-     * @param array<int,array{paceSec:int,km:float|null}> $samples
+     * @param array<int,array{paceSec:int,km:float|null,isEf?:bool}> $samples
      */
     private function projectFromSamples(array $samples, float $avgSecPerKm, float $sourceDistanceKm, float $targetDistanceKm): int
     {
@@ -754,7 +766,9 @@ final class DashboardMetricsFacadeService
             if ($km === null || $km <= 0.0 || $paceSec === null) {
                 continue;
             }
-            $projected[] = $this->projectedTimeSeconds((float) $paceSec, (float) $km, $targetDistanceKm);
+            // EF pace is easy/slow: convert to estimated race pace before projecting.
+            $effectivePace = ($sample['isEf'] ?? false) ? (float) $paceSec * self::EF_RACE_PACE_FACTOR : (float) $paceSec;
+            $projected[] = $this->projectedTimeSeconds($effectivePace, (float) $km, $targetDistanceKm);
         }
 
         if ($projected !== []) {

@@ -148,6 +148,113 @@ class PlansController extends AbstractController
         return $this->redirectToRoute('app_plans_detail', ['planId' => $plan->getId()]);
     }
 
+    #[Route('/plans/{planId<\d+>}/duplicate', name: 'app_plans_duplicate', methods: ['POST'])]
+    public function duplicate(
+        int $planId,
+        Request $request,
+        PlanRepository $planRepository,
+        PlanDetailsRepository $planDetailsRepository,
+        EntityManagerInterface $entityManager,
+    ): RedirectResponse {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->redirectToRoute('app_login');
+        }
+
+        $plan = $planRepository->find($planId);
+        if (!$plan instanceof Plan || $plan->getUser()->getId() !== $user->getId()) {
+            $this->addFlash(self::FLASH_ERROR, 'Plan introuvable.');
+            return $this->redirectToRoute('app_plans');
+        }
+
+        if (!$this->isCsrfTokenValid('plans.duplicate.' . $planId, (string) $request->request->get('_token', ''))) {
+            $this->addFlash(self::FLASH_ERROR, 'Jeton CSRF invalide.');
+            return $this->redirectToRoute('app_plans_detail', ['planId' => $planId]);
+        }
+
+        $copy = $this->duplicatePlanEntity($plan, $user, $planRepository, $planDetailsRepository, $entityManager);
+        $this->addFlash(self::FLASH_SUCCESS, 'Plan dupliqué (sans dates, séances non effectuées).');
+
+        return $this->redirectToRoute('app_plans_detail', ['planId' => $copy->getId()]);
+    }
+
+    #[Route('/api/plans/{planId<\d+>}/duplicate', name: 'api_plans_duplicate', methods: ['POST'])]
+    public function apiDuplicate(
+        int $planId,
+        PlanRepository $planRepository,
+        PlanDetailsRepository $planDetailsRepository,
+        EntityManagerInterface $entityManager,
+    ): JsonResponse {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->json(['message' => 'Utilisateur non authentifié.'], 401);
+        }
+
+        $plan = $planRepository->find($planId);
+        if (!$plan instanceof Plan || $plan->getUser()->getId() !== $user->getId()) {
+            return $this->json(['message' => 'Plan introuvable.'], 404);
+        }
+
+        $copy = $this->duplicatePlanEntity($plan, $user, $planRepository, $planDetailsRepository, $entityManager);
+
+        return $this->json(['id' => $copy->getId(), 'name' => $copy->getName()]);
+    }
+
+    /**
+     * Clones a plan and its sessions: same format/type/pe/duration, but with no
+     * dates and every session reset to "not done" / "not cancelled".
+     */
+    private function duplicatePlanEntity(
+        Plan $plan,
+        User $user,
+        PlanRepository $planRepository,
+        PlanDetailsRepository $planDetailsRepository,
+        EntityManagerInterface $entityManager,
+    ): Plan {
+        $baseName = $plan->getName() . ' (copie)';
+        $name = $baseName;
+        $suffix = 2;
+        while ($planRepository->findOneBy(['user' => $user, 'name' => $name]) instanceof Plan) {
+            $name = $baseName . ' ' . $suffix;
+            $suffix++;
+        }
+
+        $copy = (new Plan())
+            ->setUser($user)
+            ->setName($name)
+            ->setDashboardTracked(true);
+        $entityManager->persist($copy);
+
+        $sessions = $planDetailsRepository->createQueryBuilder('d')
+            ->andWhere('d.plan = :plan')
+            ->setParameter('plan', $plan)
+            ->orderBy('d.position', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        /** @var array<int, PlanDetails> $sessions */
+        foreach ($sessions as $session) {
+            $detail = (new PlanDetails())
+                ->setUser($user)
+                ->setPlan($copy)
+                ->setPosition($session->getPosition())
+                ->setSem($session->getSem())
+                ->setSessionDate(null)
+                ->setFormat($session->getFormat())
+                ->setSessionType($session->getSessionType())
+                ->setPe($session->getPe())
+                ->setTotalMin($session->getTotalMin())
+                ->setIsOptional($session->isOptional())
+                ->setIsDone(false)
+                ->setIsCancelled(false);
+            $entityManager->persist($detail);
+        }
+
+        $entityManager->flush();
+
+        return $copy;
+    }
+
     #[Route('/plans/{planId<\d+>}/rename', name: 'app_plans_rename', methods: ['POST'])]
     public function rename(
         int $planId,

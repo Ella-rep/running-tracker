@@ -2562,8 +2562,10 @@ function addHoverListeners(tbodyId) {
   document.querySelectorAll('#'+tbodyId+' tr').forEach(tr=>{
     const b=tr.querySelector('.action-btns');
     if(!b)return;
-    tr.addEventListener('mouseenter',()=>b.style.opacity='1');
-    tr.addEventListener('mouseleave',()=>b.style.opacity='0');
+    // Reveal handled in CSS (tr:hover .action-btns) + mobile keeps them visible.
+    // Inline opacity:0 here overrode CSS and left buttons hidden/untappable after
+    // closing the edit modal ("Annuler") and on touch devices. Keep node referenced.
+    void b;
   });
 }
 
@@ -2768,6 +2770,7 @@ function renderDashboard() {
   renderTrainingLoad();
   renderEF();
   renderEfBpmChart();
+  renderRaceAvgWidget();
 }
 
 function setupHomePlanModuleAccordion() {
@@ -3120,7 +3123,7 @@ function renderHomeWeekView() {
     if (!dateKey) return;
     const raceResult = String(race?.result || '').trim();
     const isDone = raceResult.length > 0 || !!race?.dnfStatus;
-    addItem(dateKey, { kind: 'race', label: race?.name || 'Course', format: race?.distance ? String(race.distance) : '', isDone });
+    addItem(dateKey, { kind: 'race', label: race?.name || 'Course', format: race?.distance ? String(race.distance) : '', isDone, dnfStatus: race?.dnfStatus || null });
   });
 
   (Array.isArray(calendarEventsData) ? calendarEventsData : []).forEach((evt) => {
@@ -3193,7 +3196,9 @@ function renderHomeWeekView() {
         const badge = document.createElement('div');
         const typeKey = (it?.sessionType || it?.kind || '').toUpperCase();
         const klass = kindClass[typeKey] || kindClass[it?.kind] || 'session';
-        badge.className = 'hw-badge hw-badge--' + klass + (it?.isCancelled ? ' hw-badge--cancelled' : (it?.isDone ? ' hw-badge--done' : ''));
+        const dnfState = (it?.kind === 'race') ? String(it?.dnfStatus || '') : '';
+        const doneOrDnf = dnfState ? ' hw-badge--dnf' : (it?.isDone ? ' hw-badge--done' : '');
+        badge.className = 'hw-badge hw-badge--' + klass + (it?.isCancelled ? ' hw-badge--cancelled' : doneOrDnf);
         badge.textContent = shortLabels[typeKey] || shortLabels[it?.kind] || (it?.label ? String(it.label).slice(0, 12) : '•');
         if (it?.format) badge.title = String(it.format);
         const itKindW = it?.kind || 'session';
@@ -4799,6 +4804,8 @@ function openPlan(planId, options = {}) {
   const editMetaBtn = document.getElementById('plans-edit-meta-btn');
   if (deleteBtn) deleteBtn.style.display = '';
   if (editMetaBtn) editMetaBtn.style.display = '';
+  const dupBtn = document.getElementById('plans-duplicate-btn');
+  if (dupBtn) dupBtn.style.display = '';
 
   const meta = { title: extra.title, sub: extra.sub || '' };
   const detailTitle = document.getElementById('plans-detail-title');
@@ -5046,6 +5053,15 @@ function deleteExtraPlan(planId) {
       notify(`⚠ ${e.message}`);
     }
   });
+}
+
+async function duplicatePlan(planId){
+  if(!planId) return;
+  if(!confirm('Dupliquer ce plan ? Copie sans dates, séances non effectuées.')) return;
+  try{
+    const created=await apiFetch(`/plans/${planId}/duplicate`,{method:'POST',body:'{}'});
+    if(created&&created.id){ window.location.href=`/plans/${created.id}`; }
+  }catch(e){ notify('⚠ '+e.message); }
 }
 
 function getStarterPlaceholders() {
@@ -6068,7 +6084,7 @@ async function saveRaceResultFromCalendar(item, rawResult) {
 // ============================================================
 // LOG
 // ============================================================
-let logFilter='all', logSortAsc=false;
+let logFilter='all', logSortAsc=false, logMonthFilter='all';
 let logEntryMode='manual';
 let plannedSessionsForLogs = [];
 
@@ -6391,6 +6407,28 @@ function toggleSort(){
   renderLog();
 }
 
+function logMonthLabelFr(ym){
+  const [y,m]=ym.split('-');
+  const names=['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
+  return `${names[(parseInt(m,10)||1)-1]||m} ${y}`;
+}
+
+function updateLogMonthFilterOptions(){
+  const sel=document.getElementById('log-month-filter');
+  if(!sel) return;
+  const months=[...new Set((Array.isArray(logData)?logData:[])
+    .map(r=>String(r.date||'').slice(0,7))
+    .filter(s=>/^\d{4}-\d{2}$/.test(s)))].sort().reverse();
+  const current=sel.value||logMonthFilter||'all';
+  sel.innerHTML=['<option value="all">Tous les mois</option>']
+    .concat(months.map(m=>`<option value="${m}">${logMonthLabelFr(m)}</option>`)).join('');
+  const next=(current==='all'||months.includes(current))?current:'all';
+  sel.value=next;
+  logMonthFilter=next;
+}
+
+function filterLogMonth(v){ logMonthFilter=v; renderLog(); }
+
 function buildLogMetricSpan(className, text) {
   const span = document.createElement('span');
   span.className = className;
@@ -6563,9 +6601,11 @@ function renderLog() {
   const logSub = document.getElementById('log-sub');
   if (!logSub) return;
   logSub.textContent=`${logData.length} sortie${logData.length>1?'s':''} enregistrée${logData.length>1?'s':''}`;
+  updateLogMonthFilterOptions();
   let items=[...logData];
   items.sort((a,b)=>logSortAsc?new Date(a.date)-new Date(b.date):new Date(b.date)-new Date(a.date));
   if(logFilter!=='all') items=items.filter(r=>r.run_type===logFilter);
+  if(logMonthFilter!=='all') items=items.filter(r=>String(r.date||'').slice(0,7)===logMonthFilter);
   const tbody = document.getElementById('log-tbody');
   if (!tbody) return;
   const rows = items.map(buildLogRow);
@@ -6786,6 +6826,28 @@ function buildRaceRow(r) {
   }
 
   return row;
+}
+
+function renderRaceAvgWidget(){
+  const wrap=document.getElementById('race-avg-wrap');
+  if(!wrap) return;
+  const valueEl=document.getElementById('race-avg-value');
+  const subEl=document.getElementById('race-avg-sub');
+  const fmtHms=(t)=>{const h=Math.floor(t/3600),m=Math.floor((t%3600)/60),s=t%60;
+    return (h>0?String(h).padStart(2,'0')+':':'')+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');};
+  // Courses officielles terminées uniquement (type Course/race, hors DNS/DNF).
+  const secs=(Array.isArray(racesData)?racesData:[])
+    .filter(r=>!(r?.dnfStatus==='dns'||r?.dnfStatus==='dnf'))
+    .map(r=>raceDurationToSeconds(r?.result))
+    .filter(s=>Number.isFinite(s)&&s>0);
+  if(!secs.length){
+    if(valueEl) valueEl.textContent='—';
+    if(subEl) subEl.textContent='Aucune course officielle terminée';
+    return;
+  }
+  const avg=Math.round(secs.reduce((a,b)=>a+b,0)/secs.length);
+  if(valueEl) valueEl.textContent=fmtHms(avg);
+  if(subEl) subEl.textContent=`Moyenne sur ${secs.length} course${secs.length>1?'s':''} officielle${secs.length>1?'s':''} (type Course)`;
 }
 
 function renderRaces() {
