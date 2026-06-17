@@ -637,7 +637,18 @@ function parsePlannedDurationToken(text, startIndex) {
 
   if (text.startsWith("''", i)) return { seconds: value, nextIndex: i + 2 };
   if (text[i] === '"') return { seconds: value, nextIndex: i + 1 };
-  if (text[i] === "'") return { seconds: value * 60, nextIndex: i + 1 };
+  if (text[i] === "'") {
+    let j = i + 1;
+    const secMatch = /^(\d{1,2})/.exec(text.slice(j));
+    if (secMatch) {
+      const sec = Number.parseInt(secMatch[1], 10);
+      j += secMatch[1].length;
+      if (text.startsWith("''", j)) j += 2;
+      else if (text[j] === '"') j += 1;
+      return { seconds: value * 60 + sec, nextIndex: j };
+    }
+    return { seconds: value * 60, nextIndex: j };
+  }
 
   const secWord = /^(sec|secs|seconde|secondes|s)\b/.exec(text.slice(i));
   if (secWord) return { seconds: value, nextIndex: i + secWord[0].length };
