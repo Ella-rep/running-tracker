@@ -637,7 +637,18 @@ function parsePlannedDurationToken(text, startIndex) {
 
   if (text.startsWith("''", i)) return { seconds: value, nextIndex: i + 2 };
   if (text[i] === '"') return { seconds: value, nextIndex: i + 1 };
-  if (text[i] === "'") return { seconds: value * 60, nextIndex: i + 1 };
+  if (text[i] === "'") {
+    let j = i + 1;
+    const secMatch = /^(\d{1,2})/.exec(text.slice(j));
+    if (secMatch) {
+      const sec = Number.parseInt(secMatch[1], 10);
+      j += secMatch[1].length;
+      if (text.startsWith("''", j)) j += 2;
+      else if (text[j] === '"') j += 1;
+      return { seconds: value * 60 + sec, nextIndex: j };
+    }
+    return { seconds: value * 60, nextIndex: j };
+  }
 
   const secWord = /^(sec|secs|seconde|secondes|s)\b/.exec(text.slice(i));
   if (secWord) return { seconds: value, nextIndex: i + secWord[0].length };
@@ -790,6 +801,10 @@ function syncPlanTypeFromFormat() {
   if (suggested) {
     typeSelect.value = suggested;
     typeSelect.dataset.autoSet = '1';
+    if (suggested === 'EF') {
+      const peEl = document.getElementById('pm-pe');
+      if (peEl && !peEl.value) peEl.value = '3/10';
+    }
   }
 }
 
@@ -973,6 +988,7 @@ function normalizePlan(r) {
     id: iriToId(r['@id']) ?? r.id,
     name: r.name,
     dashboardTracked: r.dashboardTracked !== false,
+    isCompleted: r.isCompleted === true,
   };
 }
 
@@ -1201,6 +1217,7 @@ function mapDbRowsToPlans(rows, plans) {
   return Object.values(grouped).map(plan => ({
     ...plan,
     dashboardTracked: (plansData || []).find((row) => Number(row.id) === Number(plan.id))?.dashboardTracked !== false,
+    isCompleted: (plansData || []).find((row) => Number(row.id) === Number(plan.id))?.isCompleted === true,
     sessions: plan.sessions.filter(Boolean),
   }));
 }
@@ -1250,6 +1267,7 @@ async function loadPlansFromDbWithProgress(checksList = null) {
       title: isExamplePlanName(plan.name) ? 'Plan de depart (exemple)' : plan.name,
       sub: isExamplePlanName(plan.name) ? 'Plan fourni avec l\'application · blocs hebdomadaires' : '',
       dashboardTracked: plan.dashboardTracked !== false,
+      isCompleted: plan.isCompleted === true,
       sessions: [],
       done: {},
     });
@@ -2562,8 +2580,10 @@ function addHoverListeners(tbodyId) {
   document.querySelectorAll('#'+tbodyId+' tr').forEach(tr=>{
     const b=tr.querySelector('.action-btns');
     if(!b)return;
-    tr.addEventListener('mouseenter',()=>b.style.opacity='1');
-    tr.addEventListener('mouseleave',()=>b.style.opacity='0');
+    // Reveal handled in CSS (tr:hover .action-btns) + mobile keeps them visible.
+    // Inline opacity:0 here overrode CSS and left buttons hidden/untappable after
+    // closing the edit modal ("Annuler") and on touch devices. Keep node referenced.
+    void b;
   });
 }
 
@@ -2768,6 +2788,7 @@ function renderDashboard() {
   renderTrainingLoad();
   renderEF();
   renderEfBpmChart();
+  renderRaceAvgWidget();
 }
 
 function setupHomePlanModuleAccordion() {
@@ -3120,7 +3141,7 @@ function renderHomeWeekView() {
     if (!dateKey) return;
     const raceResult = String(race?.result || '').trim();
     const isDone = raceResult.length > 0 || !!race?.dnfStatus;
-    addItem(dateKey, { kind: 'race', label: race?.name || 'Course', format: race?.distance ? String(race.distance) : '', isDone });
+    addItem(dateKey, { kind: 'race', label: race?.name || 'Course', format: race?.distance ? String(race.distance) : '', isDone, dnfStatus: race?.dnfStatus || null });
   });
 
   (Array.isArray(calendarEventsData) ? calendarEventsData : []).forEach((evt) => {
@@ -3193,7 +3214,9 @@ function renderHomeWeekView() {
         const badge = document.createElement('div');
         const typeKey = (it?.sessionType || it?.kind || '').toUpperCase();
         const klass = kindClass[typeKey] || kindClass[it?.kind] || 'session';
-        badge.className = 'hw-badge hw-badge--' + klass + (it?.isCancelled ? ' hw-badge--cancelled' : (it?.isDone ? ' hw-badge--done' : ''));
+        const dnfState = (it?.kind === 'race') ? String(it?.dnfStatus || '') : '';
+        const doneOrDnf = dnfState ? ' hw-badge--dnf' : (it?.isDone ? ' hw-badge--done' : '');
+        badge.className = 'hw-badge hw-badge--' + klass + (it?.isCancelled ? ' hw-badge--cancelled' : doneOrDnf);
         badge.textContent = shortLabels[typeKey] || shortLabels[it?.kind] || (it?.label ? String(it.label).slice(0, 12) : '•');
         if (it?.format) badge.title = String(it.format);
         const itKindW = it?.kind || 'session';
@@ -4718,7 +4741,7 @@ function getExtraPlan(planId) {
 }
 
 // Active = non-cancelled sessions. Cancelled sessions must not block completion.
-function planCompletion(sessions, doneMap) {
+function planCompletion(sessions, doneMap, forceComplete = false) {
   const list = Array.isArray(sessions) ? sessions : [];
   let total = 0;
   let done = 0;
@@ -4728,7 +4751,8 @@ function planCompletion(sessions, doneMap) {
     if (doneMap && doneMap[i]) done += 1;
   });
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-  return { total, done, pct, complete: total > 0 && done >= total };
+  // A plan can be marked complete manually without every session being ticked.
+  return { total, done, pct, complete: forceComplete || (total > 0 && done >= total) };
 }
 
 function planCard(id, title, sub, totalSessions, doneCount, isExtra, complete = false) {
@@ -4765,7 +4789,7 @@ function renderPlansList() {
   const active = [];
   const done = [];
   (state.extraPlans || []).forEach(ep => {
-    const c = planCompletion(ep.sessions, ep.done);
+    const c = planCompletion(ep.sessions, ep.done, ep.isCompleted);
     const card = planCard(ep.id, ep.title, ep.sub, c.total, c.done, true, c.complete);
     if (c.complete) done.push(card);
     else active.push(card);
@@ -4799,6 +4823,8 @@ function openPlan(planId, options = {}) {
   const editMetaBtn = document.getElementById('plans-edit-meta-btn');
   if (deleteBtn) deleteBtn.style.display = '';
   if (editMetaBtn) editMetaBtn.style.display = '';
+  const dupBtn = document.getElementById('plans-duplicate-btn');
+  if (dupBtn) dupBtn.style.display = '';
 
   const meta = { title: extra.title, sub: extra.sub || '' };
   const detailTitle = document.getElementById('plans-detail-title');
@@ -4808,7 +4834,7 @@ function openPlan(planId, options = {}) {
   const crumbCurrent = document.getElementById('plans-crumb-current');
   if (crumbCurrent) crumbCurrent.textContent = meta.title;
 
-  const comp = planCompletion(extra.sessions, extra.done);
+  const comp = planCompletion(extra.sessions, extra.done, extra.isCompleted);
   const markBtn = document.getElementById('plans-mark-complete-btn');
   const doneBadge = document.getElementById('plans-detail-complete-badge');
   if (markBtn) markBtn.style.display = comp.complete ? 'none' : '';
@@ -5046,6 +5072,15 @@ function deleteExtraPlan(planId) {
       notify(`⚠ ${e.message}`);
     }
   });
+}
+
+async function duplicatePlan(planId){
+  if(!planId) return;
+  if(!confirm('Dupliquer ce plan ? Copie sans dates, séances non effectuées.')) return;
+  try{
+    const created=await apiFetch(`/plans/${planId}/duplicate`,{method:'POST',body:'{}'});
+    if(created&&created.id){ window.location.href=`/plans/${created.id}`; }
+  }catch(e){ notify('⚠ '+e.message); }
 }
 
 function getStarterPlaceholders() {
@@ -5339,6 +5374,13 @@ function renderPlan(containerId, data, stateKey) {
           plan.sessions[idx].isCancelled = next;
           try {
             await cancelPlanSessionInDb(plan.id, detailId, next);
+            // Live DOM update so the line-through shows without a page reload.
+            row.classList.toggle('session-cancelled', next);
+            if (cancelBtn) {
+              cancelBtn.classList.toggle('is-cancelled', next);
+              cancelBtn.title = next ? 'Remettre la séance' : 'Annuler la séance';
+              cancelBtn.textContent = next ? '↩' : '⊘';
+            }
             notify(next ? 'Séance marquée annulée.' : 'Séance remise au programme.');
           } catch (_) {
             plan.sessions[idx].isCancelled = !next;
@@ -5362,37 +5404,21 @@ function renderPlan(containerId, data, stateKey) {
 }
 
 async function markPlanComplete(planId) {
-  if (!getExtraPlan(planId)) { notify('⚠ Plan introuvable.'); return; }
-  // Each done-PATCH replaces the plan server-side and reassigns detailIds, so we
-  // mark one active session at a time and reload between calls to stay in sync.
+  const ep = getExtraPlan(planId);
+  if (!ep) { notify('⚠ Plan introuvable.'); return; }
+  // Mark the plan complete WITHOUT auto-ticking sessions: leave them as they are.
   try {
-    let changed = 0;
-    let guard = 0;
-    for (;;) {
-      const ep = getExtraPlan(planId);
-      const sessions = Array.isArray(ep && ep.sessions) ? ep.sessions : [];
-      const doneMap = (ep && ep.done) || {};
-      const next = sessions.findIndex((sess, i) => !(sess && sess.isCancelled) && !doneMap[i]);
-      if (next === -1) break;
-      const detailId = sessions[next] && sessions[next].detailId;
-      if (!Number.isFinite(Number(detailId))) break; // unsaved session, cannot persist
-      await setPlanSessionDoneInDb(ep.id, detailId, true);
-      await loadPlansFromDb();
-      changed += 1;
-      guard += 1;
-      if (guard > 400) break;
-    }
-    const cur = getExtraPlan(planId);
+    await apiFetch(`/plans/${planId}/complete`, { method: 'POST', body: JSON.stringify({ completed: true }) });
+    ep.isCompleted = true;
+    await loadPlansFromDb();
     if (String(currentPlanId) === String(planId)) {
-      openPlan(cur ? cur.id : planId, { pushHistory: false });
+      openPlan(getExtraPlan(planId)?.id ?? planId, { pushHistory: false });
     } else {
       renderPlansList();
     }
     requestDashboardRefresh();
-    notify(changed > 0 ? '✓ Plan marqué comme terminé' : 'Plan déjà terminé.');
+    notify('✓ Plan marqué comme terminé');
   } catch (e) {
-    await loadPlansFromDb();
-    renderPlansList();
     notify('⚠ Erreur: ' + e.message);
   }
 }
@@ -5480,7 +5506,8 @@ function openPlanEdit(stateKey, idx) {
   document.getElementById('pm-format').value = s.format || '';
   document.getElementById('pm-type').value = normalizeSessionType(s.sessionType ?? s.session_type ?? s.type) || '';
   document.getElementById('pm-date').value = normalizeDateForStorage(sessionDateValue(s));
-  document.getElementById('pm-pe').value = s.pe || '';
+  const _peVal = s.pe || (normalizeSessionType(s.sessionType ?? s.session_type ?? s.type) === 'EF' ? '3/10' : '');
+  document.getElementById('pm-pe').value = _peVal;
   document.getElementById('pm-total').value = sessionTotalMinutesValue(s) ?? '';
   document.getElementById('pm-total').readOnly = false;
   document.getElementById('pm-total').title = '';
@@ -6068,7 +6095,7 @@ async function saveRaceResultFromCalendar(item, rawResult) {
 // ============================================================
 // LOG
 // ============================================================
-let logFilter='all', logSortAsc=false;
+let logFilter='all', logSortAsc=false, logMonthFilter='all';
 let logEntryMode='manual';
 let plannedSessionsForLogs = [];
 
@@ -6391,6 +6418,28 @@ function toggleSort(){
   renderLog();
 }
 
+function logMonthLabelFr(ym){
+  const [y,m]=ym.split('-');
+  const names=['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
+  return `${names[(parseInt(m,10)||1)-1]||m} ${y}`;
+}
+
+function updateLogMonthFilterOptions(){
+  const sel=document.getElementById('log-month-filter');
+  if(!sel) return;
+  const months=[...new Set((Array.isArray(logData)?logData:[])
+    .map(r=>String(r.date||'').slice(0,7))
+    .filter(s=>/^\d{4}-\d{2}$/.test(s)))].sort().reverse();
+  const current=sel.value||logMonthFilter||'all';
+  sel.innerHTML=['<option value="all">Tous les mois</option>']
+    .concat(months.map(m=>`<option value="${m}">${logMonthLabelFr(m)}</option>`)).join('');
+  const next=(current==='all'||months.includes(current))?current:'all';
+  sel.value=next;
+  logMonthFilter=next;
+}
+
+function filterLogMonth(v){ logMonthFilter=v; renderLog(); }
+
 function buildLogMetricSpan(className, text) {
   const span = document.createElement('span');
   span.className = className;
@@ -6563,9 +6612,11 @@ function renderLog() {
   const logSub = document.getElementById('log-sub');
   if (!logSub) return;
   logSub.textContent=`${logData.length} sortie${logData.length>1?'s':''} enregistrée${logData.length>1?'s':''}`;
+  updateLogMonthFilterOptions();
   let items=[...logData];
   items.sort((a,b)=>logSortAsc?new Date(a.date)-new Date(b.date):new Date(b.date)-new Date(a.date));
   if(logFilter!=='all') items=items.filter(r=>r.run_type===logFilter);
+  if(logMonthFilter!=='all') items=items.filter(r=>String(r.date||'').slice(0,7)===logMonthFilter);
   const tbody = document.getElementById('log-tbody');
   if (!tbody) return;
   const rows = items.map(buildLogRow);
@@ -6788,6 +6839,32 @@ function buildRaceRow(r) {
   return row;
 }
 
+function renderRaceAvgWidget(){
+  const wrap=document.getElementById('race-avg-wrap');
+  if(!wrap) return;
+  const valueEl=document.getElementById('race-avg-value');
+  const subEl=document.getElementById('race-avg-sub');
+  const fmtPace=(sp)=>{const m=Math.floor(sp/60),sec=Math.round(sp%60);return `${m}:${String(sec).padStart(2,'0')}`;};
+  // Allure moyenne sur courses officielles terminées (type Course), hors DNS/DNF.
+  const paces=(Array.isArray(racesData)?racesData:[])
+    .filter(r=>!(r?.dnfStatus==='dns'||r?.dnfStatus==='dnf'))
+    .map(r=>{
+      const t=raceDurationToSeconds(r?.result);
+      const dm=String(r?.distance||'').replace(',','.').match(/\d+(\.\d+)?/);
+      const km=dm?parseFloat(dm[0]):null;
+      return (Number.isFinite(t)&&t>0&&km&&km>0)?t/km:null;
+    })
+    .filter(p=>Number.isFinite(p)&&p>0);
+  if(!paces.length){
+    if(valueEl) valueEl.textContent='—';
+    if(subEl) subEl.textContent='Aucune course officielle avec temps + distance';
+    return;
+  }
+  const avg=paces.reduce((a,b)=>a+b,0)/paces.length;
+  if(valueEl) valueEl.textContent=fmtPace(avg)+'/km';
+  if(subEl) subEl.textContent=`Allure moyenne sur ${paces.length} course${paces.length>1?'s':''} officielle${paces.length>1?'s':''} (type Course)`;
+}
+
 function renderRaces() {
   const tbody = document.getElementById('races-tbody');
   if (!tbody) return;
@@ -6807,6 +6884,10 @@ function raceDurationToSeconds(v) {
   if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
   if (parts.length === 2) return parts[0] * 60 + parts[1];
   return null;
+}
+
+function isRaceFinished(r) {
+  return !!String(r?.result || '').trim() || r?.dnfStatus === 'dns' || r?.dnfStatus === 'dnf';
 }
 
 function raceStatusRank(r) {
@@ -6839,6 +6920,10 @@ function getSortedRaces() {
   const { key, dir } = racesSort;
   const mul = dir === 'desc' ? -1 : 1;
   return arr.sort((a, b) => {
+    // Finished races (with a result or DNS/DNF) are always grouped below.
+    const fa = isRaceFinished(a) ? 1 : 0;
+    const fb = isRaceFinished(b) ? 1 : 0;
+    if (fa !== fb) return fa - fb;
     const va = raceSortValue(a, key);
     const vb = raceSortValue(b, key);
     const na = va === null || va === undefined || va === '';
@@ -6980,7 +7065,14 @@ function setupCollapsibleForms() {
     const chevron = document.createElement('span');
     chevron.className = 'collapsible-chevron';
     chevron.setAttribute('aria-hidden', 'true');
-    head.appendChild(chevron);
+    // When the head holds extra controls (e.g. log mode switch), keep the chevron
+    // on the title line by inserting it right after the h3 instead of at the end.
+    const headTitle = head.querySelector(':scope > h3');
+    if (headTitle && headTitle.nextSibling) {
+      head.insertBefore(chevron, headTitle.nextSibling);
+    } else {
+      head.appendChild(chevron);
+    }
 
     form.classList.add('collapsible-form');
     head.setAttribute('role', 'button');

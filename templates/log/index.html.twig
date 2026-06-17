@@ -86,6 +86,12 @@
         <button class="filter-btn" onclick="filterLog('SL',this)">Longue</button>
         <button class="filter-btn" onclick="filterLog('Race',this)">Courses</button>
       </div>
+      <div class="log-month-filter-wrap">
+        <label class="sr-only" for="log-month-filter">Filtrer par mois</label>
+        <select id="log-month-filter" class="log-month-filter" onchange="filterLogMonth(this.value)">
+          <option value="all">Tous les mois</option>
+        </select>
+      </div>
       <div class="log-type-legend" aria-label="Légende couleurs allure par type">
         <span class="log-type-legend-label">Couleur allure:</span>
         <span class="log-type-legend-item"><span class="log-type-legend-dot log-type-legend-dot-endurance"></span><span class="allure-type-endurance">EF/SL</span></span>

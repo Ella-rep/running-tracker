@@ -44,7 +44,7 @@
               <div class="plan-card-sub">{{ plan.sub }}</div>
             </div>
             <div class="plan-card-stats">
-              <div class="plan-card-pct">{% if plan.pct >= 100 %}Terminé{% else %}{{ plan.pct }}%{% endif %}</div>
+              <div class="plan-card-pct">{% if plan.pct >= 100 or plan.completed %}Terminé{% else %}{{ plan.pct }}%{% endif %}</div>
               <div class="plan-card-count">{{ plan.done }}/{{ plan.total }} séances</div>
             </div>
             <form method="post" action="{{ path('app_plans_delete', { planId: plan.id }) }}" onsubmit="return confirm('Supprimer ce plan ?');" style="display:inline-flex">
@@ -114,12 +114,17 @@
         </div>
         {% if hasSelectedPlan %}
           <button id="plans-edit-meta-btn" class="btn-inline-icon" type="button" onclick="editPlanMeta({{ selectedPlanView.id }})" title="Renommer">✏️</button>
+          <form method="post" action="{{ path('app_plans_duplicate', { planId: selectedPlanView.id }) }}" onsubmit="return confirm('Dupliquer ce plan ? Copie sans dates, séances non effectuées.');">
+            <input type="hidden" name="_token" value="{{ csrf_token('plans.duplicate.' ~ selectedPlanView.id) }}">
+            <button id="plans-duplicate-btn" class="btn-inline" type="submit" title="Dupliquer ce plan">⧉ Dupliquer</button>
+          </form>
           <form method="post" action="{{ path('app_plans_delete', { planId: selectedPlanView.id }) }}" onsubmit="return confirm('Supprimer ce plan ?');">
             <input type="hidden" name="_token" value="{{ csrf_token('plans.delete.' ~ selectedPlanView.id) }}">
             <button id="delete-extra-btn" class="btn-inline btn-inline-danger" type="submit">🗑 Supprimer</button>
           </form>
         {% else %}
           <button id="plans-edit-meta-btn" class="btn-inline-icon" style="display:none" onclick="editPlanMeta(currentPlanId)" title="Modifier">✏️</button>
+          <button id="plans-duplicate-btn" class="btn-inline" style="display:none" onclick="duplicatePlan(currentPlanId)" title="Dupliquer ce plan">⧉ Dupliquer</button>
           <button id="delete-extra-btn" class="btn-inline btn-inline-danger" style="display:none" onclick="deleteExtraPlan(currentPlanId)">🗑 Supprimer</button>
         {% endif %}
       </div>

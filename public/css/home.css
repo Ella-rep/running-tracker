@@ -582,6 +582,7 @@
 .hw-badge--race     { border-left-color: var(--z5); background: color-mix(in srgb, var(--z5) 6%, transparent); }
 .hw-badge--personal { border-left-color: var(--z3); }
 .hw-badge--done { background: color-mix(in srgb, var(--z2) 30%, transparent); border-left-color: var(--z2); }
+.hw-badge--dnf { background: color-mix(in srgb, var(--z3) 26%, transparent); border-left-color: var(--z3); color: color-mix(in srgb, var(--z3) 75%, var(--text)); }
 .hw-badge--cancelled { opacity: 0.5; text-decoration: line-through; }
 .hw-badge--more {
   border-left-color: transparent;

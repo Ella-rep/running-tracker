@@ -118,6 +118,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(options: ['default' => false])]
     private bool $dashboardEfBpmVisible = false;
 
+    #[ORM\Column(options: ['default' => false])]
+    private bool $dashboardRaceAvgVisible = false;
+
     #[ORM\Column(length: 128, nullable: true, unique: true)]
     private ?string $googleId = null;
 
@@ -183,6 +186,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function isDashboardEfBpmVisible(): bool { return $this->dashboardEfBpmVisible; }
     public function setDashboardEfBpmVisible(bool $visible): static { $this->dashboardEfBpmVisible = $visible; return $this; }
 
+    public function isDashboardRaceAvgVisible(): bool { return $this->dashboardRaceAvgVisible; }
+    public function setDashboardRaceAvgVisible(bool $visible): static { $this->dashboardRaceAvgVisible = $visible; return $this; }
+
     public function getGoogleId(): ?string { return $this->googleId; }
     public function setGoogleId(?string $googleId): static { $this->googleId = $googleId; return $this; }
 
@@ -199,6 +205,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             DashboardWidgetKeys::MONTHLY_LOAD => $this->dashboardMonthlyLoadVisible,
             DashboardWidgetKeys::COHERENCE => $this->dashboardCoherenceVisible,
             DashboardWidgetKeys::EF_BPM => $this->dashboardEfBpmVisible,
+            DashboardWidgetKeys::RACE_AVG => $this->dashboardRaceAvgVisible,
         ];
     }
 
@@ -231,6 +238,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
                 break;
             case DashboardWidgetKeys::COHERENCE:
                 $this->dashboardCoherenceVisible = $visible;
+                break;
+            case DashboardWidgetKeys::RACE_AVG:
+                $this->dashboardRaceAvgVisible = $visible;
                 break;
             case DashboardWidgetKeys::EF_BPM:
                 $this->dashboardEfBpmVisible = $visible;

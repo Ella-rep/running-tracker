@@ -110,6 +110,16 @@
 </main>
 
 <div class="notif" id="notif"></div>
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="modal">
+    <div class="modal-title" id="confirm-title">Confirmation</div>
+    <div id="confirm-msg"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="confirmDelete()">Confirmer</button>
+      <button class="btn btn-ghost" onclick="closeConfirm()">Annuler</button>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block javascripts %}

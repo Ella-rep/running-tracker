@@ -10,6 +10,7 @@ final class DashboardWidgetKeys
     public const PLAN_PROGRESS = 'plan_progress';
     public const MONTHLY_LOAD = 'monthly_load';
     public const COHERENCE = 'coherence';
+    public const RACE_AVG = 'race_avg';
 
     /** @return list<string> */
     public static function all(): array
@@ -21,6 +22,7 @@ final class DashboardWidgetKeys
             self::PLAN_PROGRESS,
             self::MONTHLY_LOAD,
             self::COHERENCE,
+            self::RACE_AVG,
         ];
     }
 }

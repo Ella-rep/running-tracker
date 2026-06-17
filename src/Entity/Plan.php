@@ -78,6 +78,14 @@ class Plan
     private string $mode = 'dated';
 
     /**
+     * Whether the user manually marked this plan as completed (independent of
+     * per-session validation).
+     */
+    #[ORM\Column(options: ['default' => false])]
+    #[Groups(['plan:read', 'plan:write'])]
+    private bool $isCompleted = false;
+
+    /**
      * Returns the plan identifier.
      */
     public function getId(): ?int { return $this->id; }
@@ -121,4 +129,14 @@ class Plan
      * Sets the planning mode ('dated' or 'ordered').
      */
     public function setMode(string $mode): static { $this->mode = $mode; return $this; }
+
+    /**
+     * Returns whether the plan was manually marked as completed.
+     */
+    public function isCompleted(): bool { return $this->isCompleted; }
+
+    /**
+     * Sets the manual completion flag.
+     */
+    public function setIsCompleted(bool $isCompleted): static { $this->isCompleted = $isCompleted; return $this; }
 }
