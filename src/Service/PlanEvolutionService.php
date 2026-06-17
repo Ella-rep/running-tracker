@@ -46,16 +46,23 @@ final class PlanEvolutionService
 
         usort($logs, static fn (RunLog $a, RunLog $b): int => strcmp($a->getDate(), $b->getDate()));
 
-        // Group by calendar month (YYYY-MM); compare first vs last month.
-        $months = [];
+        // "Month" = a 4-week (28-day) window: first 4 weeks vs last 4 weeks of the plan.
+        $first = new \DateTimeImmutable(substr($logs[0]->getDate(), 0, 10));
+        $last = new \DateTimeImmutable(substr($logs[count($logs) - 1]->getDate(), 0, 10));
+        $startUntil = $first->modify('+27 days');
+        $endFrom = $last->modify('-27 days');
+
+        $startLogs = [];
+        $endLogs = [];
         foreach ($logs as $log) {
-            $key = substr($log->getDate(), 0, 7);
-            $months[$key][] = $log;
+            $d = new \DateTimeImmutable(substr($log->getDate(), 0, 10));
+            if ($d <= $startUntil) {
+                $startLogs[] = $log;
+            }
+            if ($d >= $endFrom) {
+                $endLogs[] = $log;
+            }
         }
-        ksort($months);
-        $keys = array_keys($months);
-        $startLogs = $months[$keys[0]];
-        $endLogs = $months[$keys[count($keys) - 1]];
 
         return [
             'hasData' => true,
