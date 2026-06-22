@@ -19,7 +19,7 @@ final class Version20260622110000 extends AbstractMigration
         $this->addSql("
             CREATE TABLE gear (
                 id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL REFERENCES \"user\"(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 name VARCHAR(120) NOT NULL,
                 skill_type VARCHAR(30) NOT NULL DEFAULT 'speed',
                 modifier INTEGER NOT NULL DEFAULT 0,
@@ -46,7 +46,7 @@ final class Version20260622110000 extends AbstractMigration
         $this->addSql("
             CREATE TABLE quest_progress (
                 id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL REFERENCES \"user\"(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 quest_id INTEGER NOT NULL REFERENCES quest(id) ON DELETE CASCADE,
                 progress_current DOUBLE PRECISION NOT NULL DEFAULT 0,
                 completed BOOLEAN NOT NULL DEFAULT FALSE,
@@ -59,7 +59,7 @@ final class Version20260622110000 extends AbstractMigration
         $this->addSql("
             CREATE TABLE athlete_stats (
                 id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL UNIQUE REFERENCES \"user\"(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
                 xp_total INTEGER NOT NULL DEFAULT 0,
                 skill_speed INTEGER NOT NULL DEFAULT 10,
                 skill_endurance INTEGER NOT NULL DEFAULT 10,

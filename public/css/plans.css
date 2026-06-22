@@ -792,7 +792,7 @@
 }
 /* plan terminé : on inverse les tailles progression <-> résumé */
 .plan-evolution-card--complete .evo-summary-title {
-  font-size: 28px;
+  font-size: 16px;
   font-weight: 800;
 }
 .plan-evolution-card--complete .section-title {

@@ -19,8 +19,8 @@ final class Version20260622120000 extends AbstractMigration
         $this->addSql("
             CREATE TABLE rpg_event (
                 id SERIAL PRIMARY KEY,
-                user_id INTEGER NOT NULL REFERENCES \"user\"(id) ON DELETE CASCADE,
-                race_id INTEGER DEFAULT NULL REFERENCES race(id) ON DELETE SET NULL,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                race_id INTEGER DEFAULT NULL REFERENCES races(id) ON DELETE SET NULL,
                 type VARCHAR(30) NOT NULL DEFAULT 'random',
                 severity VARCHAR(20) NOT NULL DEFAULT 'info',
                 title VARCHAR(180) NOT NULL,
