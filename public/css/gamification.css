@@ -370,3 +370,83 @@
   font-size: 11px;
   opacity: 0.7;
 }
+
+/* ── Page RPG ────────────────────────────────────────────── */
+.rpg-page-card {
+  background: var(--card-bg, rgba(255,255,255,0.04));
+  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+/* Gear form */
+.rpg-gear-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+  align-items: center;
+}
+.rpg-input {
+  background: var(--input-bg, rgba(255,255,255,0.06));
+  border: 1px solid var(--border, rgba(255,255,255,0.12));
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 13px;
+  color: inherit;
+  flex: 1;
+  min-width: 140px;
+}
+.rpg-input-sm { flex: 0 0 70px; min-width: 70px; }
+.rpg-select {
+  background: var(--input-bg, rgba(255,255,255,0.06));
+  border: 1px solid var(--border, rgba(255,255,255,0.12));
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: inherit;
+}
+
+/* Gear table */
+.rpg-gear-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 10px;
+}
+.rpg-gear-table th {
+  text-align: left;
+  padding: 6px 8px;
+  font-size: 11px;
+  opacity: 0.5;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.rpg-gear-table td {
+  padding: 8px 8px;
+  border-top: 1px solid var(--border, rgba(255,255,255,0.06));
+}
+.rpg-gear-retired { opacity: 0.45; }
+.rpg-gear-actions { white-space: nowrap; }
+.rpg-mod-positive { color: #4ade80; font-weight: 700; }
+.rpg-mod-negative { color: #f87171; font-weight: 700; }
+
+/* Quêtes */
+.rpg-quest-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border, rgba(255,255,255,0.06));
+}
+.rpg-quest-row:first-of-type { border-top: none; }
+.rpg-quest-done { opacity: 0.55; }
+.rpg-quest-info { flex: 1; }
+.rpg-quest-title { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rpg-quest-xp { font-size: 11px; color: var(--z2, #a78bfa); font-weight: 700; }
+.rpg-quest-sub { font-size: 12px; opacity: 0.55; margin-top: 2px; }
+.rpg-quest-badge-done { font-size: 11px; color: #4ade80; font-weight: 700; white-space: nowrap; }
+.rpg-quest-badge-active { font-size: 11px; color: var(--z2, #a78bfa); font-weight: 700; white-space: nowrap; }

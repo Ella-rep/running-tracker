@@ -88,7 +88,7 @@ class RpgEventService
      */
     public function processRace(Race $race, User $user): ?RpgEvent
     {
-        if (!$user->isDashboardGamificationVisible()) {
+        if (!$user->isRpgMode()) {
             return null;
         }
 

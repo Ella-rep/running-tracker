@@ -40,7 +40,7 @@ final class RunLogProcessor implements ProcessorInterface
         $this->em->persist($data);
         $this->em->flush();
 
-        if ($user->isDashboardGamificationVisible()) {
+        if ($user->isRpgMode()) {
             $this->gamification->recalculate($user);
             $this->gamification->updateQuestProgress($user, $data);
         }

@@ -22,6 +22,9 @@
     <a href="{{ path('app_log') }}" class="nav-link{{ current_page == 'log' ? ' active' : '' }}">Log</a>
     <a href="{{ path('app_courses') }}" class="nav-link{{ current_page == 'courses' ? ' active' : '' }}">Courses</a>
     <a href="{{ path('app_contact') }}" class="nav-link{{ current_page == 'contact' ? ' active' : '' }}">Contact</a>
+    {% if rpg_mode is defined and rpg_mode %}
+      <a href="{{ path('app_rpg') }}" class="nav-link{{ current_page == 'rpg' ? ' active' : '' }}">⚔️ RPG</a>
+    {% endif %}
     <a href="{{ path('app_profile') }}" class="nav-link{{ current_page == 'profile' ? ' active' : '' }}">Profil</a>
     {% if is_granted('ROLE_ADMIN') %}
       <a

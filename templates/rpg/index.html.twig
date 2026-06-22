@@ -1,0 +1,181 @@
+{% extends 'base/layout.html.twig' %}
+{% block title %}Mode RPG — Running Tracker{% endblock %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
+<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260616-p2p4">
+<link rel="stylesheet" href="{{ asset('css/gamification.css') }}?v=20260622-rpg2">
+{% endblock %}
+
+{% block body %}
+{% include 'components/_app_header.html.twig' with { current_page: 'rpg', username: username } %}
+
+<main>
+  <section class="profile-page visible">
+
+    {% for label, messages in app.flashes %}
+      {% for message in messages %}
+        <div class="contact-flash contact-flash-{{ label == 'error' ? 'error' : 'success' }}">{{ message }}</div>
+      {% endfor %}
+    {% endfor %}
+
+    {# ── Fiche personnage ──────────────────────────────────────── #}
+    <div class="rpg-page-card">
+      <div class="rpg-header">
+        <div class="rpg-avatar" style="font-size:2.5rem;">{{ rpg.avatar_emoji }}</div>
+        <div class="rpg-identity">
+          <div class="rpg-name">{{ app.user.username }}</div>
+          <div class="rpg-class">⚔️ {{ rpg.class }} · Niveau {{ rpg.level }}</div>
+          <div class="rpg-xp-row">
+            <div class="rpg-xp-bar" role="progressbar" aria-valuenow="{{ rpg.xp }}" aria-valuemax="{{ rpg.xp_next }}">
+              <div class="rpg-xp-fill" style="width:{{ ((rpg.xp / rpg.xp_next) * 100)|round }}%"></div>
+            </div>
+            <span class="rpg-xp-label">{{ rpg.xp }} / {{ rpg.xp_next }} XP</span>
+            <span class="rpg-level-badge">Niv. {{ rpg.level }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="rpg-section-label">📊 Stats</div>
+      <div class="rpg-skills-grid">
+        {% for key, skill in rpg.skills %}
+          <div class="rpg-skill-card">
+            <div class="rpg-skill-icon">{{ key == 'speed' ? '⚡' : key == 'endurance' ? '❤️' : '🌀' }}</div>
+            <div class="rpg-skill-name">{{ key == 'speed' ? 'Vitesse' : key == 'endurance' ? 'Endurance' : 'Récupération' }}</div>
+            <div class="rpg-skill-val">{{ skill.value }}</div>
+            {% if skill.delta != 0 %}
+              <div class="rpg-skill-delta rpg-delta-{{ skill.delta > 0 ? 'up' : 'down' }}">{{ skill.delta_label }}</div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+
+      {% if rpg.modifiers|length > 0 %}
+        <div class="rpg-section-label">🔧 Modificateurs actifs</div>
+        <div class="rpg-modifiers-list">
+          {% for mod in rpg.modifiers %}
+            <span class="rpg-modifier rpg-mod-{{ mod.type }}">{{ mod.label }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+
+    {# ── Gear ─────────────────────────────────────────────────── #}
+    <div class="rpg-page-card">
+      <div class="section-title" style="font-size:1rem;">🛡️ Équipement</div>
+      <div class="section-sub">L'équipement actif modifie tes stats. Vitesse, endurance ou récupération.</div>
+
+      <form method="post" action="{{ path('app_rpg_gear_add') }}" class="rpg-gear-form">
+        <input type="hidden" name="_token" value="{{ csrf_token('rpg_gear') }}">
+        <input class="rpg-input" type="text" name="name" placeholder="Nom (ex: Brooks Ghost 15)" required maxlength="120">
+        <select class="rpg-select" name="skill_type">
+          <option value="speed">⚡ Vitesse</option>
+          <option value="endurance">❤️ Endurance</option>
+          <option value="recovery">🌀 Récupération</option>
+        </select>
+        <input class="rpg-input rpg-input-sm" type="number" name="modifier" value="5" min="-20" max="20" required title="Modificateur (positif = buff, négatif = débuff)">
+        <button class="btn btn-sm" type="submit">Ajouter</button>
+      </form>
+
+      {% if gears|length > 0 %}
+        <table class="rpg-gear-table">
+          <thead><tr><th>Nom</th><th>Skill</th><th>Mod</th><th>Statut</th><th></th></tr></thead>
+          <tbody>
+          {% for gear in gears %}
+            <tr class="{{ gear.active ? '' : 'rpg-gear-retired' }}">
+              <td>{{ gear.name }}</td>
+              <td>{{ gear.skillType == 'speed' ? '⚡' : gear.skillType == 'endurance' ? '❤️' : '🌀' }} {{ gear.skillType }}</td>
+              <td class="{{ gear.modifier >= 0 ? 'rpg-mod-positive' : 'rpg-mod-negative' }}">{{ gear.modifier >= 0 ? '+' : '' }}{{ gear.modifier }}</td>
+              <td>{{ gear.active ? '✅ Équipé' : '📦 Rangé' }}</td>
+              <td class="rpg-gear-actions">
+                <form method="post" action="{{ path('app_rpg_gear_toggle', {id: gear.id}) }}" style="display:inline">
+                  <input type="hidden" name="_token" value="{{ csrf_token('rpg_gear_toggle_' ~ gear.id) }}">
+                  <button class="btn btn-ghost btn-sm" type="submit">{{ gear.active ? 'Ranger' : 'Équiper' }}</button>
+                </form>
+                <form method="post" action="{{ path('app_rpg_gear_delete', {id: gear.id}) }}" style="display:inline" onsubmit="return confirm('Supprimer ?')">
+                  <input type="hidden" name="_token" value="{{ csrf_token('rpg_gear_delete_' ~ gear.id) }}">
+                  <button class="btn btn-ghost btn-sm" type="submit" style="color:var(--accent3)">✕</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="rpg-empty" style="margin-top:12px;">Aucun équipement. Ajoute tes chaussures !</div>
+      {% endif %}
+    </div>
+
+    {# ── Quêtes ───────────────────────────────────────────────── #}
+    <div class="rpg-page-card">
+      <div class="section-title" style="font-size:1rem;">📜 Quêtes</div>
+      <div class="section-sub">Les quêtes progressent automatiquement à chaque sortie.</div>
+
+      {% set type_labels = { main: '🗡️ Principale', side: '📌 Secondaire', legend: '🌟 Légendaire' } %}
+      {% for type in ['legend', 'main', 'side'] %}
+        {% set typed = quests|filter(q => q.type == type) %}
+        {% if typed|length > 0 %}
+          <div class="rpg-section-label" style="margin-top:14px;">{{ type_labels[type] }}</div>
+          {% for quest in typed %}
+            {% set prog = progress[quest.id] ?? null %}
+            {% set pct = prog ? prog.percent : 0 %}
+            {% set started = prog is not null %}
+            {% set done = prog and prog.completed %}
+            <div class="rpg-quest-row{{ done ? ' rpg-quest-done' : '' }}">
+              <div class="rpg-quest-info">
+                <div class="rpg-quest-title">
+                  {{ done ? '✅ ' : '' }}{{ quest.title }}
+                  <span class="rpg-quest-xp">+{{ quest.xpReward }} XP</span>
+                </div>
+                {% if quest.subtitle %}<div class="rpg-quest-sub">{{ quest.subtitle }}</div>{% endif %}
+                {% if started and not done %}
+                  <div class="rpg-xp-bar" style="margin-top:6px;" role="progressbar" aria-valuenow="{{ pct }}" aria-valuemax="100">
+                    <div class="rpg-xp-fill" style="width:{{ pct }}%"></div>
+                  </div>
+                  <div style="font-size:11px;opacity:0.6;margin-top:3px;">{{ prog.progressCurrent|round(1) }} / {{ quest.conditionValue|round(1) }} · {{ pct }}%</div>
+                {% endif %}
+              </div>
+              {% if not started %}
+                <form method="post" action="{{ path('app_rpg_quest_start', {id: quest.id}) }}">
+                  <input type="hidden" name="_token" value="{{ csrf_token('rpg_quest_start_' ~ quest.id) }}">
+                  <button class="btn btn-sm" type="submit">Démarrer</button>
+                </form>
+              {% elseif done %}
+                <span class="rpg-quest-badge-done">Accomplie</span>
+              {% else %}
+                <span class="rpg-quest-badge-active">En cours</span>
+              {% endif %}
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    {# ── Événements récents ───────────────────────────────────── #}
+    {% if rpg.events|length > 0 %}
+      <div class="rpg-page-card">
+        <div class="rpg-section-label">⚡ Événements récents</div>
+        <div class="rpg-events-list">
+          {% for event in rpg.events %}
+            <div class="rpg-event rpg-event-{{ event.severity }}">
+              <span class="rpg-event-icon">{{ event.type == 'level_up' ? '🎉' : event.type == 'quest_done' ? '✅' : '⚡' }}</span>
+              <div class="rpg-event-body">
+                <div class="rpg-event-title">{{ event.title }}</div>
+                {% if event.description %}<div class="rpg-event-desc">{{ event.description }}</div>{% endif %}
+              </div>
+              {% if event.xp_delta != 0 %}
+                <span class="rpg-event-xp {{ event.xp_delta > 0 ? 'rpg-delta-up' : 'rpg-delta-down' }}">{{ event.xp_delta > 0 ? '+' : '' }}{{ event.xp_delta }} XP</span>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+
+  </section>
+</main>
+{% endblock %}
+
+{% block javascripts %}
+<script src="{{ asset('js/app.js') }}?v=20260617-p3"></script>
+{% endblock %}
