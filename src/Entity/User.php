@@ -122,7 +122,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private bool $dashboardRaceAvgVisible = false;
 
     #[ORM\Column(options: ['default' => false])]
-    private bool $dashboardGamificationVisible = false;
+    private bool $rpgMode = false;
 
     #[ORM\Column(options: ['default' => true])]
     #[Groups(['user:read', 'user:write'])]
@@ -244,12 +244,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             DashboardWidgetKeys::COHERENCE => $this->dashboardCoherenceVisible,
             DashboardWidgetKeys::EF_BPM => $this->dashboardEfBpmVisible,
             DashboardWidgetKeys::RACE_AVG => $this->dashboardRaceAvgVisible,
-            DashboardWidgetKeys::GAMIFICATION => $this->dashboardGamificationVisible,
         ];
     }
 
-    public function isDashboardGamificationVisible(): bool { return $this->dashboardGamificationVisible; }
-    public function setDashboardGamificationVisible(bool $v): static { $this->dashboardGamificationVisible = $v; return $this; }
+    public function isRpgMode(): bool { return $this->rpgMode; }
+    public function setRpgMode(bool $v): static { $this->rpgMode = $v; return $this; }
 
     public function getHealthPause(): ?HealthPause { return $this->healthPause; }
     public function getRunLogs(): Collection { return $this->runLogs; }
@@ -287,9 +286,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
                 break;
             case DashboardWidgetKeys::EF_BPM:
                 $this->dashboardEfBpmVisible = $visible;
-                break;
-            case DashboardWidgetKeys::GAMIFICATION:
-                $this->dashboardGamificationVisible = $visible;
                 break;
             default:
                 break;

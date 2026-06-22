@@ -282,4 +282,29 @@ final class ProfileController extends AbstractController
             'Cache-Control' => 'public, max-age=604800',
         ]);
     }
+
+    /**
+     * Toggles RPG mode on/off for the user.
+     */
+    #[Route('/profile/rpg-mode', name: 'app_profile_rpg_mode', methods: ['POST'])]
+    public function toggleRpgMode(Request $request, EntityManagerInterface $entityManager): RedirectResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            throw $this->createAccessDeniedException('Utilisateur non authentifié.');
+        }
+
+        if (!$this->isCsrfTokenValid('profile_rpg_mode', (string) $request->request->get('_token'))) {
+            $this->addFlash('error', 'Jeton de sécurité invalide, merci de réessayer.');
+
+            return $this->redirectToRoute('app_profile');
+        }
+
+        $user->setRpgMode(!$user->isRpgMode());
+        $entityManager->flush();
+
+        $this->addFlash('success', $user->isRpgMode() ? '⚔️ Mode RPG activé !' : 'Mode RPG désactivé.');
+
+        return $this->redirectToRoute('app_profile');
+    }
 }

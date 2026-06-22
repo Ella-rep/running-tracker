@@ -5,7 +5,7 @@
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260616-p2p4">
   <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260610-pause3">
-  <link rel="stylesheet" href="{{ asset('css/gamification.css') }}?v=20260622-rpg1">
+  {% if rpg_mode %}<link rel="stylesheet" href="{{ asset('css/gamification.css') }}?v=20260622-rpg1">{% endif %}
 {% endblock %}
 
 {% block body %}
@@ -155,7 +155,7 @@
 
     <div id="coherence-section" data-widget="coherence"></div>
 
-    {% include 'components/_gamification_widget.html.twig' %}
+    {% if rpg_mode %}{% include 'components/_gamification_widget.html.twig' %}{% endif %}
     <template id="coherence-alert-template">
       <div class="alert">
         <div class="alert-title"></div>

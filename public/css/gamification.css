@@ -347,3 +347,26 @@
   font-size: 11px;
   font-weight: 600;
 }
+
+/* ── RPG home bar ────────────────────────────────────────── */
+.rpg-home-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--card-bg, rgba(255,255,255,0.06));
+  border: 1px solid var(--border, rgba(255,255,255,0.1));
+  border-radius: 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+.rpg-home-badge {
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--z2, #a78bfa);
+}
+.rpg-home-xp {
+  white-space: nowrap;
+  font-size: 11px;
+  opacity: 0.7;
+}

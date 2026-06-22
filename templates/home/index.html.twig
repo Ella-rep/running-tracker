@@ -6,6 +6,7 @@
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260616-p2p4">
   <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260609-calendarlogs1">
 <link rel="stylesheet" href="{{ asset('css/home.css') }}?v=20260615-calviews7">
+{% if rpg_mode %}<link rel="stylesheet" href="{{ asset('css/gamification.css') }}?v=20260622-rpg1">{% endif %}
 {% endblock %}
 
 {% block body %}
@@ -13,6 +14,15 @@
 
 <main>
   <section id="dashboard" class="visible">
+    {% if rpg_mode and rpg_data %}
+    <div class="rpg-home-bar">
+      <span class="rpg-home-badge">⚔️ {{ rpg_data.class }} · Niv.{{ rpg_data.level }}</span>
+      <div class="rpg-xp-bar" role="progressbar" aria-valuenow="{{ rpg_data.xp }}" aria-valuemax="{{ rpg_data.xp_next }}" style="flex:1;margin:0 10px;">
+        <div class="rpg-xp-fill" style="width:{{ ((rpg_data.xp / rpg_data.xp_next) * 100)|round }}%"></div>
+      </div>
+      <span class="rpg-home-xp">{{ rpg_data.xp }} / {{ rpg_data.xp_next }} XP</span>
+    </div>
+    {% endif %}
     <div class="dashboard-topline">
       <div class="dashboard-intro">
         <div class="section-title">Accueil</div>
