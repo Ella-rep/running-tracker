@@ -191,6 +191,21 @@ class GamificationWidgetService
 
         $stats = $this->getOrCreateStats($user);
 
+        // ── XP de base par course ─────────────────────────────────────
+        $km = (float)($log->getKm() ?? 0);
+        $xpEarned = max(5, (int)round($km * 10));
+        $stats->addXp($xpEarned);
+
+        $runEvent = new RpgEvent();
+        $runEvent->setUser($user)
+            ->setType(RpgEvent::TYPE_BUFF)
+            ->setSeverity(RpgEvent::SEV_INFO)
+            ->setIcon('⚡')
+            ->setTitle('Course enregistrée !')
+            ->setDescription(sprintf('Tu gagnes %d XP pour %.1f km courus.', $xpEarned, $km))
+            ->setXpDelta($xpEarned);
+        $this->em->persist($runEvent);
+
         foreach ($progresses as $progress) {
             $quest = $progress->getQuest();
             $updated = false;
