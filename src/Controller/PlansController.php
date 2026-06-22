@@ -667,12 +667,25 @@ class PlansController extends AbstractController
 
         $name = $plan->getName();
 
+        $sessionTotal = 0;
+        $sessionDone = 0;
+        foreach ($sessions as $detail) {
+            if ($detail->isCancelled()) {
+                continue;
+            }
+            ++$sessionTotal;
+            if ($detail->isDone()) {
+                ++$sessionDone;
+            }
+        }
+        $isPlanCompleted = $plan->isCompleted() || ($sessionTotal > 0 && $sessionDone >= $sessionTotal);
+
         return [[
             'id' => $plan->getId(),
             'title' => $this->isExamplePlanName($name) ? 'Plan de depart (exemple)' : $name,
             'sub' => $this->isExamplePlanName($name) ? 'Plan fourni avec l\'application · blocs hebdomadaires' : '',
             'weeks' => $weekBlocks,
-            'completed' => $plan->isCompleted(),
+            'completed' => $isPlanCompleted,
             'evolution' => $planEvolutionService->buildQuarterlyRecap($plan),
         ], false];
     }
