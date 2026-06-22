@@ -133,8 +133,14 @@
               <option value="pace_per_km">Amélioration allure (s/km)</option>
               <option value="bpm_ef">BPM EF cible</option>
             </select>
-            <input class="rpg-input rpg-input-sm" type="number" name="condition_value" placeholder="Objectif" step="0.1" min="0.1" required>
-            <input class="rpg-input rpg-input-sm" type="number" name="xp_reward" placeholder="XP" value="150" min="10" max="9999">
+            <div class="rpg-input-labeled">
+              <label class="rpg-input-label">Objectif</label>
+              <input class="rpg-input rpg-input-sm" type="number" name="condition_value" placeholder="ex: 21.10" step="0.01" min="0.01" required>
+            </div>
+            <div class="rpg-input-labeled">
+              <label class="rpg-input-label">Points XP</label>
+              <input class="rpg-input rpg-input-sm" type="number" name="xp_reward" placeholder="150" value="150" min="10" max="9999">
+            </div>
           </div>
           <button class="btn" type="submit" style="margin-top:8px;">Créer la quête</button>
         </form>

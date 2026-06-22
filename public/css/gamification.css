@@ -456,3 +456,6 @@
 .rpg-quest-create-toggle summary::-webkit-details-marker { display: none; }
 .rpg-quest-form { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
 .rpg-quest-form-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.rpg-input-labeled { display: flex; flex-direction: column; gap: 3px; }
+.rpg-input-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; opacity: 0.5; padding-left: 2px; }
