@@ -11,16 +11,16 @@ final class Version20260622100000 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return 'Add dashboard_gamification_visible column to user table';
+        return 'Add dashboard_gamification_visible column to users table';
     }
 
     public function up(Schema $schema): void
     {
-        $this->addSql("ALTER TABLE users ADD dashboard_gamification_visible BOOLEAN NOT NULL DEFAULT FALSE");
+        $this->addSql('ALTER TABLE users ADD dashboard_gamification_visible BOOLEAN NOT NULL DEFAULT FALSE');
     }
 
     public function down(Schema $schema): void
     {
-        $this->addSql("ALTER TABLE users DROP COLUMN dashboard_gamification_visible");
+        $this->addSql('ALTER TABLE users DROP COLUMN dashboard_gamification_visible');
     }
 }
