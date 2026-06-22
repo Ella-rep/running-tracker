@@ -1,0 +1,349 @@
+/* ── RPG Gamification Widget ──────────────────────────────── */
+
+.rpg-widget {
+  padding: 1.25rem;
+}
+
+/* Header : avatar + identité + XP bar */
+.rpg-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.rpg-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(154, 140, 255, 0.15);
+  border: 2px solid var(--accent2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  flex-shrink: 0;
+}
+
+.rpg-identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.rpg-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.rpg-class {
+  font-size: 11px;
+  color: var(--accent2);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.rpg-xp-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rpg-xp-bar {
+  flex: 1;
+  height: 8px;
+  background: rgba(154, 140, 255, 0.15);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.rpg-xp-fill {
+  height: 100%;
+  background: var(--accent2);
+  border-radius: 4px;
+  transition: width 0.6s ease;
+}
+
+.rpg-xp-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.rpg-level-badge {
+  background: var(--accent2);
+  color: var(--bg);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+/* Section label */
+.rpg-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+  margin-top: 4px;
+}
+
+/* Skills grid */
+.rpg-skills-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.rpg-skill-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 8px;
+  text-align: center;
+}
+
+.rpg-skill-icon {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+
+.rpg-skill-name {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rpg-skill-val {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.rpg-skill-delta {
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.rpg-delta-up { color: var(--z2); }
+.rpg-delta-down { color: var(--accent3); }
+
+/* Modificateurs */
+.rpg-mods-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.rpg-mod-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid;
+}
+
+.rpg-mod-gear {
+  background: rgba(138, 197, 255, 0.12);
+  color: var(--z1);
+  border-color: rgba(138, 197, 255, 0.3);
+}
+
+.rpg-mod-weather {
+  background: rgba(255, 210, 126, 0.12);
+  color: var(--z3);
+  border-color: rgba(255, 210, 126, 0.3);
+}
+
+.rpg-mod-debuff {
+  background: rgba(255, 142, 188, 0.12);
+  color: var(--accent3);
+  border-color: rgba(255, 142, 188, 0.3);
+}
+
+.rpg-mod-buff {
+  background: rgba(141, 225, 184, 0.12);
+  color: var(--z2);
+  border-color: rgba(141, 225, 184, 0.3);
+}
+
+/* Quêtes */
+.rpg-quests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rpg-quest-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  border-left-width: 3px;
+  border-left-style: solid;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.rpg-quest-main  { border-left-color: var(--accent2); }
+.rpg-quest-side  { border-left-color: var(--z2); }
+.rpg-quest-legend { border-left-color: var(--z3); }
+
+.rpg-quest-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.rpg-quest-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.rpg-badge-main   { background: rgba(154,140,255,0.15); color: var(--accent2); }
+.rpg-badge-side   { background: rgba(141,225,184,0.15); color: var(--z2); }
+.rpg-badge-legend { background: rgba(255,210,126,0.15); color: var(--z3); }
+
+.rpg-quest-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+}
+
+.rpg-quest-xp {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.rpg-quest-prog-bg {
+  height: 5px;
+  background: var(--surface2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.rpg-quest-prog-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.6s ease;
+}
+
+.rpg-fill-main   { background: var(--accent2); }
+.rpg-fill-side   { background: var(--z2); }
+.rpg-fill-legend { background: var(--z3); }
+
+.rpg-quest-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+}
+
+.rpg-quest-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* Empty state */
+.rpg-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 12px 0;
+  text-align: center;
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .rpg-skills-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .rpg-skill-val { font-size: 18px; }
+}
+
+/* ── RPG Events ──────────────────────────────────────────── */
+.rpg-events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.rpg-event-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  border-left-width: 3px;
+  border-left-style: solid;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.rpg-event-info    { border-left-color: var(--z1); }
+.rpg-event-warning { border-left-color: var(--z3); }
+.rpg-event-danger  { border-left-color: var(--accent3); }
+.rpg-event-legendary { border-left-color: var(--z4); }
+
+.rpg-event-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.rpg-event-icon  { font-size: 18px; flex-shrink: 0; }
+.rpg-event-title { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; min-width: 0; }
+.rpg-event-xp    { font-size: 11px; white-space: nowrap; font-weight: 700; }
+
+.rpg-event-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 8px;
+  font-style: italic;
+}
+
+.rpg-event-ack-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.rpg-event-ack-btn:hover {
+  color: var(--z2);
+  border-color: var(--z2);
+}
+
+/* ── Badge cancelled (Race) ──────────────────────────────── */
+.badge-cancelled {
+  background: rgba(255, 142, 188, 0.12);
+  color: var(--accent3);
+  border: 1px solid rgba(255, 142, 188, 0.3);
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+}

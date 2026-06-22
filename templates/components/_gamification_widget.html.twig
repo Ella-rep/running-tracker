@@ -1,0 +1,135 @@
+{#
+  Widget RPG Gamification
+  Données injectées par GamificationWidgetService (à venir)
+  Pour l'instant : données placeholder statiques
+#}
+{% set rpg = rpg_data|default({
+  level: 1,
+  xp: 0,
+  xp_next: 100,
+  class: 'Recrue',
+  avatar_emoji: '🏃',
+  skills: {
+    speed: { value: 10, delta: 0, delta_label: '' },
+    endurance: { value: 10, delta: 0, delta_label: '' },
+    recovery: { value: 10, delta: 0, delta_label: '' }
+  },
+  modifiers: [],
+  quests: []
+}) %}
+
+<section class="rpg-widget chart-wrap" data-widget="gamification" aria-label="Mode RPG">
+  <div class="rpg-header">
+    <div class="rpg-avatar">{{ rpg.avatar_emoji }}</div>
+    <div class="rpg-identity">
+      <div class="rpg-name">{{ app.user.username }}</div>
+      <div class="rpg-class">⚔️ {{ rpg.class }} · Niveau {{ rpg.level }}</div>
+      <div class="rpg-xp-row">
+        <div class="rpg-xp-bar" role="progressbar" aria-valuenow="{{ rpg.xp }}" aria-valuemax="{{ rpg.xp_next }}">
+          <div class="rpg-xp-fill" style="width: {{ ((rpg.xp / rpg.xp_next) * 100)|round }}%"></div>
+        </div>
+        <span class="rpg-xp-label">{{ rpg.xp }} / {{ rpg.xp_next }} XP</span>
+        <span class="rpg-level-badge">Niv. {{ rpg.level }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="rpg-section-label">Stats</div>
+  <div class="rpg-skills-grid">
+    <div class="rpg-skill-card">
+      <div class="rpg-skill-icon">⚡</div>
+      <div class="rpg-skill-name">Vitesse</div>
+      <div class="rpg-skill-val">{{ rpg.skills.speed.value }}</div>
+      {% if rpg.skills.speed.delta != 0 %}
+        <div class="rpg-skill-delta rpg-delta-{{ rpg.skills.speed.delta > 0 ? 'up' : 'down' }}">
+          {{ rpg.skills.speed.delta > 0 ? '+' : '' }}{{ rpg.skills.speed.delta }} {{ rpg.skills.speed.delta_label }}
+        </div>
+      {% endif %}
+    </div>
+    <div class="rpg-skill-card">
+      <div class="rpg-skill-icon">🫀</div>
+      <div class="rpg-skill-name">Endurance</div>
+      <div class="rpg-skill-val">{{ rpg.skills.endurance.value }}</div>
+      {% if rpg.skills.endurance.delta != 0 %}
+        <div class="rpg-skill-delta rpg-delta-{{ rpg.skills.endurance.delta > 0 ? 'up' : 'down' }}">
+          {{ rpg.skills.endurance.delta > 0 ? '+' : '' }}{{ rpg.skills.endurance.delta }} {{ rpg.skills.endurance.delta_label }}
+        </div>
+      {% endif %}
+    </div>
+    <div class="rpg-skill-card">
+      <div class="rpg-skill-icon">🛡</div>
+      <div class="rpg-skill-name">Récup.</div>
+      <div class="rpg-skill-val">{{ rpg.skills.recovery.value }}</div>
+      {% if rpg.skills.recovery.delta != 0 %}
+        <div class="rpg-skill-delta rpg-delta-{{ rpg.skills.recovery.delta > 0 ? 'up' : 'down' }}">
+          {{ rpg.skills.recovery.delta > 0 ? '+' : '' }}{{ rpg.skills.recovery.delta }} {{ rpg.skills.recovery.delta_label }}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if rpg.modifiers|length > 0 %}
+    <div class="rpg-section-label">Modificateurs actifs</div>
+    <div class="rpg-mods-row">
+      {% for mod in rpg.modifiers %}
+        <span class="rpg-mod-chip rpg-mod-{{ mod.type }}">{{ mod.label }}</span>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if rpg.quests|length > 0 %}
+    <div class="rpg-section-label">Quêtes</div>
+    <div class="rpg-quests-list">
+      {% for quest in rpg.quests %}
+        {% set pct = quest.progress_max > 0 ? ((quest.progress_current / quest.progress_max) * 100)|round : 0 %}
+        <div class="rpg-quest-card rpg-quest-{{ quest.type }}">
+          <div class="rpg-quest-top">
+            <span class="rpg-quest-badge rpg-badge-{{ quest.type }}">
+              {{ quest.type == 'main' ? 'Quête principale' : (quest.type == 'legend' ? 'Quête légendaire' : 'Side quest') }}
+            </span>
+            <span class="rpg-quest-title">{{ quest.title }}</span>
+            <span class="rpg-quest-xp">{{ quest.xp_reward }} XP</span>
+          </div>
+          <div class="rpg-quest-prog-bg">
+            <div class="rpg-quest-prog-fill rpg-fill-{{ quest.type }}" style="width: {{ pct }}%"></div>
+          </div>
+          <div class="rpg-quest-footer">
+            <span class="rpg-quest-sub">{{ quest.subtitle }}</span>
+            <span class="rpg-quest-sub">{{ pct }}%</span>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="rpg-empty">Aucune quête active. Les entités arrivent bientôt ⚔️</div>
+  {% endif %}
+
+  {% if rpg.events|length > 0 %}
+    <div class="rpg-section-label">⚡ Événements récents</div>
+    <div class="rpg-events-list">
+      {% for event in rpg.events %}
+        <div class="rpg-event-card rpg-event-{{ event.severity }}">
+          <div class="rpg-event-top">
+            {% if event.icon %}<span class="rpg-event-icon">{{ event.icon }}</span>{% endif %}
+            <span class="rpg-event-title">{{ event.title }}</span>
+            {% if event.xp_delta != 0 %}
+              <span class="rpg-event-xp rpg-delta-{{ event.xp_delta > 0 ? 'up' : 'down' }}">
+                {{ event.xp_delta > 0 ? '+' : '' }}{{ event.xp_delta }} XP
+              </span>
+            {% endif %}
+          </div>
+          {% if event.description %}
+            <p class="rpg-event-desc">{{ event.description }}</p>
+          {% endif %}
+          <button
+            type="button"
+            class="rpg-event-ack-btn"
+            data-rpg-event-id="{{ event.id }}"
+            aria-label="Marquer comme lu"
+          >Acquitter le sort ✓</button>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+</section>

@@ -42,6 +42,7 @@ class Race
     private const STATUS_FUTURE_CLASS = 'badge-future';
     private const STATUS_DNS_CLASS = 'badge-dns';
     private const STATUS_DNF_CLASS = 'badge-dnf';
+    private const STATUS_CANCELLED_CLASS = 'badge-cancelled';
 
     #[ORM\Id, ORM\GeneratedValue, ORM\Column]
     #[Groups(['race:read'])]
@@ -186,7 +187,7 @@ class Race
      */
     public function setDnfStatus(?string $s): static
     {
-        $this->dnfStatus = in_array($s, ['dns', 'dnf'], true) ? $s : null;
+        $this->dnfStatus = in_array($s, ['dns', 'dnf', 'cancelled'], true) ? $s : null;
         return $this;
     }
 
@@ -252,6 +253,10 @@ class Race
             return self::STATUS_DNF_CLASS;
         }
 
+        if ($this->dnfStatus === 'cancelled') {
+            return self::STATUS_CANCELLED_CLASS;
+        }
+
         if ($this->hasResult()) {
             return self::STATUS_DONE_CLASS;
         }
@@ -276,6 +281,10 @@ class Race
 
         if ($this->dnfStatus === 'dnf') {
             return 'DNF';
+        }
+
+        if ($this->dnfStatus === 'cancelled') {
+            return '🚫 Course annulée';
         }
 
         $label = 'A venir';

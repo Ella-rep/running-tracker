@@ -8,6 +8,7 @@ use App\Entity\PlanProgress;
 use App\Entity\RunLog;
 use App\Entity\User;
 use App\Repository\PlanProgressRepository;
+use App\Service\GamificationWidgetService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -18,6 +19,7 @@ final class RunLogProcessor implements ProcessorInterface
         private Security $security,
         private PlanProgressRepository $planProgressRepository,
         private EntityManagerInterface $em,
+        private GamificationWidgetService $gamification,
     ) {
     }
 
@@ -37,6 +39,11 @@ final class RunLogProcessor implements ProcessorInterface
         $this->syncPlannedSessionProgress($data, $user);
         $this->em->persist($data);
         $this->em->flush();
+
+        if ($user->isDashboardGamificationVisible()) {
+            $this->gamification->recalculate($user);
+            $this->gamification->updateQuestProgress($user, $data);
+        }
 
         return $data;
     }

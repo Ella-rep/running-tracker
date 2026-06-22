@@ -61,6 +61,11 @@ class DashboardWidgetPreferenceService
                 'label' => 'Allure moyenne course',
                 'description' => 'Allure moyenne sur tes courses officielles terminees.',
             ],
+            [
+                'key' => DashboardWidgetKeys::GAMIFICATION,
+                'label' => 'Mode RPG ⚔️',
+                'description' => 'Quetes, XP, skills et modificateurs. Pour les runners geeks.',
+            ],
         ];
     }
 

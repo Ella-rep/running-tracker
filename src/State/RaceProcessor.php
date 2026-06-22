@@ -7,6 +7,7 @@ use ApiPlatform\State\ProcessorInterface;
 use App\Entity\Race;
 use App\Entity\User;
 use App\Service\RaceLogSyncService;
+use App\Service\RpgEventService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -21,6 +22,7 @@ final class RaceProcessor implements ProcessorInterface
         private Security $security,
         private EntityManagerInterface $em,
         private RaceLogSyncService $raceLogSync,
+        private RpgEventService $rpgEvents,
     ) {
     }
 
@@ -41,6 +43,7 @@ final class RaceProcessor implements ProcessorInterface
 
         // Validating a race (a result, no DNS/DNF) mirrors it into the journal.
         $this->raceLogSync->syncForRace($data, $data->getLogExtra(), overwrite: true);
+        $this->rpgEvents->processRace($data, $user);
 
         return $data;
     }
