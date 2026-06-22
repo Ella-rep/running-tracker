@@ -4,7 +4,7 @@
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
 <link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260616-p2p5">
-<link rel="stylesheet" href="{{ asset('css/plans.css') }}?v=20260617-p4">
+<link rel="stylesheet" href="{{ asset('css/plans.css') }}?v=20260622-p5">
 {% endblock %}
 
 {% block body %}
@@ -57,9 +57,9 @@
       <script type="application/json" id="starter-placeholders-data">{{ starterPlaceholders|default([])|json_encode|raw }}</script>
       {% if selectedPlanView.evolution.hasData %}
         {% set evo = selectedPlanView.evolution %}
-        <div class="plan-evolution-card" id="plan-evolution">
+        <div class="plan-evolution-card{% if selectedPlanView.completed %} plan-evolution-card--complete{% endif %}" id="plan-evolution">
           {% if evo.summary %}
-            <div class="evo-summary-title">Résumé du plan</div>
+            <div class="evo-summary-title">Résumé du plan{% if selectedPlanView.completed and evo.period %} : du {{ evo.period.from }} au {{ evo.period.to }}{% endif %}</div>
             <div class="evo-summary-boxes">
               <div class="evo-box">
                 <span class="evo-box-value">{{ evo.summary.runs }}</span>

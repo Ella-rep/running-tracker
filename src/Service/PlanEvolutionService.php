@@ -40,7 +40,7 @@ final class PlanEvolutionService
     {
         $logs = $this->runLogRepository->findByPlan($plan);
         if ($logs === []) {
-            return ['hasData' => false, 'cards' => [], 'summary' => null];
+            return ['hasData' => false, 'cards' => [], 'summary' => null, 'period' => null];
         }
 
         usort($logs, static fn (RunLog $a, RunLog $b): int => strcmp($a->getDate(), $b->getDate()));
@@ -67,6 +67,7 @@ final class PlanEvolutionService
             'hasData' => true,
             'cards' => $this->buildCards($this->perType($startLogs), $this->perType($endLogs)),
             'summary' => $this->buildSummary($logs),
+            'period' => ['from' => $first->format('d/m/Y'), 'to' => $last->format('d/m/Y')],
         ];
     }
 

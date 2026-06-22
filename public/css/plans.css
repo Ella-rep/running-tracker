@@ -790,6 +790,15 @@
   font-weight: 700;
   color: var(--text);
 }
+/* plan terminé : on inverse les tailles progression <-> résumé */
+.plan-evolution-card--complete .evo-summary-title {
+  font-size: 28px;
+  font-weight: 800;
+}
+.plan-evolution-card--complete .section-title {
+  font-size: 16px;
+  font-weight: 700;
+}
 .evo-summary-boxes {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

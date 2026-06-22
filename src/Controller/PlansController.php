@@ -672,6 +672,7 @@ class PlansController extends AbstractController
             'title' => $this->isExamplePlanName($name) ? 'Plan de depart (exemple)' : $name,
             'sub' => $this->isExamplePlanName($name) ? 'Plan fourni avec l\'application · blocs hebdomadaires' : '',
             'weeks' => $weekBlocks,
+            'completed' => $plan->isCompleted(),
             'evolution' => $planEvolutionService->buildQuarterlyRecap($plan),
         ], false];
     }
