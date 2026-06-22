@@ -450,3 +450,9 @@
 .rpg-quest-sub { font-size: 12px; opacity: 0.55; margin-top: 2px; }
 .rpg-quest-badge-done { font-size: 11px; color: #4ade80; font-weight: 700; white-space: nowrap; }
 .rpg-quest-badge-active { font-size: 11px; color: var(--z2, #a78bfa); font-weight: 700; white-space: nowrap; }
+
+/* ── Quest create form ───────────────────────────────────── */
+.rpg-quest-create-toggle summary { list-style: none; }
+.rpg-quest-create-toggle summary::-webkit-details-marker { display: none; }
+.rpg-quest-form { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.rpg-quest-form-row { display: flex; flex-wrap: wrap; gap: 8px; }

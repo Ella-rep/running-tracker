@@ -3,10 +3,12 @@
 namespace App\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
+use App\Entity\User;
 
 /**
- * Définition d'une quête (partagée entre tous les users).
- * La progression individuelle est dans QuestProgress.
+ * Définition d'une quête.
+ * user = null  → quête globale (visible par tous, créée par admin).
+ * user != null → quête personnelle (visible uniquement par son créateur).
  *
  * type       : main | side | legend
  * conditionType : distance_km | pace_per_km | streak_days | total_km | bpm_ef
@@ -30,6 +32,11 @@ class Quest
     #[ORM\GeneratedValue]
     #[ORM\Column]
     private ?int $id = null;
+
+    /** null = quête globale admin, sinon quête personnelle du user */
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
+    private ?User $user = null;
 
     #[ORM\Column(length: 30)]
     private string $type = self::TYPE_SIDE;
@@ -64,6 +71,9 @@ class Quest
     }
 
     public function getId(): ?int { return $this->id; }
+    public function getUser(): ?User { return $this->user; }
+    public function setUser(?User $u): static { $this->user = $u; return $this; }
+    public function isPersonal(): bool { return $this->user !== null; }
     public function getType(): string { return $this->type; }
     public function setType(string $t): static { $this->type = $t; return $this; }
     public function getTitle(): string { return $this->title; }

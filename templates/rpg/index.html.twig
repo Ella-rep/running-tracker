@@ -109,46 +109,95 @@
     {# ── Quêtes ───────────────────────────────────────────────── #}
     <div class="rpg-page-card">
       <div class="section-title" style="font-size:1rem;">📜 Quêtes</div>
-      <div class="section-sub">Les quêtes progressent automatiquement à chaque sortie.</div>
+      <div class="section-sub">Crée tes propres objectifs. Ils progressent automatiquement à chaque sortie.</div>
 
-      {% set type_labels = { main: '🗡️ Principale', side: '📌 Secondaire', legend: '🌟 Légendaire' } %}
-      {% for type in ['legend', 'main', 'side'] %}
-        {% set typed = quests|filter(q => q.type == type) %}
-        {% if typed|length > 0 %}
-          <div class="rpg-section-label" style="margin-top:14px;">{{ type_labels[type] }}</div>
-          {% for quest in typed %}
-            {% set prog = progress[quest.id] ?? null %}
-            {% set pct = prog ? prog.percent : 0 %}
-            {% set started = prog is not null %}
-            {% set done = prog and prog.completed %}
-            <div class="rpg-quest-row{{ done ? ' rpg-quest-done' : '' }}">
-              <div class="rpg-quest-info">
-                <div class="rpg-quest-title">
-                  {{ done ? '✅ ' : '' }}{{ quest.title }}
-                  <span class="rpg-quest-xp">+{{ quest.xpReward }} XP</span>
-                </div>
-                {% if quest.subtitle %}<div class="rpg-quest-sub">{{ quest.subtitle }}</div>{% endif %}
-                {% if started and not done %}
-                  <div class="rpg-xp-bar" style="margin-top:6px;" role="progressbar" aria-valuenow="{{ pct }}" aria-valuemax="100">
-                    <div class="rpg-xp-fill" style="width:{{ pct }}%"></div>
+      {# Formulaire de création #}
+      <details class="rpg-quest-create-toggle" style="margin:14px 0;">
+        <summary class="btn btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">+ Créer une quête</summary>
+        <form method="post" action="{{ path('app_rpg_quest_create') }}" class="rpg-quest-form">
+          <input type="hidden" name="_token" value="{{ csrf_token('rpg_quest_create') }}">
+          <div class="rpg-quest-form-row">
+            <input class="rpg-input" type="text" name="title" placeholder="Titre (ex: Courir mon premier 10km)" required maxlength="180">
+            <input class="rpg-input" type="text" name="subtitle" placeholder="Sous-titre optionnel" maxlength="200">
+          </div>
+          <div class="rpg-quest-form-row">
+            <select class="rpg-select" name="type">
+              <option value="side">📌 Secondaire</option>
+              <option value="main">🗡️ Principale</option>
+              <option value="legend">🌟 Légendaire</option>
+            </select>
+            <select class="rpg-select" name="condition_type">
+              <option value="distance_km">Distance unique (km)</option>
+              <option value="total_km">Total cumulé (km)</option>
+              <option value="streak_days">Streak (sorties en N jours)</option>
+              <option value="pace_per_km">Amélioration allure (s/km)</option>
+              <option value="bpm_ef">BPM EF cible</option>
+            </select>
+            <input class="rpg-input rpg-input-sm" type="number" name="condition_value" placeholder="Objectif" step="0.1" min="0.1" required>
+            <input class="rpg-input rpg-input-sm" type="number" name="xp_reward" placeholder="XP" value="150" min="10" max="9999">
+          </div>
+          <button class="btn" type="submit" style="margin-top:8px;">Créer la quête</button>
+        </form>
+      </details>
+
+      {% if quests|length == 0 %}
+        <div class="rpg-empty">Aucune quête. Crée ta première quête ci-dessus !</div>
+      {% else %}
+        {% set type_labels = { main: '🗡️ Principale', side: '📌 Secondaire', legend: '🌟 Légendaire' } %}
+        {% for type in ['legend', 'main', 'side'] %}
+          {% set typed = quests|filter(q => q.type == type) %}
+          {% if typed|length > 0 %}
+            <div class="rpg-section-label" style="margin-top:14px;">{{ type_labels[type] }}</div>
+            {% for quest in typed %}
+              {% set prog = progress[quest.id] ?? null %}
+              {% set pct = prog ? prog.percent : 0 %}
+              {% set started = prog is not null %}
+              {% set done = prog and prog.completed %}
+              <div class="rpg-quest-row{{ done ? ' rpg-quest-done' : '' }}">
+                <div class="rpg-quest-info">
+                  <div class="rpg-quest-title">
+                    {{ done ? '✅ ' : '' }}{{ quest.title }}
+                    <span class="rpg-quest-xp">+{{ quest.xpReward }} XP</span>
+                    {% if quest.personal %}<span style="font-size:10px;opacity:0.45;">personnelle</span>{% endif %}
                   </div>
-                  <div style="font-size:11px;opacity:0.6;margin-top:3px;">{{ prog.progressCurrent|round(1) }} / {{ quest.conditionValue|round(1) }} · {{ pct }}%</div>
-                {% endif %}
+                  {% if quest.subtitle %}<div class="rpg-quest-sub">{{ quest.subtitle }}</div>{% endif %}
+                  <div class="rpg-quest-sub">
+                    {{ quest.conditionType == 'distance_km' ? '📏 ' ~ quest.conditionValue ~ ' km' :
+                       quest.conditionType == 'total_km'    ? '📦 ' ~ quest.conditionValue ~ ' km cumulés' :
+                       quest.conditionType == 'streak_days' ? '🔥 ' ~ quest.conditionValue|round ~ ' sorties consécutives' :
+                       quest.conditionType == 'pace_per_km' ? '⚡ Améliorer allure de ' ~ quest.conditionValue ~ 's/km' :
+                       '❤️ BPM EF ≤ ' ~ quest.conditionValue }}
+                  </div>
+                  {% if started and not done %}
+                    <div class="rpg-xp-bar" style="margin-top:6px;" role="progressbar" aria-valuenow="{{ pct }}" aria-valuemax="100">
+                      <div class="rpg-xp-fill" style="width:{{ pct }}%"></div>
+                    </div>
+                    <div style="font-size:11px;opacity:0.6;margin-top:3px;">{{ prog.progressCurrent|round(1) }} / {{ quest.conditionValue|round(1) }} · {{ pct }}%</div>
+                  {% endif %}
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+                  {% if not started %}
+                    <form method="post" action="{{ path('app_rpg_quest_start', {id: quest.id}) }}">
+                      <input type="hidden" name="_token" value="{{ csrf_token('rpg_quest_start_' ~ quest.id) }}">
+                      <button class="btn btn-sm" type="submit">Démarrer</button>
+                    </form>
+                  {% elseif done %}
+                    <span class="rpg-quest-badge-done">Accomplie</span>
+                  {% else %}
+                    <span class="rpg-quest-badge-active">En cours</span>
+                  {% endif %}
+                  {% if quest.personal %}
+                    <form method="post" action="{{ path('app_rpg_quest_delete', {id: quest.id}) }}" onsubmit="return confirm('Supprimer cette quête ?')">
+                      <input type="hidden" name="_token" value="{{ csrf_token('rpg_quest_delete_' ~ quest.id) }}">
+                      <button class="btn btn-ghost btn-sm" type="submit" style="color:var(--accent3);font-size:11px;">Supprimer</button>
+                    </form>
+                  {% endif %}
+                </div>
               </div>
-              {% if not started %}
-                <form method="post" action="{{ path('app_rpg_quest_start', {id: quest.id}) }}">
-                  <input type="hidden" name="_token" value="{{ csrf_token('rpg_quest_start_' ~ quest.id) }}">
-                  <button class="btn btn-sm" type="submit">Démarrer</button>
-                </form>
-              {% elseif done %}
-                <span class="rpg-quest-badge-done">Accomplie</span>
-              {% else %}
-                <span class="rpg-quest-badge-active">En cours</span>
-              {% endif %}
-            </div>
-          {% endfor %}
-        {% endif %}
-      {% endfor %}
+            {% endfor %}
+          {% endif %}
+        {% endfor %}
+      {% endif %}
     </div>
 
     {# ── Événements récents ───────────────────────────────────── #}

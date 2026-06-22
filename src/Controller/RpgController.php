@@ -35,8 +35,16 @@ final class RpgController extends AbstractController
 
         $rpgData = $this->gamification->buildWidgetData($user);
 
-        // Toutes les quêtes actives + progression user
-        $allQuests = $this->em->getRepository(Quest::class)->findBy(['active' => true], ['type' => 'ASC']);
+        // Quêtes : globales (user=null) + personnelles du user
+        $qb = $this->em->createQueryBuilder();
+        $allQuests = $qb->select('q')->from(Quest::class, 'q')
+            ->where('q.active = true')
+            ->andWhere('q.user IS NULL OR q.user = :user')
+            ->setParameter('user', $user)
+            ->orderBy('q.type', 'ASC')
+            ->addOrderBy('q.createdAt', 'ASC')
+            ->getQuery()->getResult();
+
         $progresses = $this->em->getRepository(QuestProgress::class)->findBy(['user' => $user]);
         $progressByQuestId = [];
         foreach ($progresses as $p) {
@@ -55,7 +63,53 @@ final class RpgController extends AbstractController
         ]);
     }
 
-    /** Rejoindre / démarrer une quête */
+    /** Créer une quête personnelle */
+    #[Route('/quest/create', name: 'app_rpg_quest_create', methods: ['POST'])]
+    public function createQuest(Request $request): RedirectResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User || !$user->isRpgMode()) {
+            return $this->redirectToRoute('app_profile');
+        }
+
+        if (!$this->isCsrfTokenValid('rpg_quest_create', (string) $request->request->get('_token'))) {
+            $this->addFlash('error', 'Jeton invalide.');
+            return $this->redirectToRoute('app_rpg');
+        }
+
+        $title         = trim((string) $request->request->get('title', ''));
+        $type          = (string) $request->request->get('type', Quest::TYPE_SIDE);
+        $conditionType = (string) $request->request->get('condition_type', Quest::CONDITION_DISTANCE_KM);
+        $conditionValue = (float) $request->request->get('condition_value', 0);
+        $xpReward      = max(10, (int) $request->request->get('xp_reward', 100));
+        $subtitle      = trim((string) $request->request->get('subtitle', '')) ?: null;
+
+        $validTypes      = [Quest::TYPE_MAIN, Quest::TYPE_SIDE, Quest::TYPE_LEGEND];
+        $validConditions = [Quest::CONDITION_DISTANCE_KM, Quest::CONDITION_PACE, Quest::CONDITION_STREAK, Quest::CONDITION_TOTAL_KM, Quest::CONDITION_BPM_EF];
+
+        if ($title === '' || !in_array($type, $validTypes, true) || !in_array($conditionType, $validConditions, true) || $conditionValue <= 0) {
+            $this->addFlash('error', 'Données invalides. Titre, type et objectif requis.');
+            return $this->redirectToRoute('app_rpg');
+        }
+
+        $quest = new Quest();
+        $quest->setUser($user)->setTitle($title)->setType($type)
+              ->setConditionType($conditionType)->setConditionValue($conditionValue)
+              ->setXpReward($xpReward)->setSubtitle($subtitle);
+        $this->em->persist($quest);
+
+        // Démarrer automatiquement la progression
+        $progress = new QuestProgress();
+        $progress->setUser($user)->setQuest($quest);
+        $this->em->persist($progress);
+
+        $this->em->flush();
+        $this->addFlash('success', '📜 Quête créée : ' . $title);
+
+        return $this->redirectToRoute('app_rpg');
+    }
+
+    /** Rejoindre une quête globale */
     #[Route('/quest/{id}/start', name: 'app_rpg_quest_start', methods: ['POST'], requirements: ['id' => '\d+'])]
     public function startQuest(int $id, Request $request): RedirectResponse
     {
@@ -81,6 +135,30 @@ final class RpgController extends AbstractController
             $this->em->persist($p);
             $this->em->flush();
             $this->addFlash('success', '⚔️ Quête démarrée : ' . $quest->getTitle());
+        }
+
+        return $this->redirectToRoute('app_rpg');
+    }
+
+    /** Supprimer une quête personnelle */
+    #[Route('/quest/{id}/delete', name: 'app_rpg_quest_delete', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function deleteQuest(int $id, Request $request): RedirectResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User || !$user->isRpgMode()) {
+            return $this->redirectToRoute('app_profile');
+        }
+
+        if (!$this->isCsrfTokenValid('rpg_quest_delete_' . $id, (string) $request->request->get('_token'))) {
+            $this->addFlash('error', 'Jeton invalide.');
+            return $this->redirectToRoute('app_rpg');
+        }
+
+        $quest = $this->em->getRepository(Quest::class)->findOneBy(['id' => $id, 'user' => $user]);
+        if ($quest instanceof Quest) {
+            $this->em->remove($quest); // cascade supprime QuestProgress
+            $this->em->flush();
+            $this->addFlash('success', 'Quête supprimée.');
         }
 
         return $this->redirectToRoute('app_rpg');
@@ -138,14 +216,10 @@ final class RpgController extends AbstractController
         }
 
         $gear->setActive(!$gear->isActive());
-        if (!$gear->isActive()) {
-            $gear->setRetiredAt(new \DateTimeImmutable());
-        } else {
-            $gear->setRetiredAt(null);
-        }
+        $gear->setRetiredAt($gear->isActive() ? null : new \DateTimeImmutable());
         $this->em->flush();
 
-        $this->addFlash('success', $gear->isActive() ? '✅ Équipement équipé.' : '📦 Équipement rangé.');
+        $this->addFlash('success', $gear->isActive() ? '✅ Équipé.' : '📦 Rangé.');
         return $this->redirectToRoute('app_rpg');
     }
 
@@ -169,7 +243,6 @@ final class RpgController extends AbstractController
             $this->em->flush();
         }
 
-        $this->addFlash('success', 'Équipement supprimé.');
         return $this->redirectToRoute('app_rpg');
     }
 }
