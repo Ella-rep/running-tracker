@@ -1245,16 +1245,42 @@ function applyPlanProgressChecksToState(checksList) {
   });
 }
 
+// On the standalone plan detail page (/plans/{id}, no #plans-list in the DOM)
+// there is no list/done/archived section to populate, so it's wasteful to pull
+// every plan's sessions over the wire. Scope the fetch to just that one plan.
+function getPlansPageScopedPlanId() {
+  if (document.getElementById('plans-list')) return null;
+  const scoped = currentPlanId ?? getInitialPlanIdFromUrlOrDom();
+  return Number.isFinite(Number(scoped)) ? Number(scoped) : null;
+}
+
 async function loadPlansFromDbWithProgress(checksList = null) {
-  const [plansRes, sessionsRes] = await Promise.all([
-    apiFetch('/plans?order[name]=asc&pagination=false'),
-    apiFetch('/plan_details?order[position]=asc&pagination=false'),
-  ]);
+  const scopedPlanId = getPlansPageScopedPlanId();
+  let plansRes;
+  let sessionsRes;
+  if (scopedPlanId !== null) {
+    const [singlePlan, sessions] = await Promise.all([
+      apiFetch(`/plans/${scopedPlanId}`).catch(() => null),
+      fetchPlanSessionsByPlanId(scopedPlanId).catch(() => []),
+    ]);
+    plansRes = singlePlan ? [singlePlan] : [];
+    sessionsRes = Array.isArray(sessions) ? sessions : [];
+  } else {
+    [plansRes, sessionsRes] = await Promise.all([
+      apiFetch('/plans?order[name]=asc&pagination=false'),
+      apiFetch('/plan_details?order[position]=asc&pagination=false'),
+    ]);
+  }
   plansData = members(plansRes).map(normalizePlan).map((plan) => {
     const override = getPlanTrackingOverride(plan.id);
     return override === null ? plan : { ...plan, dashboardTracked: override };
   });
-  prunePlanTrackingOverrides(plansData.map((plan) => plan.id));
+  // Only prune stored per-plan overrides when we actually fetched every plan —
+  // a scoped single-plan fetch (detail page) must not wipe overrides for plans
+  // that simply weren't part of this request.
+  if (scopedPlanId === null) {
+    prunePlanTrackingOverrides(plansData.map((plan) => plan.id));
+  }
   const existingPlanIds = new Set((plansData || []).map((plan) => Number(plan.id)));
   const mapped = mapDbRowsToPlans(members(sessionsRes), plansData)
     .filter((plan) => existingPlanIds.has(Number(plan.id)));
