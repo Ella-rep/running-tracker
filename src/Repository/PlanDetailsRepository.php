@@ -41,4 +41,28 @@ class PlanDetailsRepository extends ServiceEntityRepository
             'rate' => $rate,
         ];
     }
+
+    /**
+     * Returns true when another session in the same plan is already scheduled on the
+     * given date. Used to avoid auto-moving a session's planned date onto a day that
+     * already has a different session, which would otherwise show as a duplicate entry
+     * on the calendar.
+     */
+    public function hasOtherSessionOnDate(PlanDetails $excluding, \DateTimeInterface $date): bool
+    {
+        $count = $this->createQueryBuilder('d')
+            ->select('COUNT(d.id)')
+            ->andWhere('d.plan = :plan')
+            ->andWhere('d.user = :user')
+            ->andWhere('d.sessionDate = :date')
+            ->andWhere('d.id != :excludedId')
+            ->setParameter('plan', $excluding->getPlan())
+            ->setParameter('user', $excluding->getUser())
+            ->setParameter('date', $date->setTime(0, 0, 0), 'date')
+            ->setParameter('excludedId', $excluding->getId())
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return ((int) $count) > 0;
+    }
 }

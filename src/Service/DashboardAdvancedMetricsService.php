@@ -438,7 +438,11 @@ final class DashboardAdvancedMetricsService
     /** @param array<string,float> $dailyLoads @return array{acute:float,chronicTotal:float} */
     private function computeAcwrLoads(array $dailyLoads, \DateTimeImmutable $today): array
     {
-        // Monthly granularity: acute = current month (last 30 days), chronic = last 3 months total.
+        // Rolling windows, not calendar months: acute = trailing 30 days, chronic = trailing 90 days.
+        // Kept day-granular on purpose — a calendar-month bucket would only hold 1 day of
+        // data on the 1st of the month, which previously caused a false "charge en baisse"
+        // reading every month start. See buildMonthlyLoadTrend() for the matching fix on
+        // the trend chart, which had the calendar-month version of the same bug.
         $acute = 0.0;
         $chronicTotal = 0.0;
         foreach ($dailyLoads as $date => $load) {
@@ -452,7 +456,6 @@ final class DashboardAdvancedMetricsService
         return ['acute' => $acute, 'chronicTotal' => $chronicTotal];
     }
 
-    /** @param array<int,RunLog> $logs */
     /**
      * Public accessor for the acute/chronic charge ratio (null when not computable).
      * @param array<int,RunLog> $logs
@@ -544,6 +547,11 @@ final class DashboardAdvancedMetricsService
         return $status;
     }
 
+    /**
+     * Maps an ACWR ratio to a STATUS_CONFIG key. match(true) compares each arm with
+     * strict === against true, so (unlike a `switch ($ratio) { case $ratio < 0.8: }`)
+     * it never mis-evaluates the edge case ratio === 0.0.
+     */
     private function resolveStatusKey(?float $ratio): string
     {
         return match (true) {
@@ -556,20 +564,32 @@ final class DashboardAdvancedMetricsService
         };
     }
 
-    /** @param array<string,float> $dailyLoads @return array<int,array{label:string,load:float}> */
+    /**
+     * Trend shown under "Charge d'entrainement", 6 buckets.
+     *
+     * Uses trailing 30-day rolling windows ending "today - offset*30 days", NOT calendar
+     * month boundaries. A calendar-month bucket (1st of month to today) only contains 1
+     * day of data on the 1st of the month, while the neighboring bucket holds a full
+     * month — showing an artificial charge "decrease" every month start regardless of
+     * actual training. A trailing window is always a comparable, full-size sample no
+     * matter where in the month "today" falls. Bucket label uses the window's end-date
+     * month name (closest intuitive read for the user).
+     *
+     * @param array<string,float> $dailyLoads @return array<int,array{label:string,load:float}>
+     */
     private function buildMonthlyLoadTrend(array $dailyLoads, \DateTimeImmutable $today): array
     {
         $monthlyNames = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aou', 'Sep', 'Oct', 'Nov', 'Dec'];
         $monthly = [];
         for ($offset = 5; $offset >= 0; $offset--) {
-            $monthStart = $today->modify(sprintf('first day of -%d month', $offset))->setTime(0, 0, 0);
-            $monthEnd = $monthStart->modify('last day of this month')->setTime(23, 59, 59);
+            $windowEnd = $today->modify(sprintf('-%d days', $offset * 30))->setTime(23, 59, 59);
+            $windowStart = $windowEnd->modify('-29 days')->setTime(0, 0, 0);
             $sum = 0.0;
             foreach ($dailyLoads as $date => $load) {
                 $day = $this->parseDay($date);
-                if ($day !== null && $day >= $monthStart && $day <= $monthEnd) $sum += $load;
+                if ($day !== null && $day >= $windowStart && $day <= $windowEnd) $sum += $load;
             }
-            $monthIndex = (int) $monthStart->format('n') - 1;
+            $monthIndex = (int) $windowEnd->format('n') - 1;
             $monthly[] = ['label' => $monthlyNames[$monthIndex], 'load' => round($sum, 1)];
         }
         return $monthly;

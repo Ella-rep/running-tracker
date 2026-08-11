@@ -39,32 +39,47 @@ final class PlanSessionReplaceService
     /**
      * Inner replace logic executed inside the transaction.
      *
+     * When a session array carries a '_detailId' key (set by single-session CRUD callers),
+     * the existing PlanDetails row with that id is reused instead of being deleted and
+     * recreated. This preserves the row's database id so that RunLog.plannedSession (FK,
+     * onDelete=SET NULL) is not silently orphaned every time an unrelated session in the
+     * same plan is edited — that orphaning was desynchronizing "done" counts and logged
+     * session links across the dashboard.
+     *
      * @param array<int, array<string, mixed>> $sessions
      * @param array<int|string, bool> $doneMap
      */
     private function doReplace(Plan $plan, User $user, array $sessions, array $doneMap): void
     {
-        // Full replacement keeps ordering/index consistency when plan templates change.
-        $qb = $this->planDetailsRepository->createQueryBuilder('d');
-        $qb->delete()
-            ->where('d.plan = :plan')
-            ->andWhere('d.user = :user')
-            ->setParameter('plan', $plan)
-            ->setParameter('user', $user)
-            ->getQuery()
-            ->execute();
+        $existingById = [];
+        foreach ($this->planDetailsRepository->findBy(['plan' => $plan, 'user' => $user]) as $row) {
+            $id = $row->getId();
+            if ($id !== null) {
+                $existingById[$id] = $row;
+            }
+        }
 
         $weekIndexByMonday = $this->buildTrainingWeekIndexByMonday($sessions);
+        $sessionValues = array_values($sessions);
+        $keptIds = [];
 
-        foreach (array_values($sessions) as $idx => $session) {
+        foreach ($sessionValues as $idx => $session) {
             if (!is_array($session)) {
                 continue;
             }
 
             $sessionDate = $this->toDate($session['date'] ?? null);
-            $detail = new PlanDetails();
-            $detail->setUser($user);
-            $detail->setPlan($plan);
+            $detailId = isset($session['_detailId']) ? (int) $session['_detailId'] : null;
+            $reused = $detailId !== null && isset($existingById[$detailId]);
+            $detail = $reused ? $existingById[$detailId] : new PlanDetails();
+
+            if (!$reused) {
+                $detail->setUser($user);
+                $detail->setPlan($plan);
+            } else {
+                $keptIds[$detailId] = true;
+            }
+
             // Persisted position is 1-based to match UI/session numbering.
             $detail->setPosition($idx + 1);
             $detail->setSem($this->resolveSem($session, $sessionDate, $weekIndexByMonday));
@@ -77,6 +92,14 @@ final class PlanSessionReplaceService
             $detail->setIsCancelled((bool) ($session['isCancelled'] ?? ($session['cancelled'] ?? false)));
             $detail->setIsDone($this->resolveDone($doneMap, $idx));
             $this->em->persist($detail);
+        }
+
+        // Only rows genuinely dropped by the caller (not merely reindexed) get removed here,
+        // so RunLog links on untouched sessions survive.
+        foreach ($existingById as $id => $row) {
+            if (!isset($keptIds[$id])) {
+                $this->em->remove($row);
+            }
         }
 
         $this->em->flush();
@@ -218,4 +241,3 @@ final class PlanSessionReplaceService
         return $normalized;
     }
 }
-

@@ -7,6 +7,7 @@ use ApiPlatform\State\ProcessorInterface;
 use App\Entity\PlanProgress;
 use App\Entity\RunLog;
 use App\Entity\User;
+use App\Repository\PlanDetailsRepository;
 use App\Repository\PlanProgressRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -17,6 +18,7 @@ final class RunLogProcessor implements ProcessorInterface
     public function __construct(
         private Security $security,
         private PlanProgressRepository $planProgressRepository,
+        private PlanDetailsRepository $planDetailsRepository,
         private EntityManagerInterface $em,
     ) {
     }
@@ -81,6 +83,8 @@ final class RunLogProcessor implements ProcessorInterface
         $plannedSession->setIsDone(true);
 
         // Si la date réelle de la sortie diffère de la date planifiée, on met à jour automatiquement
+        // — sauf si une autre séance du plan est déjà programmée ce jour-là, ce qui créerait
+        // deux séances affichées le même jour sur le calendrier.
         $logDate = $log->getDate();
         if (is_string($logDate) && $logDate !== '') {
             $realizedDate = \DateTimeImmutable::createFromFormat('Y-m-d', $logDate);
@@ -89,7 +93,9 @@ final class RunLogProcessor implements ProcessorInterface
                 $plannedDateStr = $plannedDate instanceof \DateTimeInterface
                     ? $plannedDate->format('Y-m-d')
                     : null;
-                if ($plannedDateStr !== $realizedDate->format('Y-m-d')) {
+                if ($plannedDateStr !== $realizedDate->format('Y-m-d')
+                    && !$this->planDetailsRepository->hasOtherSessionOnDate($plannedSession, $realizedDate)
+                ) {
                     $plannedSession->setSessionDate($realizedDate);
                 }
             }
@@ -169,4 +175,3 @@ final class RunLogProcessor implements ProcessorInterface
         return sprintf('%02d:%02d', $m, $s);
     }
 }
-
