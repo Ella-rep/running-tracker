@@ -11,6 +11,7 @@ use App\Service\PlanSessionReplaceService;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 final class PlanSessionsReplaceProcessor implements ProcessorInterface
@@ -38,6 +39,10 @@ final class PlanSessionsReplaceProcessor implements ProcessorInterface
 
         if ($plan->getUser()->getId() !== $user->getId()) {
             throw new AccessDeniedHttpException('Forbidden for this plan.');
+        }
+
+        if ($plan->isArchived()) {
+            throw new ConflictHttpException('Plan archivé : non modifiable.');
         }
 
         [$sessions, $doneMap] = $this->extractPayloadFromRequest();
