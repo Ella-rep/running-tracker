@@ -546,6 +546,7 @@ final class DashboardAdvancedMetricsService
 
     private function resolveStatusKey(?float $ratio): string
     {
+<<<<<<< Updated upstream
         return match (true) {
             $ratio === null => 'initial',
             $ratio < 0.8   => 'under',
@@ -554,6 +555,30 @@ final class DashboardAdvancedMetricsService
             $ratio <= 1.5  => 'watch',
             default        => 'high',
         };
+=======
+        // Plain if/elseif on the numeric value — a `switch ($ratio) { case $ratio < 0.8: ... }`
+        // form was used before, but PHP's switch compares with loose `==`, so each case
+        // condition is evaluated to a bool first and then compared against $ratio itself.
+        // That silently breaks for ratio === 0.0 (e.g. a full rest week): 0.0 == null is
+        // true in PHP, so it matched the `null` case and returned 'initial' instead of
+        // the intended 'under' (severe sous-charge).
+        if ($ratio === null) {
+            return 'initial';
+        }
+        if ($ratio < 0.8) {
+            return 'under';
+        }
+        if ($ratio < 0.9) {
+            return 'under_watch';
+        }
+        if ($ratio <= 1.3) {
+            return 'balanced';
+        }
+        if ($ratio <= 1.5) {
+            return 'watch';
+        }
+        return 'high';
+>>>>>>> Stashed changes
     }
 
     /** @param array<string,float> $dailyLoads @return array<int,array{label:string,load:float}> */

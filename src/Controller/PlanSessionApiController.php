@@ -152,8 +152,44 @@ final class PlanSessionApiController extends AbstractController
         array_splice($doneMap, $sessionIndex, 1);
 
         $this->replaceService->replaceForPlan($plan, $user, $sessions, $doneMap);
+        $this->reindexPlanProgressAfterDelete($plan, $user, $sessionIndex);
 
         return $this->json(['message' => 'Session deleted.']);
+    }
+
+    /**
+     * Keeps PlanProgress rows (keyed by planKey + sessionIndex) aligned after a session
+     * is removed from the middle of a plan. Without this, "done" flags recorded via
+     * PlanProgress silently attach to whichever session shifts into the freed index.
+     */
+    private function reindexPlanProgressAfterDelete(Plan $plan, User $user, int $removedIndex): void
+    {
+        $planKey = (string) ($plan->getId() ?? '');
+        if ($planKey === '') {
+            return;
+        }
+
+        $rows = $this->planProgressRepository->findBy(
+            ['user' => $user, 'planKey' => $planKey],
+            ['sessionIndex' => 'ASC']
+        );
+
+        foreach ($rows as $row) {
+            if ($row->getSessionIndex() === $removedIndex) {
+                $this->entityManager->remove($row);
+            }
+        }
+        $this->entityManager->flush();
+
+        // Process in ascending index order so each target slot is already vacated
+        // (by the removal above, or by the previous iteration) before it is reused —
+        // avoids a transient unique-constraint collision on (planKey, sessionIndex).
+        foreach ($rows as $row) {
+            if ($row->getSessionIndex() > $removedIndex) {
+                $row->setSessionIndex($row->getSessionIndex() - 1);
+                $this->entityManager->flush();
+            }
+        }
     }
 
     /**
@@ -222,6 +258,9 @@ final class PlanSessionApiController extends AbstractController
 
         foreach ($details as $row) {
             $sessions[] = [
+                // Lets PlanSessionReplaceService reuse this exact row instead of
+                // deleting/recreating it, which would break RunLog.plannedSession links.
+                '_detailId' => $row->getId(),
                 'sem' => $row->getSem(),
                 'date' => $row->getSessionDate()?->format('Y-m-d'),
                 'format' => $row->getFormat(),

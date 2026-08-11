@@ -104,13 +104,6 @@
     <div class="chart-wrap" id="training-load-wrap" data-widget="training_load">
       <div class="chart-title training-load-title">
         <span>Charge d'entrainement</span>
-        <button
-          type="button"
-          class="training-load-info"
-          aria-label="Comment est calculee la charge d'entrainement ?"
-          data-tooltip="On compare ta charge des 7 derniers jours avec ta base des 28 derniers jours. Ratio = charge 7j / (charge 28j ÷ 4). Sous-charge: ratio < 0.80. Sous-charge légère: 0.80 à 0.89. Équilibre: 0.90 à 1.30. Vigilance: 1.31 à 1.50. Surcharge: > 1.50. Ce n'est pas un calcul par mois calendaire: c'est une fenêtre glissante.">
-          i
-        </button>
       </div>
       <div class="training-load-head">
         <span id="training-load-status" class="training-load-status">Initialisation</span>
@@ -211,5 +204,9 @@
 {% endblock %}
 
 {% block javascripts %}
+<<<<<<< Updated upstream
   <script src="{{ asset('js/app.js') }}?v=20260616-p2p4"></script>
+=======
+  <script src="{{ asset('js/app.js') }}?v=20260811-bugfixes1"></script>
+>>>>>>> Stashed changes
 {% endblock %}

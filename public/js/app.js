@@ -5936,7 +5936,9 @@ function openCalendarActionModal(item) {
       }));
     }
     modal.buttons.appendChild(calendarActionButton('Modifier la seance', 'btn btn-ghost', () => {
-      const target = new URL('/plans', globalThis.location.origin);
+      const planIdForPath = Number(item?.planId);
+      const path = Number.isFinite(planIdForPath) ? `/plans/${planIdForPath}` : '/plans';
+      const target = new URL(path, globalThis.location.origin);
       if (Number.isFinite(Number(item?.detailId))) {
         target.searchParams.set('editSessionDetailId', String(Number(item.detailId)));
       }
