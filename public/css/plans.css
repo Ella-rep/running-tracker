@@ -1,7 +1,7 @@
 /* Plans page specific styles */
 
-/* "Plan terminé" badge */
-.plans-detail-complete-badge {
+/* Plan status badge: en cours / terminé / archivé */
+.plan-status-badge {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -10,10 +10,25 @@
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.01em;
-  color: var(--z2);
   background: transparent;
+}
+.plan-status-badge--active {
+  color: var(--accent);
+  border: 1.5px solid var(--accent);
+}
+.plan-status-badge--done {
+  color: var(--z2);
   border: 1.5px solid var(--z2);
 }
+.plan-status-badge--archived {
+  color: var(--text-muted);
+  border: 1.5px solid var(--text-muted);
+}
+
+/* List card status text, colored to match the detail-page badge */
+.plan-card-pct--active { color: var(--accent); }
+.plan-card-pct--done { color: var(--z2); }
+.plan-card-pct--archived { color: var(--text-muted); }
 
 /* Cancelled session row */
 .session-row.session-cancelled {

@@ -41,12 +41,14 @@
       </div>
 
       <div class="plans-detail-actions">
+        {% set planStatus = selectedPlanView.isArchived ? 'archived' : (selectedPlanView.isCompleted ? 'done' : 'active') %}
         <button class="btn btn-small plans-add-session-btn" id="plans-add-session-btn" type="button" onclick="addPlanSession({{ selectedPlanView.id }})" {% if selectedPlanView.isArchived %}style="display:none"{% endif %}>+ Ajouter séance</button>
         <button class="btn btn-small btn-ghost plans-mark-complete-btn" id="plans-mark-complete-btn" type="button" onclick="markPlanComplete({{ selectedPlanView.id }})" {% if selectedPlanView.isCompleted or selectedPlanView.isArchived %}style="display:none"{% endif %}>✓ Marquer comme terminé</button>
-        <span class="badge-done plans-detail-complete-badge" id="plans-detail-complete-badge" style="display:{{ selectedPlanView.isCompleted ? '' : 'none' }}">✓ Plan terminé</span>
         <button class="btn btn-small btn-ghost plans-archive-btn" id="plans-archive-btn" type="button" onclick="archivePlan({{ selectedPlanView.id }})" {% if selectedPlanView.isArchived %}style="display:none"{% endif %}>🗄 Archiver</button>
         <button class="btn btn-small btn-ghost plans-unarchive-btn" id="plans-unarchive-btn" type="button" onclick="unarchivePlan({{ selectedPlanView.id }})" style="display:{{ selectedPlanView.isArchived ? '' : 'none' }}">↩ Désarchiver</button>
-        <span class="badge-done plans-detail-archived-badge" id="plans-detail-archived-badge" style="display:{{ selectedPlanView.isArchived ? '' : 'none' }}">🗄 Plan archivé</span>
+        <span class="plan-status-badge plan-status-badge--{{ planStatus }}" id="plans-detail-status-badge">
+          {%- if planStatus == 'archived' -%}🗄 Archivé{%- elseif planStatus == 'done' -%}✓ Terminé{%- else -%}● En cours{%- endif -%}
+        </span>
       </div>
 
       <div class="zone-legend plans-zone-legend" id="plans-zone-legend">

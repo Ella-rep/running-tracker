@@ -17,7 +17,7 @@ async function apiFetch(path, options = {}) {
   }
 
   const redirect = method === 'GET' ? 'follow' : 'error';
-  const res = await fetch(API + path, { ...options, headers, redirect });
+  const res = await fetch(API + path, { ...options, headers, redirect, cache: 'no-store' });
 
   if (res.status === 401) { logout(); return null; }
   if (res.status === 204) return null;
@@ -4781,7 +4781,11 @@ function planCard(id, title, sub, totalSessions, doneCount, isExtra, complete = 
   const deleteBtn = card.querySelector('.plan-card-delete');
   if (titleEl) titleEl.textContent = title;
   if (subEl) subEl.textContent = sub || '';
-  if (pctEl) pctEl.textContent = archived ? 'Archivé' : (complete ? 'Terminé' : `${pct}%`);
+  if (pctEl) {
+    pctEl.textContent = archived ? 'Archivé' : (complete ? 'Terminé' : `${pct}%`);
+    pctEl.classList.remove('plan-card-pct--done', 'plan-card-pct--archived', 'plan-card-pct--active');
+    pctEl.classList.add(archived ? 'plan-card-pct--archived' : (complete ? 'plan-card-pct--done' : 'plan-card-pct--active'));
+  }
   if (countEl) countEl.textContent = `${doneCount}/${totalSessions} séances`;
   if (barEl) barEl.style.width = `${pct}%`;
   if (archived) card.classList.add('plan-card-archived');
@@ -4863,16 +4867,19 @@ function openPlan(planId, options = {}) {
 
   const comp = planCompletion(extra.sessions, extra.done, extra.isCompleted);
   const markBtn = document.getElementById('plans-mark-complete-btn');
-  const doneBadge = document.getElementById('plans-detail-complete-badge');
   if (markBtn) markBtn.style.display = (comp.complete || extra.isArchived) ? 'none' : '';
-  if (doneBadge) doneBadge.style.display = comp.complete ? '' : 'none';
 
   const archiveBtn = document.getElementById('plans-archive-btn');
   const unarchiveBtn = document.getElementById('plans-unarchive-btn');
-  const archivedBadge = document.getElementById('plans-detail-archived-badge');
   if (archiveBtn) archiveBtn.style.display = extra.isArchived ? 'none' : '';
   if (unarchiveBtn) unarchiveBtn.style.display = extra.isArchived ? '' : 'none';
-  if (archivedBadge) archivedBadge.style.display = extra.isArchived ? '' : 'none';
+
+  const statusBadge = document.getElementById('plans-detail-status-badge');
+  if (statusBadge) {
+    const planStatus = extra.isArchived ? 'archived' : (comp.complete ? 'done' : 'active');
+    statusBadge.className = `plan-status-badge plan-status-badge--${planStatus}`;
+    statusBadge.textContent = planStatus === 'archived' ? '🗄 Archivé' : (planStatus === 'done' ? '✓ Terminé' : '● En cours');
+  }
 
   renderPlan('plans-detail-weeks', extra.sessions, `extra:${planId}`);
   updatePlansPath(planId, { pushHistory });
@@ -5577,11 +5584,12 @@ async function markPlanComplete(planId) {
     await apiFetch(`/plans/${planId}/complete`, { method: 'POST', body: JSON.stringify({ completed: true }) });
     ep.isCompleted = true;
     await loadPlansFromDb();
+    const reloaded = getExtraPlan(planId);
+    if (reloaded) reloaded.isCompleted = true;
     if (String(currentPlanId) === String(planId)) {
-      openPlan(getExtraPlan(planId)?.id ?? planId, { pushHistory: false });
-    } else {
-      renderPlansList();
+      openPlan(reloaded?.id ?? planId, { pushHistory: false });
     }
+    renderPlansList();
     requestDashboardRefresh();
     notify('✓ Plan marqué comme terminé');
   } catch (e) {
@@ -5597,11 +5605,12 @@ async function archivePlan(planId) {
     await apiFetch(`/plans/${planId}/archive`, { method: 'POST', body: JSON.stringify({ archived: true }) });
     ep.isArchived = true;
     await loadPlansFromDb();
+    const reloaded = getExtraPlan(planId);
+    if (reloaded) reloaded.isArchived = true;
     if (String(currentPlanId) === String(planId)) {
-      openPlan(getExtraPlan(planId)?.id ?? planId, { pushHistory: false });
-    } else {
-      renderPlansList();
+      openPlan(reloaded?.id ?? planId, { pushHistory: false });
     }
+    renderPlansList();
     requestDashboardRefresh();
     notify('✓ Plan archivé');
   } catch (e) {
@@ -5616,11 +5625,12 @@ async function unarchivePlan(planId) {
     await apiFetch(`/plans/${planId}/archive`, { method: 'POST', body: JSON.stringify({ archived: false }) });
     ep.isArchived = false;
     await loadPlansFromDb();
+    const reloaded = getExtraPlan(planId);
+    if (reloaded) reloaded.isArchived = false;
     if (String(currentPlanId) === String(planId)) {
-      openPlan(getExtraPlan(planId)?.id ?? planId, { pushHistory: false });
-    } else {
-      renderPlansList();
+      openPlan(reloaded?.id ?? planId, { pushHistory: false });
     }
+    renderPlansList();
     requestDashboardRefresh();
     notify('✓ Plan désarchivé');
   } catch (e) {
