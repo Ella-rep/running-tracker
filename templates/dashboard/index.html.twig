@@ -3,8 +3,8 @@
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ asset('css/shell.css') }}?v=20260521-mobile1">
-<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260616-p2p4">
-  <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260610-pause3">
+<link rel="stylesheet" href="{{ asset('css/components.css') }}?v=20260513-components1">
+  <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}?v=20260601-eftooltip3">
 {% endblock %}
 
 {% block body %}
@@ -12,16 +12,10 @@
 
 <main>
   <section id="dashboard" class="visible">
-    <div class="section-title-row">
-      <div class="section-title">Vue d'ensemble 🏃</div>
-      <button type="button" class="btn btn-ghost btn-sm pause-open-btn" id="pause-open-btn" title="Déclarer une pause santé">🌿 Mode pause</button>
-      <button type="button" class="btn btn-ghost btn-sm hidden" id="pause-resume-btn">🌱 Je reprends</button>
+    <div class="section-title">
+      Vue d'ensemble 🏃
     </div>
     <div class="section-sub" id="dash-date">Chargement…</div>
-    <div id="pause-badge" class="pause-badge hidden">
-      <span class="pause-badge-icon">🌿</span>
-      <span id="pause-badge-text" class="pause-badge-text"></span>
-    </div>
 
     <div class="kpi-grid" id="kpi-grid"></div>
     <template id="dashboard-kpi-template">
@@ -82,23 +76,14 @@
       <template id="projection-empty-template">
         <div class="empty-hint">Pas encore assez de données.</div>
       </template>
-      <div id="projections-narrative" class="projections-narrative" hidden></div>
-      <div id="race-projection" class="race-projection-card" hidden></div>
-      <div class="chart-title chart-title--sub">Évolution — basé sur les 5 dernières sorties du mois</div>
+      <div id="projections-meta" class="meta-small"></div>
       <div id="projections-history-controls" class="projections-history-controls"></div>
       <div id="projections-history-legend" class="projections-history-legend"></div>
       <div id="projections-history-chart-container" class="projections-history-chart-container"></div>
-    </div>
-    <div class="chart-wrap race-avg-wrap" id="race-avg-wrap" data-widget="race_avg">
-      <div class="chart-title">Allure moyenne sur course officielle</div>
-      <div class="race-avg-value" id="race-avg-value">—</div>
-      <div class="section-sub race-avg-sub" id="race-avg-sub">Calcul en cours…</div>
+      <div id="projections-history-meta" class="meta-small"></div>
     </div>
     <div class="chart-wrap" id="ef-bpm-wrap" data-widget="ef_bpm">
       <div class="chart-title">Suivi BPM — Endurance Fondamentale</div>
-      <p class="chart-subtitle">
-        En endurance fondamentale (allure confortable), un BPM qui <strong>baisse</strong> avec le temps = tu deviens plus efficace à effort identique. Un BPM qui <strong>remonte</strong> = fatigue ou chaleur accumulée.
-      </p>
       <div id="ef-bpm-chart-container" class="ef-bpm-chart-container"></div>
     </div>
     <div class="chart-wrap" id="training-load-wrap" data-widget="training_load">
@@ -107,8 +92,13 @@
       </div>
       <div class="training-load-head">
         <span id="training-load-status" class="training-load-status">Initialisation</span>
+        <span id="training-load-ratio" class="training-load-ratio">Ratio —</span>
       </div>
-      <div id="training-load-human" class="training-load-human"></div>
+      <div class="training-load-kpis">
+        <div class="training-load-kpi"><span>7 jours</span><strong id="training-load-acute">—</strong></div>
+        <div class="training-load-kpi"><span>Base 28j/4</span><strong id="training-load-chronic">—</strong></div>
+        <div class="training-load-kpi"><span>Ecart</span><strong id="training-load-delta">—</strong></div>
+      </div>
       <div id="training-load-reco" class="training-load-reco"></div>
       <div id="training-load-chart" class="training-load-chart"></div>
     </div>
@@ -158,37 +148,6 @@
   </section>
 </main>
 
-<div class="pause-modal-overlay hidden" id="pause-modal-overlay">
-  <div class="modal" id="pause-modal">
-    <div class="modal-title">Mode pause santé</div>
-    <div class="modal-body">
-      <p>Active le mode pause pour mettre ton suivi sportif en veille. Aucun champ obligatoire.</p>
-      <div class="form-group">
-        <label for="pause-type-select" class="form-label">Type (optionnel)</label>
-        <select id="pause-type-select" class="form-input">
-          <option value="">Je préfère ne pas préciser</option>
-          <option value="injury">Blessure</option>
-          <option value="illness">Maladie</option>
-          <option value="fatigue">Fatigue</option>
-          <option value="other">Autre</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="pause-days-input" class="form-label">Durée estimée en jours (optionnel)</label>
-        <input type="number" id="pause-days-input" class="form-input" min="1" max="365" placeholder="ex: 14">
-      </div>
-      <div class="form-group">
-        <label for="pause-start-date" class="form-label">Date de début (optionnel)</label>
-        <input type="date" id="pause-start-date" class="form-input" max="{{ "now"|date("Y-m-d") }}">
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button type="button" class="btn" id="pause-submit-btn">Activer le mode pause</button>
-      <button type="button" class="btn btn-ghost" id="pause-cancel-btn">Annuler</button>
-    </div>
-  </div>
-</div>
-
 <div class="notif" id="notif"></div>
 <div class="confirm-overlay" id="confirm-overlay">
   <div class="modal">
@@ -204,9 +163,5 @@
 {% endblock %}
 
 {% block javascripts %}
-<<<<<<< Updated upstream
-  <script src="{{ asset('js/app.js') }}?v=20260616-p2p4"></script>
-=======
-  <script src="{{ asset('js/app.js') }}?v=20260811-bugfixes1"></script>
->>>>>>> Stashed changes
+  <script src="{{ asset('js/app.js') }}?v=20260811-merge1"></script>
 {% endblock %}

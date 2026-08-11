@@ -123,8 +123,7 @@
 {% endblock %}
 
 {% block javascripts %}
-<<<<<<< Updated upstream
-<script src="{{ asset('js/app.js') }}?v=20260616-p2p4"></script>
+<script src="{{ asset('js/app.js') }}?v=20260811-merge1"></script>
 <script>
   // Distance: chiffres uniquement (un seul séparateur décimal). Délégation pour les formulaires d'édition créés dynamiquement.
   document.addEventListener('input', function (e) {
@@ -134,7 +133,4 @@
     if (cleaned !== t.value) t.value = cleaned;
   }, true);
 </script>
-=======
-<script src="{{ asset('js/app.js') }}?v=20260811-bugfixes1"></script>
->>>>>>> Stashed changes
 {% endblock %}

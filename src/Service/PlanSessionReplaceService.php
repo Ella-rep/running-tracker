@@ -26,6 +26,19 @@ final class PlanSessionReplaceService
     /**
      * Replaces all sessions for a user/plan pair while preserving explicit done flags.
      *
+     * @param array<int, array<string, mixed>> $sessions
+     * @param array<int|string, bool> $doneMap
+     */
+    public function replaceForPlan(Plan $plan, User $user, array $sessions, array $doneMap = []): void
+    {
+        $this->em->wrapInTransaction(function () use ($plan, $user, $sessions, $doneMap): void {
+            $this->doReplace($plan, $user, $sessions, $doneMap);
+        });
+    }
+
+    /**
+     * Inner replace logic executed inside the transaction.
+     *
      * When a session array carries a '_detailId' key (set by single-session CRUD callers),
      * the existing PlanDetails row with that id is reused instead of being deleted and
      * recreated. This preserves the row's database id so that RunLog.plannedSession (FK,
@@ -36,32 +49,8 @@ final class PlanSessionReplaceService
      * @param array<int, array<string, mixed>> $sessions
      * @param array<int|string, bool> $doneMap
      */
-    public function replaceForPlan(Plan $plan, User $user, array $sessions, array $doneMap = []): void
-    {
-<<<<<<< Updated upstream
-        $this->em->wrapInTransaction(function () use ($plan, $user, $sessions, $doneMap): void {
-            $this->doReplace($plan, $user, $sessions, $doneMap);
-        });
-    }
-
-    /**
-     * Inner replace logic executed inside the transaction.
-     *
-     * @param array<int, array<string, mixed>> $sessions
-     * @param array<int|string, bool> $doneMap
-     */
     private function doReplace(Plan $plan, User $user, array $sessions, array $doneMap): void
     {
-        // Full replacement keeps ordering/index consistency when plan templates change.
-        $qb = $this->planDetailsRepository->createQueryBuilder('d');
-        $qb->delete()
-            ->where('d.plan = :plan')
-            ->andWhere('d.user = :user')
-            ->setParameter('plan', $plan)
-            ->setParameter('user', $user)
-            ->getQuery()
-            ->execute();
-=======
         $existingById = [];
         foreach ($this->planDetailsRepository->findBy(['plan' => $plan, 'user' => $user]) as $row) {
             $id = $row->getId();
@@ -69,7 +58,6 @@ final class PlanSessionReplaceService
                 $existingById[$id] = $row;
             }
         }
->>>>>>> Stashed changes
 
         $weekIndexByMonday = $this->buildTrainingWeekIndexByMonday($sessions);
         $sessionValues = array_values($sessions);
