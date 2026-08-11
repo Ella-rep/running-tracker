@@ -18,6 +18,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -43,6 +44,7 @@ final class PlanSessionApiController extends AbstractController
     {
         $user = $this->requireUser();
         $plan = $this->findOwnedPlan($planId, $user);
+        $this->assertPlanEditable($plan);
 
         $payload = $this->decodeJsonPayload($request);
         $newSession = $this->normalizeSessionPayload($payload, false);
@@ -67,6 +69,7 @@ final class PlanSessionApiController extends AbstractController
     {
         $user = $this->requireUser();
         $plan = $this->findOwnedPlan($planId, $user);
+        $this->assertPlanEditable($plan);
 
         $details = $this->findPlanDetailsRows($plan, $user);
         [$sessionIndex, $targetRow] = $this->findDetailRowById($details, $detailId);
@@ -120,6 +123,7 @@ final class PlanSessionApiController extends AbstractController
     {
         $user = $this->requireUser();
         $plan = $this->findOwnedPlan($planId, $user);
+        $this->assertPlanEditable($plan);
 
         $details = $this->findPlanDetailsRows($plan, $user);
         [, $row] = $this->findDetailRowById($details, $detailId);
@@ -141,6 +145,7 @@ final class PlanSessionApiController extends AbstractController
     {
         $user = $this->requireUser();
         $plan = $this->findOwnedPlan($planId, $user);
+        $this->assertPlanEditable($plan);
 
         $details = $this->findPlanDetailsRows($plan, $user);
         [$sessionIndex] = $this->findDetailRowById($details, $detailId);
@@ -220,6 +225,16 @@ final class PlanSessionApiController extends AbstractController
         }
 
         return $plan;
+    }
+
+    /**
+     * Rejects session mutations on an archived plan.
+     */
+    private function assertPlanEditable(Plan $plan): void
+    {
+        if ($plan->isArchived()) {
+            throw new ConflictHttpException('Plan archivé : non modifiable.');
+        }
     }
 
     /**

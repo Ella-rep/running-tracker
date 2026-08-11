@@ -220,6 +220,10 @@ class PlansController extends AbstractController
             return $this->json(['message' => 'Plan introuvable.'], 404);
         }
 
+        if ($plan->isArchived()) {
+            return $this->json(['message' => 'Plan archivé : non modifiable.'], 409);
+        }
+
         $completed = true;
         try {
             $data = json_decode($request->getContent(), true, 512, \JSON_THROW_ON_ERROR);
@@ -235,6 +239,43 @@ class PlansController extends AbstractController
         $entityManager->flush();
 
         return $this->json(['id' => $plan->getId(), 'isCompleted' => $plan->isCompleted()]);
+    }
+
+    /**
+     * Archives or unarchives a plan. Archiving only flips the read-only flag:
+     * it never touches session completion or the manual completion flag.
+     */
+    #[Route('/api/plans/{planId<\d+>}/archive', name: 'api_plans_archive', methods: ['POST'])]
+    public function apiArchive(
+        int $planId,
+        Request $request,
+        PlanRepository $planRepository,
+        EntityManagerInterface $entityManager,
+    ): JsonResponse {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->json(['message' => 'Utilisateur non authentifié.'], 401);
+        }
+
+        $plan = $planRepository->find($planId);
+        if (!$plan instanceof Plan || $plan->getUser()->getId() !== $user->getId()) {
+            return $this->json(['message' => 'Plan introuvable.'], 404);
+        }
+
+        $archived = true;
+        try {
+            $data = json_decode($request->getContent(), true, 512, \JSON_THROW_ON_ERROR);
+            if (is_array($data) && array_key_exists('archived', $data)) {
+                $archived = (bool) $data['archived'];
+            }
+        } catch (\JsonException) {
+            // Empty/invalid body => default to archiving.
+        }
+
+        $plan->setIsArchived($archived);
+        $entityManager->flush();
+
+        return $this->json(['id' => $plan->getId(), 'isArchived' => $plan->isArchived()]);
     }
 
     /**
@@ -312,6 +353,11 @@ class PlansController extends AbstractController
 
         if (!$this->isCsrfTokenValid('plans.rename.' . $planId, (string) $request->request->get('_token', ''))) {
             $this->addFlash(self::FLASH_ERROR, 'Jeton CSRF invalide.');
+            return $this->redirectToRoute('app_plans_detail', ['planId' => $planId]);
+        }
+
+        if ($plan->isArchived()) {
+            $this->addFlash(self::FLASH_ERROR, 'Plan archivé : non modifiable.');
             return $this->redirectToRoute('app_plans_detail', ['planId' => $planId]);
         }
 
@@ -410,6 +456,11 @@ class PlansController extends AbstractController
             return $this->redirectToRoute('app_plans_detail', ['planId' => $planId]);
         }
 
+        if ($plan->isArchived()) {
+            $this->addFlash(self::FLASH_ERROR, 'Plan archivé : non modifiable.');
+            return $this->redirectToRoute('app_plans_detail', ['planId' => $planId]);
+        }
+
         $last = $planDetailsRepository->createQueryBuilder('d')
             ->andWhere('d.plan = :plan')
             ->setParameter('plan', $plan)
@@ -468,6 +519,11 @@ class PlansController extends AbstractController
             return $this->redirectToRoute('app_plans_detail', ['planId' => $planId]);
         }
 
+        if ($plan->isArchived()) {
+            $this->addFlash(self::FLASH_ERROR, 'Plan archivé : non modifiable.');
+            return $this->redirectToRoute('app_plans_detail', ['planId' => $planId]);
+        }
+
         $done = !$session->isDone();
         $session->setIsDone($done);
 
@@ -517,6 +573,11 @@ class PlansController extends AbstractController
 
         if (!$this->isCsrfTokenValid('plans.session.delete.' . $sessionId, (string) $request->request->get('_token', ''))) {
             $this->addFlash(self::FLASH_ERROR, 'Jeton CSRF invalide.');
+            return $this->redirectToRoute('app_plans_detail', ['planId' => $planId]);
+        }
+
+        if ($plan->isArchived()) {
+            $this->addFlash(self::FLASH_ERROR, 'Plan archivé : non modifiable.');
             return $this->redirectToRoute('app_plans_detail', ['planId' => $planId]);
         }
 
@@ -592,6 +653,7 @@ class PlansController extends AbstractController
                 'done' => $done,
                 'pct' => $pct,
                 'completed' => $plan->isCompleted(),
+                'archived' => $plan->isArchived(),
             ];
         }
 
@@ -673,6 +735,8 @@ class PlansController extends AbstractController
             'sub' => $this->isExamplePlanName($name) ? 'Plan fourni avec l\'application · blocs hebdomadaires' : '',
             'weeks' => $weekBlocks,
             'evolution' => $planEvolutionService->buildQuarterlyRecap($plan),
+            'isCompleted' => $plan->isCompleted(),
+            'isArchived' => $plan->isArchived(),
         ], false];
     }
 

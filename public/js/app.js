@@ -989,6 +989,7 @@ function normalizePlan(r) {
     name: r.name,
     dashboardTracked: r.dashboardTracked !== false,
     isCompleted: r.isCompleted === true,
+    isArchived: r.isArchived === true,
   };
 }
 
@@ -1218,6 +1219,7 @@ function mapDbRowsToPlans(rows, plans) {
     ...plan,
     dashboardTracked: (plansData || []).find((row) => Number(row.id) === Number(plan.id))?.dashboardTracked !== false,
     isCompleted: (plansData || []).find((row) => Number(row.id) === Number(plan.id))?.isCompleted === true,
+    isArchived: (plansData || []).find((row) => Number(row.id) === Number(plan.id))?.isArchived === true,
     sessions: plan.sessions.filter(Boolean),
   }));
 }
@@ -1268,6 +1270,7 @@ async function loadPlansFromDbWithProgress(checksList = null) {
       sub: isExamplePlanName(plan.name) ? 'Plan fourni avec l\'application · blocs hebdomadaires' : '',
       dashboardTracked: plan.dashboardTracked !== false,
       isCompleted: plan.isCompleted === true,
+      isArchived: plan.isArchived === true,
       sessions: [],
       done: {},
     });
@@ -4767,7 +4770,7 @@ function planCompletion(sessions, doneMap, forceComplete = false) {
   return { total, done, pct, complete: forceComplete || (total > 0 && done >= total) };
 }
 
-function planCard(id, title, sub, totalSessions, doneCount, isExtra, complete = false) {
+function planCard(id, title, sub, totalSessions, doneCount, isExtra, complete = false, archived = false) {
   const pct = totalSessions > 0 ? Math.round((doneCount / totalSessions) * 100) : 0;
   const card = cloneTemplate('plan-card-template') || document.createElement('article');
   const titleEl = card.querySelector('.plan-card-title');
@@ -4778,9 +4781,10 @@ function planCard(id, title, sub, totalSessions, doneCount, isExtra, complete = 
   const deleteBtn = card.querySelector('.plan-card-delete');
   if (titleEl) titleEl.textContent = title;
   if (subEl) subEl.textContent = sub || '';
-  if (pctEl) pctEl.textContent = complete ? 'Terminé' : `${pct}%`;
+  if (pctEl) pctEl.textContent = archived ? 'Archivé' : (complete ? 'Terminé' : `${pct}%`);
   if (countEl) countEl.textContent = `${doneCount}/${totalSessions} séances`;
   if (barEl) barEl.style.width = `${pct}%`;
+  if (archived) card.classList.add('plan-card-archived');
   const href = `/plans/${id}`;
   const arrow = card.querySelector('.plan-card-arrow');
   if (arrow) arrow.setAttribute('href', href);
@@ -4799,20 +4803,26 @@ function renderPlansList() {
   const list = document.getElementById('plans-list');
   const doneList = document.getElementById('plans-done-list');
   const doneSection = document.getElementById('plans-done-section');
+  const archivedList = document.getElementById('plans-archived-list');
+  const archivedSection = document.getElementById('plans-archived-section');
   if (!list) return;
 
   const active = [];
   const done = [];
+  const archived = [];
   (state.extraPlans || []).forEach(ep => {
     const c = planCompletion(ep.sessions, ep.done, ep.isCompleted);
-    const card = planCard(ep.id, ep.title, ep.sub, c.total, c.done, true, c.complete);
-    if (c.complete) done.push(card);
+    const card = planCard(ep.id, ep.title, ep.sub, c.total, c.done, true, c.complete, ep.isArchived);
+    if (ep.isArchived) archived.push(card);
+    else if (c.complete) done.push(card);
     else active.push(card);
   });
 
   list.replaceChildren(...active);
   if (doneList) doneList.replaceChildren(...done);
   if (doneSection) doneSection.style.display = done.length ? '' : 'none';
+  if (archivedList) archivedList.replaceChildren(...archived);
+  if (archivedSection) archivedSection.style.display = archived.length ? '' : 'none';
 }
 
 function openPlan(planId, options = {}) {
@@ -4837,9 +4847,11 @@ function openPlan(planId, options = {}) {
   const deleteBtn = document.getElementById('delete-extra-btn');
   const editMetaBtn = document.getElementById('plans-edit-meta-btn');
   if (deleteBtn) deleteBtn.style.display = '';
-  if (editMetaBtn) editMetaBtn.style.display = '';
+  if (editMetaBtn) editMetaBtn.style.display = extra.isArchived ? 'none' : '';
   const dupBtn = document.getElementById('plans-duplicate-btn');
   if (dupBtn) dupBtn.style.display = '';
+  const addSessionBtn = document.getElementById('plans-add-session-btn');
+  if (addSessionBtn) addSessionBtn.style.display = extra.isArchived ? 'none' : '';
 
   const meta = { title: extra.title, sub: extra.sub || '' };
   const detailTitle = document.getElementById('plans-detail-title');
@@ -4852,8 +4864,15 @@ function openPlan(planId, options = {}) {
   const comp = planCompletion(extra.sessions, extra.done, extra.isCompleted);
   const markBtn = document.getElementById('plans-mark-complete-btn');
   const doneBadge = document.getElementById('plans-detail-complete-badge');
-  if (markBtn) markBtn.style.display = comp.complete ? 'none' : '';
+  if (markBtn) markBtn.style.display = (comp.complete || extra.isArchived) ? 'none' : '';
   if (doneBadge) doneBadge.style.display = comp.complete ? '' : 'none';
+
+  const archiveBtn = document.getElementById('plans-archive-btn');
+  const unarchiveBtn = document.getElementById('plans-unarchive-btn');
+  const archivedBadge = document.getElementById('plans-detail-archived-badge');
+  if (archiveBtn) archiveBtn.style.display = extra.isArchived ? 'none' : '';
+  if (unarchiveBtn) unarchiveBtn.style.display = extra.isArchived ? '' : 'none';
+  if (archivedBadge) archivedBadge.style.display = extra.isArchived ? '' : 'none';
 
   renderPlan('plans-detail-weeks', extra.sessions, `extra:${planId}`);
   updatePlansPath(planId, { pushHistory });
@@ -5293,6 +5312,19 @@ function renderPlan(containerId, data, stateKey) {
       });
     }
 
+    // Wire "Dupliquer" button: copies this week's sessions onto the following week.
+    const weekDupBtn = week.querySelector('.week-duplicate-btn');
+    if (weekDupBtn) {
+      if (!Number.isFinite(Number(block.sem))) {
+        weekDupBtn.style.display = 'none';
+      } else {
+        weekDupBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          confirmDuplicateWeek(stateKey, block.sem);
+        });
+      }
+    }
+
     const sessionNodes = [];
     sortedSessions.forEach((s) => {
       const idx = s.__idx;
@@ -5419,12 +5451,122 @@ function renderPlan(containerId, data, stateKey) {
           deletePlanSession(stateKey, idx);
         });
       }
+      const dupSessionBtn = row.querySelector('.session-duplicate');
+      if (dupSessionBtn) {
+        dupSessionBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          duplicateSessionInTwoDays(stateKey, idx);
+        });
+      }
       sessionNodes.push(row);
     });
     if (weekSessionsEl) weekSessionsEl.replaceChildren(...sessionNodes);
     weekNodes.push(week);
   });
   container.replaceChildren(...weekNodes);
+}
+
+async function duplicateSessionToDate(stateKey, idx, targetIsoDate) {
+  const isExtra = stateKey.startsWith('extra:');
+  const planId = isExtra ? stateKey.slice(6) : null;
+  const ep = isExtra ? getExtraPlan(planId) : null;
+  const session = ep?.sessions?.[idx];
+  if (!ep || !session) { notify('⚠ Séance introuvable.'); return; }
+
+  const payload = {
+    format: session.format || "45'@Z2",
+    date: targetIsoDate || null,
+    sem: Number.isFinite(Number(session.sem)) ? Number(session.sem) : computeSessionWeekNumber(ep.sessions, targetIsoDate),
+    sessionType: normalizeSessionType(session.sessionType ?? session.session_type ?? session.type),
+    pe: session.pe || null,
+    totalMin: sessionTotalMinutesValue(session),
+    isOptional: sessionOptionalValue(session),
+  };
+
+  try {
+    await apiFetch(`/plans/${Number(planId)}/sessions`, { method: 'POST', body: JSON.stringify(payload) });
+    await loadPlansFromDb();
+    const reloaded = getExtraPlan(planId);
+    renderPlan('plans-detail-weeks', reloaded?.sessions || [], stateKey);
+    renderPlansList();
+    requestDashboardRefresh();
+    notify('✓ Séance dupliquée');
+  } catch (e) {
+    notify('⚠ Erreur: ' + e.message);
+  }
+}
+
+function duplicateSessionInTwoDays(stateKey, idx) {
+  const isExtra = stateKey.startsWith('extra:');
+  const planId = isExtra ? stateKey.slice(6) : null;
+  const ep = isExtra ? getExtraPlan(planId) : null;
+  const session = ep?.sessions?.[idx];
+  if (!session) { notify('⚠ Séance introuvable.'); return; }
+
+  const target = new Date();
+  target.setDate(target.getDate() + 2);
+  const iso = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`;
+
+  askConfirm('Dupliquer cette séance ?', `"${session.format || ''}" sur le ${formatDate(iso)}`, () => {
+    duplicateSessionToDate(stateKey, idx, iso);
+  });
+}
+
+async function duplicateWeekToNext(stateKey, sem) {
+  const isExtra = stateKey.startsWith('extra:');
+  const planId = isExtra ? stateKey.slice(6) : null;
+  const ep = isExtra ? getExtraPlan(planId) : null;
+  if (!ep) { notify('⚠ Plan introuvable.'); return; }
+
+  const semNum = Number(sem);
+  if (!Number.isFinite(semNum)) { notify('⚠ Semaine non numérotée : duplication impossible.'); return; }
+
+  const weekSessions = (ep.sessions || []).filter((s) => Number(s?.sem) === semNum && !s?.isCancelled);
+  if (!weekSessions.length) { notify('⚠ Aucune séance à dupliquer dans cette semaine.'); return; }
+
+  const targetSem = semNum + 1;
+  const payloads = weekSessions.map((s) => {
+    const origDate = normalizeDateForStorage(sessionDateValue(s));
+    let nextDate = null;
+    if (origDate) {
+      const d = new Date(`${origDate}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + 7);
+      nextDate = d.toISOString().slice(0, 10);
+    }
+    return {
+      format: s.format || "45'@Z2",
+      date: nextDate,
+      sem: targetSem,
+      sessionType: normalizeSessionType(s.sessionType ?? s.session_type ?? s.type),
+      pe: s.pe || null,
+      totalMin: sessionTotalMinutesValue(s),
+      isOptional: sessionOptionalValue(s),
+    };
+  });
+
+  try {
+    for (const payload of payloads) {
+      await apiFetch(`/plans/${Number(planId)}/sessions`, { method: 'POST', body: JSON.stringify(payload) });
+    }
+    await loadPlansFromDb();
+    const reloaded = getExtraPlan(planId);
+    renderPlan('plans-detail-weeks', reloaded?.sessions || [], stateKey);
+    renderPlansList();
+    requestDashboardRefresh();
+    notify(`✓ Semaine ${semNum} dupliquée sur la semaine ${targetSem}`);
+  } catch (e) {
+    notify('⚠ Erreur: ' + e.message);
+  }
+}
+
+function confirmDuplicateWeek(stateKey, sem) {
+  const semNum = Number(sem);
+  if (!Number.isFinite(semNum)) { notify('⚠ Semaine non numérotée : duplication impossible.'); return; }
+  askConfirm(
+    'Dupliquer cette semaine ?',
+    `Copier les séances de la semaine ${semNum} sur la semaine ${semNum + 1} (dates +7 jours).`,
+    () => duplicateWeekToNext(stateKey, semNum)
+  );
 }
 
 async function markPlanComplete(planId) {
@@ -5442,6 +5584,45 @@ async function markPlanComplete(planId) {
     }
     requestDashboardRefresh();
     notify('✓ Plan marqué comme terminé');
+  } catch (e) {
+    notify('⚠ Erreur: ' + e.message);
+  }
+}
+
+async function archivePlan(planId) {
+  const ep = getExtraPlan(planId);
+  if (!ep) { notify('⚠ Plan introuvable.'); return; }
+  if (!confirm('Archiver ce plan ? Il ne sera plus modifiable (les séances ne sont pas touchées).')) return;
+  try {
+    await apiFetch(`/plans/${planId}/archive`, { method: 'POST', body: JSON.stringify({ archived: true }) });
+    ep.isArchived = true;
+    await loadPlansFromDb();
+    if (String(currentPlanId) === String(planId)) {
+      openPlan(getExtraPlan(planId)?.id ?? planId, { pushHistory: false });
+    } else {
+      renderPlansList();
+    }
+    requestDashboardRefresh();
+    notify('✓ Plan archivé');
+  } catch (e) {
+    notify('⚠ Erreur: ' + e.message);
+  }
+}
+
+async function unarchivePlan(planId) {
+  const ep = getExtraPlan(planId);
+  if (!ep) { notify('⚠ Plan introuvable.'); return; }
+  try {
+    await apiFetch(`/plans/${planId}/archive`, { method: 'POST', body: JSON.stringify({ archived: false }) });
+    ep.isArchived = false;
+    await loadPlansFromDb();
+    if (String(currentPlanId) === String(planId)) {
+      openPlan(getExtraPlan(planId)?.id ?? planId, { pushHistory: false });
+    } else {
+      renderPlansList();
+    }
+    requestDashboardRefresh();
+    notify('✓ Plan désarchivé');
   } catch (e) {
     notify('⚠ Erreur: ' + e.message);
   }
@@ -7545,6 +7726,11 @@ async function initApp() {
   const pmDateText = document.getElementById('pm-date');
   const pmDatePicker = document.getElementById('pm-date-picker');
   if (pmDateText && pmDatePicker) {
+    pmDateText.addEventListener('click', () => {
+      if (typeof pmDatePicker.showPicker === 'function') {
+        try { pmDatePicker.showPicker(); } catch {}
+      }
+    });
     pmDateText.addEventListener('blur', () => {
       const normalized = normalizeDateForStorage(pmDateText.value);
       if (pmDateText.value && normalized) pmDateText.value = normalized;

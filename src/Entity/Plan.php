@@ -27,7 +27,7 @@ use Symfony\Component\Validator\Constraints as Assert;
         new GetCollection(uriTemplate: '/plans'),
         new Post(uriTemplate: '/plans', processor: 'App\\State\\PlanProcessor'),
         new Get(uriTemplate: self::PLAN_ITEM_URI, security: self::OWNER_SECURITY),
-        new Put(uriTemplate: self::PLAN_ITEM_URI, security: self::OWNER_SECURITY),
+        new Put(uriTemplate: self::PLAN_ITEM_URI, security: self::OWNER_SECURITY, processor: 'App\\State\\PlanPutProcessor'),
         new Patch(
             uriTemplate: '/plans/{id}/sessions',
             input: 'App\\ApiResource\\PlanSessionsReplaceInput',
@@ -86,6 +86,15 @@ class Plan
     private bool $isCompleted = false;
 
     /**
+     * Whether the plan is archived: read-only (no more edits to metadata or
+     * sessions) but does not touch session completion or the manual
+     * completion flag.
+     */
+    #[ORM\Column(options: ['default' => false])]
+    #[Groups(['plan:read', 'plan:write'])]
+    private bool $isArchived = false;
+
+    /**
      * Returns the plan identifier.
      */
     public function getId(): ?int { return $this->id; }
@@ -139,4 +148,14 @@ class Plan
      * Sets the manual completion flag.
      */
     public function setIsCompleted(bool $isCompleted): static { $this->isCompleted = $isCompleted; return $this; }
+
+    /**
+     * Returns whether the plan is archived (read-only).
+     */
+    public function isArchived(): bool { return $this->isArchived; }
+
+    /**
+     * Sets the archived flag.
+     */
+    public function setIsArchived(bool $isArchived): static { $this->isArchived = $isArchived; return $this; }
 }

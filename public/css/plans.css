@@ -679,9 +679,16 @@
   opacity: 1;
 }
 
-/* Per-week add session button */
-.week-add-session-btn {
+/* Per-week duplicate + add session buttons */
+.week-duplicate-btn {
   margin-left: auto;
+  font-size: 11px;
+  padding: 3px 9px;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+.week-duplicate-btn:hover { opacity: 1; }
+.week-add-session-btn {
   font-size: 11px;
   padding: 3px 9px;
   opacity: 0.7;
@@ -702,6 +709,11 @@
 }
 #plans-done-list .plan-card { opacity: 0.7; }
 #plans-done-list .plan-card:hover { opacity: 1; }
+
+/* Archived plans section */
+#plans-archived-list .plan-card,
+.plan-card-archived { opacity: 0.55; }
+#plans-archived-list .plan-card:hover { opacity: 0.85; }
 
 /* ===== Plan evolution (cards + summary) ===== */
 .plan-evolution-card {

@@ -42,7 +42,7 @@
               <div class="plan-card-sub">{{ plan.sub }}</div>
             </div>
             <div class="plan-card-stats">
-              <div class="plan-card-pct">{% if plan.pct >= 100 or plan.completed %}Terminé{% else %}{{ plan.pct }}%{% endif %}</div>
+              <div class="plan-card-pct">{% if plan.archived %}Archivé{% elseif plan.pct >= 100 or plan.completed %}Terminé{% else %}{{ plan.pct }}%{% endif %}</div>
               <div class="plan-card-count">{{ plan.done }}/{{ plan.total }} séances</div>
             </div>
             <form method="post" action="{{ path('app_plans_delete', { planId: plan.id }) }}" onsubmit="return confirm('Supprimer ce plan ?');" style="display:inline-flex">
@@ -63,6 +63,11 @@
     <div id="plans-done-section">
       <div class="plans-done-header">Terminés</div>
       <div id="plans-done-list" class="plans-list"></div>
+    </div>
+
+    <div id="plans-archived-section">
+      <div class="plans-done-header">Archivés</div>
+      <div id="plans-archived-list" class="plans-list"></div>
     </div>
 
     <form id="plans-create-form" method="post" action="{{ path('app_plans_create') }}" class="form-card" data-collapsible-form="plans-add">
